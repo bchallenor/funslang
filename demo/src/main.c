@@ -14,7 +14,7 @@ GLuint g_FragProgramId = 0;
 
 const char g_FragProgramCode[] =
 "!!NVfp4.0\n"
-"PARAM color = program.local[0];\n"
+"FLOAT PARAM color = program.local[0];\n"
 "MOV result.color, color;\n"
 "END";
 
