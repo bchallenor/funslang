@@ -13,15 +13,9 @@ GLuint g_VertProgramId = 0;
 GLuint g_FragProgramId = 0;
 
 const char g_FragProgramCode[] =
-//"!!ARBfp1.0                                        \n"
-//"TEMP texcoord;                                   \n"
-//"MOV texcoord, fragment.texcoord[0];              \n"
-//"FLR texcoord.z, texcoord;                        \n"
-//"TEX result.color, texcoord, texture[0], ARRAY2D; \n"
-//"END";
 "!!NVfp4.0\n"
-"PARAM red = { 1.0, 0.0, 0.0, 1.0 };\n"
-"MOV result.color, red;\n"
+"PARAM color = program.local[0];\n"
+"MOV result.color, color;\n"
 "END";
 
 
@@ -36,28 +30,31 @@ void render(void)
 
 int main(int argc, char** argv)
 {
+	// Create window.
 	glutInit(&argc,argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize(WINDOW_W, WINDOW_H);
 	glutCreateWindow("demo");
 
-	glewInit();
-	
-	if (!glewIsSupported("GL_NV_gpu_program4"))
+	// Check for the required extensions.
+	if (GLEW_OK != glewInit() || !glewIsSupported("GL_NV_gpu_program4"))
 	{
 		printf("GL_NV_gpu_program4 is required!");
 		return 1;
 	}
 	
+	// Set up GLUT callbacks.
 	glutDisplayFunc(render);
 
-
 	// Set up shaders.
-	glEnable(GL_FRAGMENT_PROGRAM_ARB);
 	g_FragProgramId = compileARBShader(GL_FRAGMENT_PROGRAM_ARB, g_FragProgramCode, sizeof(g_FragProgramCode)-1);
 	assert(g_FragProgramId);
 
+	// Enable shader.
+	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 0, 0.0, 1.0, 1.0, 0.0);
+	glEnable(GL_FRAGMENT_PROGRAM_ARB);
 
+	// Enter main loop.
 	glutMainLoop();
 
 	return 0;
