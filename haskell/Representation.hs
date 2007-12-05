@@ -14,7 +14,7 @@ data Token
   | TOK_LITERAL_INT !Integer     -- arbitrary precision
   | TOK_LITERAL_FLOAT !Double    -- better than machine precision
   --
-  | TOK_IDENTIFIER String
+  | TOK_IDENTIFIER !String
   --
   | TOK_COMMA
   | TOK_VERTICAL_BAR
