@@ -18,7 +18,7 @@ $s = [\ \t\n\f\v\r]
 tokens :-
   
   $s+                       ; -- ignore whitespace
-  "--" .*                   ; -- ignore comments
+  "--" .*                   ; -- ignore comments (upto newline)
   
   "Bool"                    { \s -> TOK_BOOL }
   "Int"                     { \s -> TOK_INT }

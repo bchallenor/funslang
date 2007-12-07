@@ -87,3 +87,58 @@ data Type
   | ArrayType Type Integer
   
   deriving (Show, Eq)
+
+
+data Expr
+  = UnitExpr
+  | IntExpr !Integer
+  | FloatExpr !Double
+  | BoolExpr !Bool
+  | VarExpr !String
+  | AppExpr !String !Expr
+  | ArrayConsExpr ![Expr]
+  | ArrayCompExpr !Expr !String !Expr !Expr
+  | TupleExpr ![Expr]
+  | IfExpr !Expr !Expr !Expr
+  | LetExpr !Patt !Expr !Expr
+  
+  deriving (Show, Eq)
+
+
+data Patt
+  = VarPatt !String
+  | ArrayConsPatt ![Patt]
+  | TuplePatt ![Patt]
+  
+  deriving (Show, Eq)
+
+
+type TypedIdent = (String, Type)
+
+
+data AuxDecl
+  = UniformDecl TypedIdent
+  | TextureDecl TypedIdent
+  | LetDecl !Patt !Expr
+  | FunDecl !String ![TypedIdent] !Expr
+  
+  deriving (Show, Eq)
+
+
+data KernelDecl
+  = KernelDecl ![TypedIdent] !Expr
+  
+  deriving (Show, Eq)
+
+
+data ProgramKind
+  = VertProgram
+  | FragProgram
+  
+  deriving (Show, Eq)
+
+
+data Program
+  = Program !ProgramKind ![AuxDecl] !KernelDecl
+  
+  deriving (Show, Eq)

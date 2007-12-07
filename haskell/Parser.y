@@ -1,5 +1,5 @@
 {
-module Parser(parseVShader, parseFShader) where
+module Parser(parser) where
 import Representation
 import Lexer
 }
@@ -65,14 +65,20 @@ import Lexer
   VSHADER { TOK_VSHADER }
   FSHADER { TOK_FSHADER }
 
-%name parseVShader vshader
-%name parseFShader fshader
+%name parser program
 
+%expect 1 -- the if/then/else and let/=/in state; accept default resolution
+
+%error { parseError }
 
 %%
 
 --------------------------------------------------------------------------------
 -- Grammar
+--------------------------------------------------------------------------------
+-- Note:
+-- Right recursion is avoided where possible.
+-- This means that in some places, lists need reversing.
 --------------------------------------------------------------------------------
 
 ---
@@ -87,32 +93,32 @@ texture_type :: { Type }
   | texture_type LITERAL_INT { ArrayType $1 $2 }
   ;
 
-boolean_type
-  : BOOL
-  | boolean_type LITERAL_INT
+boolean_type :: { Type }
+  : BOOL { BoolType }
+  | boolean_type LITERAL_INT { ArrayType $1 $2 }
   ;
 
-integral_type
-  : INT
-  | integral_type LITERAL_INT
+integral_type :: { Type }
+  : INT { IntType }
+  | integral_type LITERAL_INT { ArrayType $1 $2 }
   ;
 
-floating_type
-  : FLOAT
-  | floating_type LITERAL_INT
+floating_type :: { Type }
+  : FLOAT { FloatType }
+  | floating_type LITERAL_INT { ArrayType $1 $2 }
   ;
 
-arithboolean_type
-  : boolean_type
-  | integral_type
-  | floating_type
+arithboolean_type :: { Type }
+  : boolean_type { $1 }
+  | integral_type { $1 }
+  | floating_type { $1 }
   ;
 
-basic_type
-  : boolean_type
-  | integral_type
-  | floating_type
-  | texture_type
+basic_type :: { Type }
+  : boolean_type { $1 }
+  | integral_type { $1 }
+  | floating_type { $1 }
+  | texture_type { $1 }
   ;
 
 
@@ -122,105 +128,105 @@ basic_type
 
 --- single expressions (i.e. not n-tuples)
 
-arr_inner_expr
-  : single_expr
-  | arr_inner_expr COMMA single_expr
+arr_inner_expr :: { [Expr] }
+  : single_expr { [$1] }
+  | arr_inner_expr COMMA single_expr { $3:$1 }
   ;
 
-arr_constructor_expr
-  : LBRACKET arr_inner_expr RBRACKET
+arr_constructor_expr :: { Expr }
+  : LBRACKET arr_inner_expr RBRACKET { ArrayConsExpr (reverse $2) }
   ;
 
-arr_comprehension_expr
-  : LBRACKET single_expr VERTICAL_BAR generator RBRACKET
+arr_comprehension_expr :: { Expr }
+  : LBRACKET single_expr VERTICAL_BAR generator RBRACKET { let (v,a,b) = $4 in ArrayCompExpr $2 v a b }
   ;
 
-primary_expr
-  : LITERAL_INT
-  | LITERAL_BOOL
-  | LITERAL_FLOAT
-  | LPAREN RPAREN
-  | arr_constructor_expr
-  | arr_comprehension_expr
-  | IDENTIFIER
-  | LPAREN expr RPAREN
+primary_expr :: { Expr }
+  : LITERAL_INT { IntExpr $1 }
+  | LITERAL_BOOL { BoolExpr $1 }
+  | LITERAL_FLOAT { FloatExpr $1 }
+  | LPAREN RPAREN { UnitExpr }
+  | arr_constructor_expr { $1 }
+  | arr_comprehension_expr { $1 }
+  | IDENTIFIER { VarExpr $1 }
+  | LPAREN expr RPAREN { $2 }
   ;
 
-postfix_expr
-  : postfix_expr OP_SUBSCRIPT primary_expr
-  | postfix_expr OP_SWIZZLE primary_expr
-  | postfix_expr OP_APPEND primary_expr
-  | postfix_expr OP_TRANSPOSE
-  | primary_expr
+postfix_expr :: { Expr }
+  : postfix_expr OP_SUBSCRIPT primary_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | postfix_expr OP_SWIZZLE primary_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | postfix_expr OP_APPEND primary_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | postfix_expr OP_TRANSPOSE { AppExpr "lib" $1 }
+  | primary_expr { $1 }
   ;
 
-prefix_expr
-  : OP_SUBNEG postfix_expr
-  | IDENTIFIER postfix_expr
-  | postfix_expr
+prefix_expr :: { Expr }
+  : OP_SUBNEG postfix_expr { AppExpr "lib" $2 }
+  | IDENTIFIER postfix_expr { AppExpr $1 $2 }
+  | postfix_expr { $1 }
   ;
 
-multiplicative_expr
-  : multiplicative_expr OP_MUL prefix_expr
-  | multiplicative_expr OP_DIV prefix_expr
-  | multiplicative_expr OP_LINEAR_MUL prefix_expr
-  | multiplicative_expr OP_SCALE_MUL prefix_expr
-  | multiplicative_expr OP_SCALE_DIV prefix_expr
-  | prefix_expr
+multiplicative_expr :: { Expr }
+  : multiplicative_expr OP_MUL prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_DIV prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_LINEAR_MUL prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_SCALE_MUL prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_SCALE_DIV prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | prefix_expr { $1 }
   ;
 
-additive_expr
-  : additive_expr OP_ADD multiplicative_expr
-  | additive_expr OP_SUBNEG multiplicative_expr
-  | multiplicative_expr
+additive_expr :: { Expr }
+  : additive_expr OP_ADD multiplicative_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | additive_expr OP_SUBNEG multiplicative_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | multiplicative_expr { $1 }
   ;
 
-relational_expr
-  : relational_expr OP_LT additive_expr
-  | relational_expr OP_GT additive_expr
-  | relational_expr OP_LTE additive_expr
-  | relational_expr OP_GTE additive_expr
-  | additive_expr
+relational_expr :: { Expr }
+  : relational_expr OP_LT additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | relational_expr OP_GT additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | relational_expr OP_LTE additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | relational_expr OP_GTE additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | additive_expr { $1 }
   ;
 
-equality_expr
-  : equality_expr OP_EQ relational_expr
-  | equality_expr OP_NEQ relational_expr
-  | relational_expr
+equality_expr :: { Expr }
+  : equality_expr OP_EQ relational_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | equality_expr OP_NEQ relational_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | relational_expr { $1 }
   ;
 
-identity_expr
-  : identity_expr OP_ID equality_expr
-  | identity_expr OP_NID equality_expr
-  | equality_expr
+identity_expr :: { Expr }
+  : identity_expr OP_ID equality_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | identity_expr OP_NID equality_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | equality_expr { $1 }
   ;
 
-logical_and_expr
-  : logical_and_expr OP_AND identity_expr
-  | identity_expr
+logical_and_expr :: { Expr }
+  : logical_and_expr OP_AND identity_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | identity_expr { $1 }
   ;
 
-logical_xor_expr
-  : logical_xor_expr OP_XOR logical_and_expr
-  | logical_and_expr
+logical_xor_expr :: { Expr }
+  : logical_xor_expr OP_XOR logical_and_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | logical_and_expr { $1 }
   ;
 
-logical_or_expr
-  : logical_or_expr OP_OR logical_xor_expr
-  | logical_xor_expr
+logical_or_expr :: { Expr }
+  : logical_or_expr OP_OR logical_xor_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  | logical_xor_expr { $1 }
   ;
 
-single_expr
-  : IF expr THEN expr ELSE expr
-  | LET pattern EQUALS expr IN expr
-  | logical_or_expr
+single_expr :: { Expr }
+  : IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
+  | LET pattern EQUALS expr IN expr { LetExpr $2 $4 $6 }
+  | logical_or_expr { $1 }
   ;
 
 --- n-tuple expressions
 
-expr
-  : single_expr
-  | expr COMMA single_expr
+expr :: { Expr } -- warning: right recursion!
+  : single_expr { $1 }
+  | single_expr COMMA expr { case $3 of { TupleExpr es -> TupleExpr ($1:es); _ -> TupleExpr [$1,$3] } }
   ;
 
 
@@ -228,8 +234,8 @@ expr
 --- Generators
 ---
 
-generator
-  : IDENTIFIER EQUALS expr UPTO expr
+generator :: { (String, Expr, Expr ) }
+  : IDENTIFIER EQUALS expr UPTO expr { ($1, $3, $5) }
   ;
 
 
@@ -237,141 +243,126 @@ generator
 --- Patterns (for let-bindings)
 ---
 
-arr_inner_pattern
-  : single_pattern
-  | arr_inner_pattern COMMA single_pattern
+arr_inner_pattern :: { [Patt] }
+  : single_pattern { [$1] }
+  | arr_inner_pattern COMMA single_pattern { $3:$1 }
   ;
 
-arr_constructor_pattern
-  : LBRACKET arr_inner_pattern RBRACKET
+arr_constructor_pattern :: { Patt }
+  : LBRACKET arr_inner_pattern RBRACKET { ArrayConsPatt (reverse $2) }
   ;
 
-primary_pattern
-  : arr_constructor_pattern
-  | IDENTIFIER
-  | LPAREN pattern RPAREN
+primary_pattern :: { Patt }
+  : arr_constructor_pattern { $1 }
+  | IDENTIFIER { VarPatt $1 }
+  | LPAREN pattern RPAREN { $2 }
   ;
 
-single_pattern
-  : primary_pattern
+single_pattern :: { Patt }
+  : primary_pattern { $1 }
   ;
 
-pattern
-  : single_pattern
-  | pattern COMMA single_pattern
-  ;
-
----
---- Uniform declarations
----
-
-uniform_decl
-  : UNIFORM IDENTIFIER TYPESPECIFIER arithboolean_type
-  ;
-
-uniform_decls
-  : uniform_decl
-  | uniform_decls uniform_decl
+pattern :: { Patt } -- warning: right recursion!
+  : single_pattern { $1 }
+  | single_pattern COMMA pattern { case $3 of { TuplePatt es -> TuplePatt ($1:es); _ -> TuplePatt [$1,$3] } }
   ;
 
 
 ---
---- Texture declarations
+--- Auxiliary declarations
 ---
 
-texture_decl
-  : TEXTURE IDENTIFIER TYPESPECIFIER texture_type
+uniform_decl :: { AuxDecl }
+  : UNIFORM IDENTIFIER TYPESPECIFIER arithboolean_type { UniformDecl ($2,$4) }
   ;
 
-texture_decls
-  : texture_decl
-  | texture_decls texture_decl
+texture_decl :: { AuxDecl }
+  : TEXTURE IDENTIFIER TYPESPECIFIER texture_type { TextureDecl ($2,$4) }
   ;
 
-
----
---- Top-level let bindings
----
-
-let_binding
-  : LET pattern EQUALS expr
+let_decl :: { AuxDecl }
+  : LET pattern EQUALS expr { LetDecl $2 $4 }
   ;
 
-let_bindings
-  : let_binding
-  | let_bindings let_binding
+fun_param :: { TypedIdent }
+  : IDENTIFIER TYPESPECIFIER basic_type { ($1,$3) }
   ;
 
-
----
---- Function definitions
----
-
-fun_param
-  : IDENTIFIER TYPESPECIFIER basic_type
+fun_params :: { [TypedIdent] }
+  : fun_param { [$1] }
+  | fun_params COMMA fun_param { $3:$1 }
   ;
 
-fun_params
-  : fun_param
-  | fun_params COMMA fun_param
+fun_decl :: { AuxDecl }
+  : FUN IDENTIFIER LPAREN fun_params RPAREN EQUALS expr { FunDecl $2 (reverse $4) $7 }
   ;
 
-fun_def
-  : FUN IDENTIFIER LPAREN fun_params RPAREN EQUALS expr
+aux_decl :: { AuxDecl }
+  : uniform_decl { $1 }
+  | texture_decl { $1 }
+  | let_decl { $1 }
+  | fun_decl { $1 }
   ;
 
-fun_defs
-  : fun_def
-  | fun_defs fun_def
+aux_decls :: { [AuxDecl] }
+  : aux_decl { [$1] }
+  | aux_decls aux_decl { $2:$1 }
+  ;
+
+aux_decls_opt :: { [AuxDecl] }
+  : {- empty -} { [] }
+  | aux_decls { reverse $1 }
   ;
 
 
 ---
---- Vertex shader kernel
+--- Kernel declarations
 ---
 
-vkernel_param
-  : IDENTIFIER TYPESPECIFIER arithboolean_type
+vkernel_param :: { TypedIdent }
+  : IDENTIFIER TYPESPECIFIER arithboolean_type { ($1,$3) }
   ;
 
-vkernel_params
-  : vkernel_param
-  | vkernel_params COMMA vkernel_param
+vkernel_params :: { [TypedIdent] }
+  : vkernel_param { [$1] }
+  | vkernel_params COMMA vkernel_param { $3:$1 }
   ;
 
-vkernel
-  : KERNEL VSHADER LPAREN RPAREN EQUALS expr
-  | KERNEL VSHADER LPAREN vkernel_params RPAREN EQUALS expr
+vkernel :: { (ProgramKind, KernelDecl) }
+  : KERNEL VSHADER LPAREN RPAREN EQUALS expr { (VertProgram, KernelDecl [] $6) }
+  | KERNEL VSHADER LPAREN vkernel_params RPAREN EQUALS expr { (VertProgram, KernelDecl (reverse $4) $7) }
   ;
 
-
----
---- Fragment shader kernel
----
-
-fkernel_param
-  : IDENTIFIER TYPESPECIFIER floating_type
+fkernel_param :: { TypedIdent }
+  : IDENTIFIER TYPESPECIFIER floating_type { ($1,$3) }
   ;
 
-fkernel_params
-  : fkernel_param
-  | fkernel_params COMMA fkernel_param
+fkernel_params :: { [TypedIdent] }
+  : fkernel_param { [$1] }
+  | fkernel_params COMMA fkernel_param { $3:$1 }
   ;
 
-fkernel
-  : KERNEL FSHADER LPAREN RPAREN EQUALS expr
-  | KERNEL FSHADER LPAREN fkernel_params RPAREN EQUALS expr
+fkernel :: { (ProgramKind, KernelDecl) }
+  : KERNEL FSHADER LPAREN RPAREN EQUALS expr { (FragProgram, KernelDecl [] $6) }
+  | KERNEL FSHADER LPAREN fkernel_params RPAREN EQUALS expr { (FragProgram, KernelDecl (reverse $4) $7) }
   ;
 
 
 ---
---- Shaders
+--- Program
 ---
 
-vshader
-  : uniform_decls texture_decls let_bindings fun_defs vkernel
+program :: { Program }
+  : aux_decls_opt vkernel { let (kind, kernel) = $2 in Program kind $1 kernel }
+  | aux_decls_opt fkernel { let (kind, kernel) = $2 in Program kind $1 kernel }
   ;
 
-fshader
-  : uniform_decls texture_decls let_bindings fun_defs fkernel
-  ;
+
+--------------------------------------------------------------------------------
+-- Trailer
+--------------------------------------------------------------------------------
+
+{
+parseError :: [Token] -> a
+parseError _ = error "Happy error"
+}
