@@ -67,7 +67,6 @@ tokens :-
   "/=="                     { \s -> TOK_OP_NID }
   
   "and"                     { \s -> TOK_OP_AND }
-  "xor"                     { \s -> TOK_OP_XOR }
   "or"                      { \s -> TOK_OP_OR }
   
   "if"                      { \s -> TOK_IF }

@@ -49,7 +49,6 @@ data Token
   | TOK_OP_NID
   --
   | TOK_OP_AND
-  | TOK_OP_XOR
   | TOK_OP_OR
   --
   | TOK_IF
@@ -95,8 +94,8 @@ data Expr
   | FloatExpr !Double
   | BoolExpr !Bool
   | VarExpr !String
-  | NamedAppExpr !String !Expr
-  | LibAppExpr !LibFunction !Expr
+  | AppOpExpr !Operator !Expr
+  | AppFnExpr !String !Expr
   | ArrayConsExpr ![Expr]
   | ArrayCompExpr !Expr !String !Expr !Expr
   | TupleExpr ![Expr]
@@ -145,76 +144,28 @@ data Program
   deriving (Show, Eq)
 
 
-data LibFunction
-  = Lib_OP_SUBSCRIPT
-  | Lib_OP_SWIZZLE
-  | Lib_OP_APPEND
-  | Lib_OP_TRANSPOSE
-  | Lib_OP_NEG
-  | Lib_OP_MUL
-  | Lib_OP_DIV
-  | Lib_OP_LINEAR_MUL
-  | Lib_OP_SCALE_MUL
-  | Lib_OP_SCALE_DIV
-  | Lib_OP_ADD
-  | Lib_OP_SUB
-  | Lib_OP_LT
-  | Lib_OP_LTE
-  | Lib_OP_GT
-  | Lib_OP_GTE
-  | Lib_OP_EQ
-  | Lib_OP_NEQ
-  | Lib_OP_ID
-  | Lib_OP_NID
-  | Lib_OP_AND
-  | Lib_OP_XOR
-  | Lib_OP_OR
-  | Lib_not
-  | Lib_sum
-  | Lib_product
-  | Lib_any
-  | Lib_all
-  | Lib_sin
-  | Lib_cos
-  | Lib_tan
-  | Lib_asin
-  | Lib_acos
-  | Lib_atan
-  | Lib_pow
-  | Lib_exp
-  | Lib_exp2
-  | Lib_log
-  | Lib_log2
-  | Lib_sqrt
-  | Lib_rcpsqrt
-  | Lib_rcp
-  | Lib_abs
-  | Lib_sign
-  | Lib_floor
-  | Lib_ceil
-  | Lib_round
-  | Lib_truncate
-  | Lib_fract
-  | Lib_mod
-  | Lib_min
-  | Lib_max
-  | Lib_clamp
-  | Lib_mix
-  | Lib_step
-  | Lib_smoothstep
-  | Lib_length
-  | Lib_distance
-  | Lib_dot
-  | Lib_cross
-  | Lib_normalize
-  | Lib_faceforward
-  | Lib_reflect
-  | Lib_refract
-  | Lib_toInt
-  | Lib_toFloat
-  | Lib_sample
-  | Lib_sampleProj
-  | Lib_sampleLOD
-  | Lib_sampleBias
+data Operator
+  = OpSubscript
+  | OpSwizzle
+  | OpAppend
+  | OpTranspose
+  | OpNeg
+  | OpMul
+  | OpDiv
+  | OpLinearMul
+  | OpScaleMul
+  | OpScaleDiv
+  | OpAdd
+  | OpSub
+  | OpLessThan
+  | OpLessThanEqual
+  | OpGreaterThan
+  | OpGreaterThanEqual
+  | OpEqual
+  | OpNotEqual
+  | OpIdentical
+  | OpNotIdentical
+  | OpAnd
+  | OpOr
   
   deriving (Show, Eq)
