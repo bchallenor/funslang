@@ -28,6 +28,8 @@ data Token
   | TOK_OP_APPEND
   | TOK_OP_TRANSPOSE
   --
+  | TOK_OP_NOT
+  --
   | TOK_OP_MUL
   | TOK_OP_DIV
   | TOK_OP_LINEAR_MUL
@@ -150,6 +152,7 @@ data Operator
   | OpAppend
   | OpTranspose
   | OpNeg
+  | OpNot
   | OpMul
   | OpDiv
   | OpLinearMul

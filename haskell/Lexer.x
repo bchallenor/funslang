@@ -46,6 +46,8 @@ tokens :-
   "@"                       { \s -> TOK_OP_APPEND }
   "'"                       { \s -> TOK_OP_TRANSPOSE }
   
+  "~"                       { \s -> TOK_OP_NOT }
+  
   "*"                       { \s -> TOK_OP_MUL }
   "/"                       { \s -> TOK_OP_DIV }
   "**"                      { \s -> TOK_OP_LINEAR_MUL }
@@ -66,8 +68,8 @@ tokens :-
   "==="                     { \s -> TOK_OP_ID }
   "/=="                     { \s -> TOK_OP_NID }
   
-  "and"                     { \s -> TOK_OP_AND }
-  "or"                      { \s -> TOK_OP_OR }
+  "&&"                      { \s -> TOK_OP_AND }
+  "||"                      { \s -> TOK_OP_OR }
   
   "if"                      { \s -> TOK_IF }
   "then"                    { \s -> TOK_THEN }

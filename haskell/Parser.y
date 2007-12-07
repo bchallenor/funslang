@@ -32,6 +32,7 @@ import Lexer
   OP_SWIZZLE { TOK_OP_SWIZZLE }
   OP_APPEND { TOK_OP_APPEND }
   OP_TRANSPOSE { TOK_OP_TRANSPOSE }
+  OP_NOT { TOK_OP_NOT }
   OP_MUL { TOK_OP_MUL }
   OP_DIV { TOK_OP_DIV }
   OP_LINEAR_MUL { TOK_OP_LINEAR_MUL }
@@ -161,7 +162,8 @@ postfix_expr :: { Expr }
 
 prefix_expr :: { Expr }
   : OP_NEG_OP_SUB postfix_expr { AppOpExpr OpNeg $2 }
-  | IDENTIFIER postfix_expr { AppFnExpr $1 $2 } -- todo: look up lib functions? what about overloads?
+  | OP_NOT postfix_expr { AppOpExpr OpNot $2 }
+  | IDENTIFIER postfix_expr { AppFnExpr $1 $2 }
   | postfix_expr { $1 }
   ;
 
