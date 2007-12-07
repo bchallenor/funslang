@@ -86,8 +86,8 @@ tokens :-
   "fun"                     { \s -> TOK_FUN }
   
   "kernel"                  { \s -> TOK_KERNEL }
-  "vshader"                 { \s -> TOK_VSHADER }
-  "fshader"                 { \s -> TOK_FSHADER }
+  "vertex"                  { \s -> TOK_VERTEX }
+  "fragment"                { \s -> TOK_FRAGMENT }
   
   -- this goes last as it should not take precendence over the keywords
   [$a _] [$a $d _]*         { \s -> TOK_IDENTIFIER s }

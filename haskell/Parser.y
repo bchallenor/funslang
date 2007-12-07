@@ -62,8 +62,8 @@ import Lexer
   TEXTURE { TOK_TEXTURE }
   FUN { TOK_FUN }
   KERNEL { TOK_KERNEL }
-  VSHADER { TOK_VSHADER }
-  FSHADER { TOK_FSHADER }
+  VERTEX { TOK_VERTEX }
+  FRAGMENT { TOK_FRAGMENT }
 
 %name parser program
 
@@ -329,8 +329,8 @@ vkernel_params :: { [TypedIdent] }
   ;
 
 vkernel :: { (ProgramKind, KernelDecl) }
-  : KERNEL VSHADER LPAREN RPAREN EQUALS expr { (VertProgram, KernelDecl [] $6) }
-  | KERNEL VSHADER LPAREN vkernel_params RPAREN EQUALS expr { (VertProgram, KernelDecl (reverse $4) $7) }
+  : KERNEL VERTEX LPAREN RPAREN EQUALS expr { (VertProgram, KernelDecl [] $6) }
+  | KERNEL VERTEX LPAREN vkernel_params RPAREN EQUALS expr { (VertProgram, KernelDecl (reverse $4) $7) }
   ;
 
 fkernel_param :: { TypedIdent }
@@ -343,8 +343,8 @@ fkernel_params :: { [TypedIdent] }
   ;
 
 fkernel :: { (ProgramKind, KernelDecl) }
-  : KERNEL FSHADER LPAREN RPAREN EQUALS expr { (FragProgram, KernelDecl [] $6) }
-  | KERNEL FSHADER LPAREN fkernel_params RPAREN EQUALS expr { (FragProgram, KernelDecl (reverse $4) $7) }
+  : KERNEL FRAGMENT LPAREN RPAREN EQUALS expr { (FragProgram, KernelDecl [] $6) }
+  | KERNEL FRAGMENT LPAREN fkernel_params RPAREN EQUALS expr { (FragProgram, KernelDecl (reverse $4) $7) }
   ;
 
 

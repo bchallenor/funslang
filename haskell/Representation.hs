@@ -68,8 +68,8 @@ data Token
   | TOK_FUN
   --
   | TOK_KERNEL
-  | TOK_VSHADER
-  | TOK_FSHADER
+  | TOK_VERTEX
+  | TOK_FRAGMENT
   
   deriving (Eq, Show)
 
