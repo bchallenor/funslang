@@ -38,7 +38,7 @@ import Lexer
   OP_SCALE_MUL { TOK_OP_SCALE_MUL }
   OP_SCALE_DIV { TOK_OP_SCALE_DIV }
   OP_ADD { TOK_OP_ADD }
-  OP_SUBNEG { TOK_OP_SUBNEG }
+  OP_NEG_OP_SUB { TOK_OP_NEG_OP_SUB }
   OP_LT { TOK_OP_LT }
   OP_GT { TOK_OP_GT }
   OP_LTE { TOK_OP_LTE }
@@ -153,66 +153,66 @@ primary_expr :: { Expr }
   ;
 
 postfix_expr :: { Expr }
-  : postfix_expr OP_SUBSCRIPT primary_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | postfix_expr OP_SWIZZLE primary_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | postfix_expr OP_APPEND primary_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | postfix_expr OP_TRANSPOSE { AppExpr "lib" $1 }
+  : postfix_expr OP_SUBSCRIPT primary_expr { LibAppExpr Lib_OP_SUBSCRIPT (TupleExpr [$1,$3]) }
+  | postfix_expr OP_SWIZZLE primary_expr { LibAppExpr Lib_OP_SWIZZLE (TupleExpr [$1,$3]) }
+  | postfix_expr OP_APPEND primary_expr { LibAppExpr Lib_OP_APPEND (TupleExpr [$1,$3]) }
+  | postfix_expr OP_TRANSPOSE { LibAppExpr Lib_OP_TRANSPOSE $1 }
   | primary_expr { $1 }
   ;
 
 prefix_expr :: { Expr }
-  : OP_SUBNEG postfix_expr { AppExpr "lib" $2 }
-  | IDENTIFIER postfix_expr { AppExpr $1 $2 }
+  : OP_NEG_OP_SUB postfix_expr { LibAppExpr Lib_OP_NEG $2 }
+  | IDENTIFIER postfix_expr { NamedAppExpr $1 $2 } -- todo: look up lib functions? what about overloads?
   | postfix_expr { $1 }
   ;
 
 multiplicative_expr :: { Expr }
-  : multiplicative_expr OP_MUL prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_DIV prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_LINEAR_MUL prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_SCALE_MUL prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_SCALE_DIV prefix_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : multiplicative_expr OP_MUL prefix_expr { LibAppExpr Lib_OP_MUL (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_DIV prefix_expr { LibAppExpr Lib_OP_DIV (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_LINEAR_MUL prefix_expr { LibAppExpr Lib_OP_LINEAR_MUL (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_SCALE_MUL prefix_expr { LibAppExpr Lib_OP_SCALE_MUL (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_SCALE_DIV prefix_expr { LibAppExpr Lib_OP_SCALE_DIV (TupleExpr [$1,$3]) }
   | prefix_expr { $1 }
   ;
 
 additive_expr :: { Expr }
-  : additive_expr OP_ADD multiplicative_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | additive_expr OP_SUBNEG multiplicative_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : additive_expr OP_ADD multiplicative_expr { LibAppExpr Lib_OP_ADD (TupleExpr [$1,$3]) }
+  | additive_expr OP_NEG_OP_SUB multiplicative_expr { LibAppExpr Lib_OP_SUB (TupleExpr [$1,$3]) }
   | multiplicative_expr { $1 }
   ;
 
 relational_expr :: { Expr }
-  : relational_expr OP_LT additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | relational_expr OP_GT additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | relational_expr OP_LTE additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | relational_expr OP_GTE additive_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : relational_expr OP_LT additive_expr { LibAppExpr Lib_OP_LT (TupleExpr [$1,$3]) }
+  | relational_expr OP_GT additive_expr { LibAppExpr Lib_OP_GT (TupleExpr [$1,$3]) }
+  | relational_expr OP_LTE additive_expr { LibAppExpr Lib_OP_LTE (TupleExpr [$1,$3]) }
+  | relational_expr OP_GTE additive_expr { LibAppExpr Lib_OP_GTE (TupleExpr [$1,$3]) }
   | additive_expr { $1 }
   ;
 
 equality_expr :: { Expr }
-  : equality_expr OP_EQ relational_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | equality_expr OP_NEQ relational_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : equality_expr OP_EQ relational_expr { LibAppExpr Lib_OP_EQ (TupleExpr [$1,$3]) }
+  | equality_expr OP_NEQ relational_expr { LibAppExpr Lib_OP_NEQ (TupleExpr [$1,$3]) }
   | relational_expr { $1 }
   ;
 
 identity_expr :: { Expr }
-  : identity_expr OP_ID equality_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
-  | identity_expr OP_NID equality_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : identity_expr OP_ID equality_expr { LibAppExpr Lib_OP_ID (TupleExpr [$1,$3]) }
+  | identity_expr OP_NID equality_expr { LibAppExpr Lib_OP_NID (TupleExpr [$1,$3]) }
   | equality_expr { $1 }
   ;
 
 logical_and_expr :: { Expr }
-  : logical_and_expr OP_AND identity_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : logical_and_expr OP_AND identity_expr { LibAppExpr Lib_OP_AND (TupleExpr [$1,$3]) }
   | identity_expr { $1 }
   ;
 
 logical_xor_expr :: { Expr }
-  : logical_xor_expr OP_XOR logical_and_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : logical_xor_expr OP_XOR logical_and_expr { LibAppExpr Lib_OP_XOR (TupleExpr [$1,$3]) }
   | logical_and_expr { $1 }
   ;
 
 logical_or_expr :: { Expr }
-  : logical_or_expr OP_OR logical_xor_expr { AppExpr "lib" (TupleExpr [$1,$3]) }
+  : logical_or_expr OP_OR logical_xor_expr { LibAppExpr Lib_OP_OR (TupleExpr [$1,$3]) }
   | logical_xor_expr { $1 }
   ;
 

@@ -53,7 +53,7 @@ tokens :-
   "/."                      { \s -> TOK_OP_SCALE_DIV }
   
   "+"                       { \s -> TOK_OP_ADD }
-  "-"                       { \s -> TOK_OP_SUBNEG }
+  "-"                       { \s -> TOK_OP_NEG_OP_SUB }
   
   "<"                       { \s -> TOK_OP_LT }
   ">"                       { \s -> TOK_OP_GT }
