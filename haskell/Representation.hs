@@ -98,7 +98,7 @@ data Expr
   | VarExpr !String
   | AppOpExpr !Operator !Expr
   | AppFnExpr !String !Expr
-  | ArrayConsExpr ![Expr]
+  | ArrayExpr ![Expr]
   | ArrayCompExpr !Expr !String !Expr !Expr
   | TupleExpr ![Expr]
   | IfExpr !Expr !Expr !Expr
@@ -109,7 +109,7 @@ data Expr
 
 data Patt
   = VarPatt !String
-  | ArrayConsPatt ![Patt]
+  | ArrayPatt ![Patt]
   | TuplePatt ![Patt]
   
   deriving (Show, Eq)

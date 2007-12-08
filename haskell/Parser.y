@@ -67,8 +67,6 @@ import Lexer
 
 %name parser program
 
-%expect 1 -- the if/then/else and let/=/in state; accept default resolution
-
 %error { parseError }
 
 %%
@@ -90,22 +88,22 @@ texture_type :: { Type }
   | TEXTURE2D { Texture2DType }
   | TEXTURE3D { Texture3DType }
   | TEXTURECUBE { TextureCubeType }
-  | texture_type LITERAL_INT { ArrayType $1 $2 }
+  | texture_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
   ;
 
 boolean_type :: { Type }
   : BOOL { BoolType }
-  | boolean_type LITERAL_INT { ArrayType $1 $2 }
+  | boolean_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
   ;
 
 integral_type :: { Type }
   : INT { IntType }
-  | integral_type LITERAL_INT { ArrayType $1 $2 }
+  | integral_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
   ;
 
 floating_type :: { Type }
   : FLOAT { FloatType }
-  | floating_type LITERAL_INT { ArrayType $1 $2 }
+  | floating_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
   ;
 
 arithboolean_type :: { Type }
@@ -126,29 +124,37 @@ basic_type :: { Type }
 --- Expressions
 ---
 
---- single expressions (i.e. not n-tuples)
-
-arr_inner_expr :: { [Expr] }
-  : single_expr { [$1] }
-  | arr_inner_expr COMMA single_expr { $3:$1 }
+tuple_expr_inner :: { [Expr] }
+  : expr COMMA expr { $3:$1:[] }
+  | tuple_expr_inner COMMA expr { $3:$1 }
   ;
 
-arr_constructor_expr :: { Expr }
-  : LBRACKET arr_inner_expr RBRACKET { ArrayConsExpr (reverse $2) }
+tuple_expr :: { Expr }
+  : LPAREN tuple_expr_inner RPAREN { TupleExpr (reverse $2) }
   ;
 
-arr_comprehension_expr :: { Expr }
-  : LBRACKET single_expr VERTICAL_BAR generator RBRACKET { let (v,a,b) = $4 in ArrayCompExpr $2 v a b }
+array_expr_inner :: { [Expr] }
+  : expr { $1:[] }
+  | array_expr_inner COMMA expr { $3:$1 }
+  ;
+
+array_expr :: { Expr }
+  : LBRACKET array_expr_inner RBRACKET { ArrayExpr (reverse $2) }
+  ;
+
+array_comprehension_expr :: { Expr }
+  : LBRACKET expr VERTICAL_BAR generator RBRACKET { let (v,a,b) = $4 in ArrayCompExpr $2 v a b }
   ;
 
 primary_expr :: { Expr }
   : LITERAL_INT { IntExpr $1 }
   | LITERAL_BOOL { BoolExpr $1 }
   | LITERAL_FLOAT { FloatExpr $1 }
-  | LPAREN RPAREN { UnitExpr }
-  | arr_constructor_expr { $1 }
-  | arr_comprehension_expr { $1 }
   | IDENTIFIER { VarExpr $1 }
+  | LPAREN RPAREN { UnitExpr }
+  | tuple_expr { $1 }
+  | array_expr { $1 }
+  | array_comprehension_expr { $1 }
   | LPAREN expr RPAREN { $2 }
   ;
 
@@ -212,17 +218,10 @@ logical_or_expr :: { Expr }
   | logical_and_expr { $1 }
   ;
 
-single_expr :: { Expr }
+expr :: { Expr }
   : IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
-  | LET pattern EQUALS expr IN expr { LetExpr $2 $4 $6 }
+  | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 }
   | logical_or_expr { $1 }
-  ;
-
---- n-tuple expressions
-
-expr :: { Expr } -- warning: right recursion!
-  : single_expr { $1 }
-  | single_expr COMMA expr { case $3 of { TupleExpr es -> TupleExpr ($1:es); _ -> TupleExpr [$1,$3] } }
   ;
 
 
@@ -239,28 +238,33 @@ generator :: { (String, Expr, Expr ) }
 --- Patterns (for let-bindings)
 ---
 
-arr_inner_pattern :: { [Patt] }
-  : single_pattern { [$1] }
-  | arr_inner_pattern COMMA single_pattern { $3:$1 }
+tuple_patt_inner :: { [Patt] }
+  : patt COMMA patt { $3:$1:[] }
+  | tuple_patt_inner COMMA patt { $3:$1 }
   ;
 
-arr_constructor_pattern :: { Patt }
-  : LBRACKET arr_inner_pattern RBRACKET { ArrayConsPatt (reverse $2) }
+tuple_patt :: { Patt }
+  : LPAREN tuple_patt_inner RPAREN { TuplePatt (reverse $2) }
   ;
 
-primary_pattern :: { Patt }
-  : arr_constructor_pattern { $1 }
-  | IDENTIFIER { VarPatt $1 }
-  | LPAREN pattern RPAREN { $2 }
+array_patt_inner :: { [Patt] }
+  : patt { $1:[] }
+  | array_patt_inner COMMA patt { $3:$1 }
   ;
 
-single_pattern :: { Patt }
-  : primary_pattern { $1 }
+array_patt :: { Patt }
+  : LBRACKET array_patt_inner RBRACKET { ArrayPatt (reverse $2) }
   ;
 
-pattern :: { Patt } -- warning: right recursion!
-  : single_pattern { $1 }
-  | single_pattern COMMA pattern { case $3 of { TuplePatt es -> TuplePatt ($1:es); _ -> TuplePatt [$1,$3] } }
+primary_patt :: { Patt }
+  : IDENTIFIER { VarPatt $1 }
+  | tuple_patt { $1 }
+  | array_patt { $1 }
+  | LPAREN patt RPAREN { $2 }
+  ;
+
+patt :: { Patt }
+  : primary_patt { $1 }
   ;
 
 
@@ -277,7 +281,7 @@ texture_decl :: { AuxDecl }
   ;
 
 let_decl :: { AuxDecl }
-  : LET pattern EQUALS expr { LetDecl $2 $4 }
+  : LET patt EQUALS expr { LetDecl $2 $4 }
   ;
 
 fun_param :: { TypedIdent }
@@ -360,5 +364,6 @@ program :: { Program }
 
 {
 parseError :: [Token] -> a
-parseError _ = error "Happy error"
+parseError []     = error ("Parse error at end of input")
+parseError (t:ts) = error ("Parse error at token: " ++ show t)
 }
