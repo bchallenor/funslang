@@ -61,7 +61,7 @@ import Lexer
   RARROW { TOK_RARROW }
   LAMBDA { TOK_LAMBDA }
 
-%name parser program
+%name parser expr
 
 %error { parseError }
 
@@ -215,7 +215,7 @@ logical_or_expr :: { Expr }
   ;
 
 expr :: { Expr }
-  : lambda_hdr expr { LambdaExpr $1 $2 }
+  : LAMBDA lambda_params_opt RARROW expr { LambdaExpr $2 $4 }
   | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
   | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
   | logical_or_expr { $1 }
@@ -257,7 +257,7 @@ patt :: { Patt }
 
 
 ---
---- Lambda abstraction headers
+--- Lambda parameters (with mandatory type annotations)
 ---
 
 lambda_param :: { TypedIdent }
@@ -272,19 +272,6 @@ lambda_params :: { [TypedIdent] }
 lambda_params_opt :: { [TypedIdent] }
   : LPAREN RPAREN { [] }
   | LPAREN lambda_params RPAREN { $2 }
-  ;
-
-lambda_hdr :: { [TypedIdent] }
-  : LAMBDA lambda_params_opt RARROW { $2 }
-  ;
-
-
----
---- Program
----
-
-program :: { Program }
-  : lambda_hdr lambda_hdr expr { Program (LambdaExpr $1 (LambdaExpr $2 $3)) } -- todo insert program kind
   ;
 
 

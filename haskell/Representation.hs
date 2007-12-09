@@ -105,19 +105,6 @@ data Patt
   deriving (Show, Eq)
 
 
-data ProgramKind
-  = VertProgram
-  | FragProgram
-  
-  deriving (Show, Eq)
-
-
-data Program
-  = Program !Expr
-  
-  deriving (Show, Eq)
-
-
 data Operator1
   = Op1Transpose
   | Op1Neg

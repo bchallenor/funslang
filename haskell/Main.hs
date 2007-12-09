@@ -2,11 +2,11 @@ import Lexer
 import Parser
 import System.Environment
 import Pretty
-import Representation
 
-main = do a:as <- getArgs
+main :: IO ()
+main = do a:_ <- getArgs
           s <- readFile a
-          let Program e = (parser . lexer) s
+          let e = (parser . lexer) s
           putStrLn (show e)
           putStrLn ""
           putStrLn (prettyExpr e)
