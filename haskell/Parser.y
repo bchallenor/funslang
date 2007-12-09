@@ -23,6 +23,7 @@ import Lexer
   LITERAL_FLOAT { TOK_LITERAL_FLOAT $$ }
   IDENTIFIER { TOK_IDENTIFIER $$ }
   COMMA { TOK_COMMA }
+  RANGE_DOTS { TOK_RANGE_DOTS }
   LBRACKET { TOK_LBRACKET }
   RBRACKET { TOK_RBRACKET }
   LPAREN { TOK_LPAREN }
@@ -57,12 +58,7 @@ import Lexer
   IN { TOK_IN }
   TYPESPECIFIER { TOK_TYPESPECIFIER }
   RARROW { TOK_RARROW }
-  UNIFORM { TOK_UNIFORM }
-  TEXTURE { TOK_TEXTURE }
-  FUN { TOK_FUN }
-  KERNEL { TOK_KERNEL }
-  VERTEX { TOK_VERTEX }
-  FRAGMENT { TOK_FRAGMENT }
+  LAMBDA { TOK_LAMBDA }
 
 %name parser program
 
@@ -137,6 +133,10 @@ array_expr :: { Expr }
   : LBRACKET array_expr_inner RBRACKET { ArrayExpr (reverse $2) }
   ;
 
+array_range_expr :: { Expr }
+  : LBRACKET LITERAL_INT RANGE_DOTS LITERAL_INT RBRACKET { ArrayExpr (map IntExpr (if $2<=$4 then [$2..$4] else reverse [$4..$2])) }
+  ;
+
 primary_expr :: { Expr }
   : LPAREN RPAREN { UnitExpr }
   | LITERAL_INT { IntExpr $1 }
@@ -145,6 +145,7 @@ primary_expr :: { Expr }
   | IDENTIFIER { VarExpr $1 }
   | tuple_expr { $1 }
   | array_expr { $1 }
+  | array_range_expr { $1 }
   | LPAREN expr RPAREN { $2 }
   ;
 
@@ -209,8 +210,9 @@ logical_or_expr :: { Expr }
   ;
 
 expr :: { Expr }
-  : IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
-  | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 }
+  : lambda_hdr expr { LambdaExpr $1 $2 }
+  | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
+  | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
   | logical_or_expr { $1 }
   ;
 
@@ -250,82 +252,25 @@ patt :: { Patt }
 
 
 ---
---- Auxiliary declarations
+--- Lambda abstraction headers
 ---
 
-uniform_decl :: { AuxDecl }
-  : UNIFORM IDENTIFIER TYPESPECIFIER type { UniformDecl ($2,$4) }
-  ;
-
-texture_decl :: { AuxDecl }
-  : TEXTURE IDENTIFIER TYPESPECIFIER type { TextureDecl ($2,$4) }
-  ;
-
-let_decl :: { AuxDecl }
-  : LET patt EQUALS expr { LetDecl $2 $4 }
-  ;
-
-fun_param :: { TypedIdent }
+lambda_param :: { TypedIdent }
   : IDENTIFIER TYPESPECIFIER type { ($1,$3) }
   ;
 
-fun_params :: { [TypedIdent] }
-  : fun_param { [$1] }
-  | fun_params COMMA fun_param { $3:$1 }
+lambda_params :: { [TypedIdent] }
+  : lambda_param { [$1] }
+  | lambda_params COMMA lambda_param { $3:$1 }
   ;
 
-fun_decl :: { AuxDecl }
-  : FUN IDENTIFIER LPAREN fun_params RPAREN EQUALS expr { FunDecl $2 (reverse $4) $7 }
+lambda_params_opt :: { [TypedIdent] }
+  : LPAREN RPAREN { [] }
+  | LPAREN lambda_params RPAREN { $2 }
   ;
 
-aux_decl :: { AuxDecl }
-  : uniform_decl { $1 }
-  | texture_decl { $1 }
-  | let_decl { $1 }
-  | fun_decl { $1 }
-  ;
-
-aux_decls :: { [AuxDecl] }
-  : aux_decl { [$1] }
-  | aux_decls aux_decl { $2:$1 }
-  ;
-
-aux_decls_opt :: { [AuxDecl] }
-  : {- empty -} { [] }
-  | aux_decls { reverse $1 }
-  ;
-
-
----
---- Kernel declarations
----
-
-vkernel_param :: { TypedIdent }
-  : IDENTIFIER TYPESPECIFIER type { ($1,$3) }
-  ;
-
-vkernel_params :: { [TypedIdent] }
-  : vkernel_param { [$1] }
-  | vkernel_params COMMA vkernel_param { $3:$1 }
-  ;
-
-vkernel :: { (ProgramKind, KernelDecl) }
-  : KERNEL VERTEX LPAREN RPAREN EQUALS expr { (VertProgram, KernelDecl [] $6) }
-  | KERNEL VERTEX LPAREN vkernel_params RPAREN EQUALS expr { (VertProgram, KernelDecl (reverse $4) $7) }
-  ;
-
-fkernel_param :: { TypedIdent }
-  : IDENTIFIER TYPESPECIFIER type { ($1,$3) }
-  ;
-
-fkernel_params :: { [TypedIdent] }
-  : fkernel_param { [$1] }
-  | fkernel_params COMMA fkernel_param { $3:$1 }
-  ;
-
-fkernel :: { (ProgramKind, KernelDecl) }
-  : KERNEL FRAGMENT LPAREN RPAREN EQUALS expr { (FragProgram, KernelDecl [] $6) }
-  | KERNEL FRAGMENT LPAREN fkernel_params RPAREN EQUALS expr { (FragProgram, KernelDecl (reverse $4) $7) }
+lambda_hdr :: { [TypedIdent] }
+  : LAMBDA lambda_params_opt RARROW { $2 }
   ;
 
 
@@ -334,8 +279,7 @@ fkernel :: { (ProgramKind, KernelDecl) }
 ---
 
 program :: { Program }
-  : aux_decls_opt vkernel { let (kind, kernel) = $2 in Program kind $1 kernel }
-  | aux_decls_opt fkernel { let (kind, kernel) = $2 in Program kind $1 kernel }
+  : lambda_hdr lambda_hdr expr { Program (LambdaExpr $1 (LambdaExpr $2 $3)) } -- todo insert program kind
   ;
 
 
@@ -345,6 +289,5 @@ program :: { Program }
 
 {
 parseError :: [Token] -> a
-parseError []     = error ("Parse error at end of input")
-parseError (t:ts) = error ("Parse error at token: " ++ show t)
+parseError ts = error ("Parse error at: " ++ show ts)
 }

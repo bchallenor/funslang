@@ -35,6 +35,7 @@ tokens :-
   $d+ "." $d+               { \s -> TOK_LITERAL_FLOAT (read s :: Double) }
   
   ","                       { \s -> TOK_COMMA }
+  ".."                      { \s -> TOK_RANGE_DOTS }
   "["                       { \s -> TOK_LBRACKET }
   "]"                       { \s -> TOK_RBRACKET }
   "("                       { \s -> TOK_LPAREN }
@@ -79,15 +80,7 @@ tokens :-
   
   "::"                      { \s -> TOK_TYPESPECIFIER }
   "->"                      { \s -> TOK_RARROW }
-  
-  "uniform"                 { \s -> TOK_UNIFORM }
-  "texture"                 { \s -> TOK_TEXTURE }
-  
-  "fun"                     { \s -> TOK_FUN }
-  
-  "kernel"                  { \s -> TOK_KERNEL }
-  "vertex"                  { \s -> TOK_VERTEX }
-  "fragment"                { \s -> TOK_FRAGMENT }
+  "\"                       { \s -> TOK_LAMBDA }
   
   -- this goes last as it should not take precendence over the keywords
   [$a _] [$a $d _]*         { \s -> TOK_IDENTIFIER s }

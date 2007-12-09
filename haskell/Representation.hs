@@ -17,6 +17,7 @@ data Token
   | TOK_IDENTIFIER !String
   --
   | TOK_COMMA
+  | TOK_RANGE_DOTS
   | TOK_LBRACKET
   | TOK_RBRACKET
   | TOK_LPAREN
@@ -61,15 +62,7 @@ data Token
   --
   | TOK_TYPESPECIFIER
   | TOK_RARROW
-  --
-  | TOK_UNIFORM
-  | TOK_TEXTURE
-  --
-  | TOK_FUN
-  --
-  | TOK_KERNEL
-  | TOK_VERTEX
-  | TOK_FRAGMENT
+  | TOK_LAMBDA
   
   deriving (Eq, Show)
 
@@ -90,6 +83,9 @@ data Type
   deriving (Show, Eq)
 
 
+type TypedIdent = (String, Type)
+
+
 data Expr
   = UnitExpr
   | IntExpr !Integer
@@ -103,6 +99,7 @@ data Expr
   | TupleExpr ![Expr]
   | IfExpr !Expr !Expr !Expr
   | LetExpr !Patt !Expr !Expr
+  | LambdaExpr ![TypedIdent] !Expr
   
   deriving (Show, Eq)
 
@@ -115,24 +112,6 @@ data Patt
   deriving (Show, Eq)
 
 
-type TypedIdent = (String, Type)
-
-
-data AuxDecl
-  = UniformDecl TypedIdent
-  | TextureDecl TypedIdent
-  | LetDecl !Patt !Expr
-  | FunDecl !String ![TypedIdent] !Expr
-  
-  deriving (Show, Eq)
-
-
-data KernelDecl
-  = KernelDecl ![TypedIdent] !Expr
-  
-  deriving (Show, Eq)
-
-
 data ProgramKind
   = VertProgram
   | FragProgram
@@ -141,7 +120,7 @@ data ProgramKind
 
 
 data Program
-  = Program !ProgramKind ![AuxDecl] !KernelDecl
+  = Program !Expr
   
   deriving (Show, Eq)
 
