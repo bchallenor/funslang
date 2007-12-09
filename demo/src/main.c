@@ -16,9 +16,9 @@ const char g_FragProgramCode[] =
 "!!NVfp4.0\n"
 "FLOAT PARAM color[3] = {program.local[0..2]};\n"
 "INT PARAM idx = program.local[3];\n"
-//"INT TEMP idx2;\n"
-//"MOV.S idx2, idx;\n"
-"MOV.F result.color, color[idx.x];\n"
+"INT TEMP idx2;\n"
+"MOV.S idx2, idx;\n"
+"MOV.F result.color, color[idx2.x];\n"
 "END";
 
 void render(void)
@@ -56,7 +56,7 @@ int main(int argc, char** argv)
 	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 0, 1.0, 0.0, 0.0, 0.0);
 	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 1, 0.0, 1.0, 0.0, 0.0);
 	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 2, 0.0, 0.0, 1.0, 0.0);
-	glProgramLocalParameterI4iNV(GL_FRAGMENT_PROGRAM_ARB, 3, 1, 0, 0, 0);
+	glProgramLocalParameterI4iNV(GL_FRAGMENT_PROGRAM_ARB, 3, 2, 0, 0, 0);
 	glEnable(GL_FRAGMENT_PROGRAM_ARB);
 
 	// Enter main loop.
