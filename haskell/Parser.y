@@ -1,4 +1,5 @@
 {
+{-# OPTIONS -w #-} -- suppress millions of Happy warnings
 module Parser(parser) where
 import Representation
 import Lexer
@@ -151,65 +152,65 @@ primary_expr :: { Expr }
 
 app_expr :: { Expr }
   : app_expr primary_expr { AppExpr $1 $2 }
-  | OP_NEG_OP_SUB primary_expr { AppOpExpr OpNeg $2 }
-  | OP_NOT primary_expr { AppOpExpr OpNot $2 }
+  | OP_NEG_OP_SUB primary_expr { AppOp1Expr Op1Neg $2 }
+  | OP_NOT primary_expr { AppOp1Expr Op1Not $2 }
   | primary_expr { $1 }
   ;
 
 postfix_expr :: { Expr }
-  : postfix_expr OP_TRANSPOSE { AppOpExpr OpTranspose $1 }
+  : postfix_expr OP_TRANSPOSE { AppOp1Expr Op1Transpose $1 }
   | app_expr { $1 }
   ;
 
 access_expr :: { Expr }
-  : access_expr OP_SUBSCRIPT postfix_expr { AppOpExpr OpSubscript (TupleExpr [$1,$3]) }
-  | access_expr OP_SWIZZLE postfix_expr { AppOpExpr OpSwizzle (TupleExpr [$1,$3]) }
-  | access_expr OP_APPEND postfix_expr { AppOpExpr OpAppend (TupleExpr [$1,$3]) }
+  : access_expr OP_SUBSCRIPT postfix_expr { AppOp2Expr Op2Subscript $1 $3 }
+  | access_expr OP_SWIZZLE postfix_expr { AppOp2Expr Op2Swizzle $1 $3 }
+  | access_expr OP_APPEND postfix_expr { AppOp2Expr Op2Append $1 $3 }
   | postfix_expr { $1 }
   ;
 
 multiplicative_expr :: { Expr }
-  : multiplicative_expr OP_MUL access_expr { AppOpExpr OpMul (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_DIV access_expr { AppOpExpr OpDiv (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_LINEAR_MUL access_expr { AppOpExpr OpLinearMul (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_SCALE_MUL access_expr { AppOpExpr OpScaleMul (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_SCALE_DIV access_expr { AppOpExpr OpScaleDiv (TupleExpr [$1,$3]) }
+  : multiplicative_expr OP_MUL access_expr { AppOp2Expr Op2Mul $1 $3 }
+  | multiplicative_expr OP_DIV access_expr { AppOp2Expr Op2Div $1 $3 }
+  | multiplicative_expr OP_LINEAR_MUL access_expr { AppOp2Expr Op2LinearMul $1 $3 }
+  | multiplicative_expr OP_SCALE_MUL access_expr { AppOp2Expr Op2ScaleMul $1 $3 }
+  | multiplicative_expr OP_SCALE_DIV access_expr { AppOp2Expr Op2ScaleDiv $1 $3 }
   | access_expr { $1 }
   ;
 
 additive_expr :: { Expr }
-  : additive_expr OP_ADD multiplicative_expr { AppOpExpr OpAdd (TupleExpr [$1,$3]) }
-  | additive_expr OP_NEG_OP_SUB multiplicative_expr { AppOpExpr OpSub (TupleExpr [$1,$3]) }
+  : additive_expr OP_ADD multiplicative_expr { AppOp2Expr Op2Add $1 $3 }
+  | additive_expr OP_NEG_OP_SUB multiplicative_expr { AppOp2Expr Op2Sub $1 $3 }
   | multiplicative_expr { $1 }
   ;
 
 relational_expr :: { Expr }
-  : relational_expr OP_LT additive_expr { AppOpExpr OpLessThan (TupleExpr [$1,$3]) }
-  | relational_expr OP_GT additive_expr { AppOpExpr OpGreaterThan (TupleExpr [$1,$3]) }
-  | relational_expr OP_LTE additive_expr { AppOpExpr OpLessThanEqual (TupleExpr [$1,$3]) }
-  | relational_expr OP_GTE additive_expr { AppOpExpr OpGreaterThanEqual (TupleExpr [$1,$3]) }
+  : relational_expr OP_LT additive_expr { AppOp2Expr Op2LessThan $1 $3 }
+  | relational_expr OP_GT additive_expr { AppOp2Expr Op2GreaterThan $1 $3 }
+  | relational_expr OP_LTE additive_expr { AppOp2Expr Op2LessThanEqual $1 $3 }
+  | relational_expr OP_GTE additive_expr { AppOp2Expr Op2GreaterThanEqual $1 $3 }
   | additive_expr { $1 }
   ;
 
 equality_expr :: { Expr }
-  : equality_expr OP_EQ relational_expr { AppOpExpr OpEqual (TupleExpr [$1,$3]) }
-  | equality_expr OP_NEQ relational_expr { AppOpExpr OpNotEqual (TupleExpr [$1,$3]) }
+  : equality_expr OP_EQ relational_expr { AppOp2Expr Op2Equal $1 $3 }
+  | equality_expr OP_NEQ relational_expr { AppOp2Expr Op2NotEqual $1 $3 }
   | relational_expr { $1 }
   ;
 
 identity_expr :: { Expr }
-  : identity_expr OP_ID equality_expr { AppOpExpr OpIdentical (TupleExpr [$1,$3]) }
-  | identity_expr OP_NID equality_expr { AppOpExpr OpNotIdentical (TupleExpr [$1,$3]) }
+  : identity_expr OP_ID equality_expr { AppOp2Expr Op2Identical $1 $3 }
+  | identity_expr OP_NID equality_expr { AppOp2Expr Op2NotIdentical $1 $3 }
   | equality_expr { $1 }
   ;
 
 logical_and_expr :: { Expr }
-  : logical_and_expr OP_AND identity_expr { AppOpExpr OpAnd (TupleExpr [$1,$3]) }
+  : logical_and_expr OP_AND identity_expr { AppOp2Expr Op2And $1 $3 }
   | identity_expr { $1 }
   ;
 
 logical_or_expr :: { Expr }
-  : logical_or_expr OP_OR logical_and_expr { AppOpExpr OpOr (TupleExpr [$1,$3]) }
+  : logical_or_expr OP_OR logical_and_expr { AppOp2Expr Op2Or $1 $3 }
   | logical_and_expr { $1 }
   ;
 

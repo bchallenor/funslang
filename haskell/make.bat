@@ -1,4 +1,4 @@
 alex -g Lexer.x
 happy -g -c Parser.y
-ghc --make Main
+ghc -Wall --make Main
 pause

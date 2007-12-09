@@ -1,4 +1,5 @@
 {
+{-# OPTIONS -w #-} -- suppress millions of Alex warnings
 module Lexer(lexer) where
 import Representation
 }
