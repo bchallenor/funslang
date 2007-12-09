@@ -29,8 +29,8 @@ tokens :-
   "Texture3D"               { \s -> TOK_TEXTURE3D }
   "TextureCube"             { \s -> TOK_TEXTURECUBE }
   
-  "true"                    { \s -> TOK_LITERAL_BOOL True }
-  "false"                   { \s -> TOK_LITERAL_BOOL False }
+  "True"                    { \s -> TOK_LITERAL_BOOL True }
+  "False"                   { \s -> TOK_LITERAL_BOOL False }
   $d+                       { \s -> TOK_LITERAL_INT (read s :: Integer) }
   $d+ "." $d+               { \s -> TOK_LITERAL_FLOAT (read s :: Double) }
   

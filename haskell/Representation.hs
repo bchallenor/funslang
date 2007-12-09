@@ -88,7 +88,6 @@ data Expr
   | AppOpExpr !Operator !Expr
   | AppExpr !Expr !Expr
   | ArrayExpr ![Expr]
-  | ArrayCompExpr !Expr !String !Expr !Expr
   | TupleExpr ![Expr]
   | IfExpr !Expr !Expr !Expr
   | LetExpr !Patt !Expr !Expr
