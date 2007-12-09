@@ -35,7 +35,6 @@ tokens :-
   $d+ "." $d+               { \s -> TOK_LITERAL_FLOAT (read s :: Double) }
   
   ","                       { \s -> TOK_COMMA }
-  "|"                       { \s -> TOK_VERTICAL_BAR }
   "["                       { \s -> TOK_LBRACKET }
   "]"                       { \s -> TOK_RBRACKET }
   "("                       { \s -> TOK_LPAREN }
@@ -77,9 +76,9 @@ tokens :-
   "let"                     { \s -> TOK_LET }
   "="                       { \s -> TOK_EQUALS }
   "in"                      { \s -> TOK_IN }
-  "upto"                    { \s -> TOK_UPTO }
   
   "::"                      { \s -> TOK_TYPESPECIFIER }
+  "->"                      { \s -> TOK_RARROW }
   
   "uniform"                 { \s -> TOK_UNIFORM }
   "texture"                 { \s -> TOK_TEXTURE }

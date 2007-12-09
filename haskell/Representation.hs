@@ -17,7 +17,6 @@ data Token
   | TOK_IDENTIFIER !String
   --
   | TOK_COMMA
-  | TOK_VERTICAL_BAR
   | TOK_LBRACKET
   | TOK_RBRACKET
   | TOK_LPAREN
@@ -59,9 +58,9 @@ data Token
   | TOK_LET
   | TOK_EQUALS
   | TOK_IN
-  | TOK_UPTO
   --
   | TOK_TYPESPECIFIER
+  | TOK_RARROW
   --
   | TOK_UNIFORM
   | TOK_TEXTURE
@@ -84,8 +83,9 @@ data Type
   | Texture2DType
   | Texture3DType
   | TextureCubeType
-  | TupleType [Type]
-  | ArrayType Type Integer
+  | TupleType ![Type]
+  | ArrayType !Type !Integer
+  | FunType !Type !Type
   
   deriving (Show, Eq)
 

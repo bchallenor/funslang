@@ -23,7 +23,6 @@ import Lexer
   LITERAL_FLOAT { TOK_LITERAL_FLOAT $$ }
   IDENTIFIER { TOK_IDENTIFIER $$ }
   COMMA { TOK_COMMA }
-  VERTICAL_BAR { TOK_VERTICAL_BAR }
   LBRACKET { TOK_LBRACKET }
   RBRACKET { TOK_RBRACKET }
   LPAREN { TOK_LPAREN }
@@ -56,8 +55,8 @@ import Lexer
   LET { TOK_LET }
   EQUALS { TOK_EQUALS }
   IN { TOK_IN }
-  UPTO { TOK_UPTO }
   TYPESPECIFIER { TOK_TYPESPECIFIER }
+  RARROW { TOK_RARROW }
   UNIFORM { TOK_UNIFORM }
   TEXTURE { TOK_TEXTURE }
   FUN { TOK_FUN }
@@ -76,47 +75,43 @@ import Lexer
 --------------------------------------------------------------------------------
 -- Note:
 -- Right recursion is avoided where possible.
--- This means that in some places, lists need reversing.
+-- This means that in some places, lists are constructed backwards and reversed.
 --------------------------------------------------------------------------------
 
 ---
 --- Types
 ---
 
-texture_type :: { Type }
-  : TEXTURE1D { Texture1DType }
+tuple_type_inner :: { [Type] }
+  : type COMMA type { $3:$1:[] }
+  | tuple_type_inner COMMA type { $3:$1 }
+  ;
+
+tuple_type :: { Type }
+  : LPAREN tuple_type_inner RPAREN { TupleType (reverse $2) }
+  ;
+
+array_type :: { Type }
+  : primary_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
+  ;
+
+primary_type :: { Type }
+  : LPAREN RPAREN { UnitType }
+  | INT { IntType }
+  | FLOAT { FloatType }
+  | BOOL { BoolType }
+  | TEXTURE1D { Texture1DType }
   | TEXTURE2D { Texture2DType }
   | TEXTURE3D { Texture3DType }
   | TEXTURECUBE { TextureCubeType }
-  | texture_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
+  | tuple_type { $1 }
+  | array_type { $1 }
+  | LPAREN type RPAREN { $2 }
   ;
 
-boolean_type :: { Type }
-  : BOOL { BoolType }
-  | boolean_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
-  ;
-
-integral_type :: { Type }
-  : INT { IntType }
-  | integral_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
-  ;
-
-floating_type :: { Type }
-  : FLOAT { FloatType }
-  | floating_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
-  ;
-
-arithboolean_type :: { Type }
-  : boolean_type { $1 }
-  | integral_type { $1 }
-  | floating_type { $1 }
-  ;
-
-basic_type :: { Type }
-  : boolean_type { $1 }
-  | integral_type { $1 }
-  | floating_type { $1 }
-  | texture_type { $1 }
+type :: { Type } -- right recursion for right associativity
+  : primary_type RARROW type { FunType $1 $3 }
+  | primary_type { $1 }
   ;
 
 
@@ -142,19 +137,14 @@ array_expr :: { Expr }
   : LBRACKET array_expr_inner RBRACKET { ArrayExpr (reverse $2) }
   ;
 
-array_comprehension_expr :: { Expr }
-  : LBRACKET expr VERTICAL_BAR generator RBRACKET { let (v,a,b) = $4 in ArrayCompExpr $2 v a b }
-  ;
-
 primary_expr :: { Expr }
-  : LITERAL_INT { IntExpr $1 }
-  | LITERAL_BOOL { BoolExpr $1 }
+  : LPAREN RPAREN { UnitExpr }
+  | LITERAL_INT { IntExpr $1 }
   | LITERAL_FLOAT { FloatExpr $1 }
+  | LITERAL_BOOL { BoolExpr $1 }
   | IDENTIFIER { VarExpr $1 }
-  | LPAREN RPAREN { UnitExpr }
   | tuple_expr { $1 }
   | array_expr { $1 }
-  | array_comprehension_expr { $1 }
   | LPAREN expr RPAREN { $2 }
   ;
 
@@ -226,15 +216,6 @@ expr :: { Expr }
 
 
 ---
---- Generators
----
-
-generator :: { (String, Expr, Expr ) }
-  : IDENTIFIER EQUALS expr UPTO expr { ($1, $3, $5) }
-  ;
-
-
----
 --- Patterns (for let-bindings)
 ---
 
@@ -273,11 +254,11 @@ patt :: { Patt }
 ---
 
 uniform_decl :: { AuxDecl }
-  : UNIFORM IDENTIFIER TYPESPECIFIER arithboolean_type { UniformDecl ($2,$4) }
+  : UNIFORM IDENTIFIER TYPESPECIFIER type { UniformDecl ($2,$4) }
   ;
 
 texture_decl :: { AuxDecl }
-  : TEXTURE IDENTIFIER TYPESPECIFIER texture_type { TextureDecl ($2,$4) }
+  : TEXTURE IDENTIFIER TYPESPECIFIER type { TextureDecl ($2,$4) }
   ;
 
 let_decl :: { AuxDecl }
@@ -285,7 +266,7 @@ let_decl :: { AuxDecl }
   ;
 
 fun_param :: { TypedIdent }
-  : IDENTIFIER TYPESPECIFIER basic_type { ($1,$3) }
+  : IDENTIFIER TYPESPECIFIER type { ($1,$3) }
   ;
 
 fun_params :: { [TypedIdent] }
@@ -320,7 +301,7 @@ aux_decls_opt :: { [AuxDecl] }
 ---
 
 vkernel_param :: { TypedIdent }
-  : IDENTIFIER TYPESPECIFIER arithboolean_type { ($1,$3) }
+  : IDENTIFIER TYPESPECIFIER type { ($1,$3) }
   ;
 
 vkernel_params :: { [TypedIdent] }
@@ -334,7 +315,7 @@ vkernel :: { (ProgramKind, KernelDecl) }
   ;
 
 fkernel_param :: { TypedIdent }
-  : IDENTIFIER TYPESPECIFIER floating_type { ($1,$3) }
+  : IDENTIFIER TYPESPECIFIER type { ($1,$3) }
   ;
 
 fkernel_params :: { [TypedIdent] }
