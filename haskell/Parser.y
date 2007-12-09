@@ -216,7 +216,7 @@ logical_or_expr :: { Expr }
   ;
 
 expr :: { Expr }
-  : LAMBDA lambda_params_opt RARROW expr { LambdaExpr $2 $4 }
+  : LAMBDA lambda_params_opt_list RARROW expr { foldl' (flip LambdaExpr) $4 $2 }
   | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
   | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
   | LET IDENTIFIER lambda_params_opt_list EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (flip LambdaExpr) $5 $3) $7 }
