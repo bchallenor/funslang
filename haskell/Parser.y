@@ -3,6 +3,7 @@
 module Parser(parser) where
 import Representation
 import Lexer
+import Data.List(foldl')
 }
 
 --------------------------------------------------------------------------------
@@ -218,6 +219,7 @@ expr :: { Expr }
   : LAMBDA lambda_params_opt RARROW expr { LambdaExpr $2 $4 }
   | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
   | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
+  | LET IDENTIFIER lambda_params_opt_list EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (flip LambdaExpr) $5 $3) $7 }
   | logical_or_expr { $1 }
   ;
 
@@ -272,6 +274,11 @@ lambda_params :: { [TypedIdent] }
 lambda_params_opt :: { [TypedIdent] }
   : LPAREN RPAREN { [] }
   | LPAREN lambda_params RPAREN { $2 }
+  ;
+
+lambda_params_opt_list :: { [[TypedIdent]] }
+  : lambda_params_opt { $1:[] }
+  | lambda_params_opt_list lambda_params_opt { $2:$1 }
   ;
 
 
