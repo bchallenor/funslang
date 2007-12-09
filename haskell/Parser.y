@@ -273,7 +273,7 @@ lambda_params :: { [TypedIdent] }
 
 lambda_params_opt :: { [TypedIdent] }
   : LPAREN RPAREN { [] }
-  | LPAREN lambda_params RPAREN { $2 }
+  | LPAREN lambda_params RPAREN { reverse $2 }
   ;
 
 lambda_params_opt_list :: { [[TypedIdent]] }
