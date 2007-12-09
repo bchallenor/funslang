@@ -45,29 +45,22 @@ tokens :-
   "!!"                      { \s -> TOK_OP_SWIZZLE }
   "@"                       { \s -> TOK_OP_APPEND }
   "'"                       { \s -> TOK_OP_TRANSPOSE }
-  
   "~"                       { \s -> TOK_OP_NOT }
-  
   "*"                       { \s -> TOK_OP_MUL }
   "/"                       { \s -> TOK_OP_DIV }
   "**"                      { \s -> TOK_OP_LINEAR_MUL }
   "*."                      { \s -> TOK_OP_SCALE_MUL }
   "/."                      { \s -> TOK_OP_SCALE_DIV }
-  
   "+"                       { \s -> TOK_OP_ADD }
   "-"                       { \s -> TOK_OP_NEG_OP_SUB }
-  
   "<"                       { \s -> TOK_OP_LT }
   ">"                       { \s -> TOK_OP_GT }
   "<="                      { \s -> TOK_OP_LTE }
   ">="                      { \s -> TOK_OP_GTE }
-  
   "=="                      { \s -> TOK_OP_EQ }
   "/="                      { \s -> TOK_OP_NEQ }
-  
   "==="                     { \s -> TOK_OP_ID }
   "/=="                     { \s -> TOK_OP_NID }
-  
   "&&"                      { \s -> TOK_OP_AND }
   "||"                      { \s -> TOK_OP_OR }
   

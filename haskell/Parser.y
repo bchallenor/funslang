@@ -149,28 +149,32 @@ primary_expr :: { Expr }
   | LPAREN expr RPAREN { $2 }
   ;
 
-postfix_expr :: { Expr }
-  : postfix_expr OP_SUBSCRIPT primary_expr { AppOpExpr OpSubscript (TupleExpr [$1,$3]) }
-  | postfix_expr OP_SWIZZLE primary_expr { AppOpExpr OpSwizzle (TupleExpr [$1,$3]) }
-  | postfix_expr OP_APPEND primary_expr { AppOpExpr OpAppend (TupleExpr [$1,$3]) }
-  | postfix_expr OP_TRANSPOSE { AppOpExpr OpTranspose $1 }
+app_expr :: { Expr }
+  : app_expr primary_expr { AppExpr $1 $2 }
+  | OP_NEG_OP_SUB primary_expr { AppOpExpr OpNeg $2 }
+  | OP_NOT primary_expr { AppOpExpr OpNot $2 }
   | primary_expr { $1 }
   ;
 
-prefix_expr :: { Expr }
-  : OP_NEG_OP_SUB postfix_expr { AppOpExpr OpNeg $2 }
-  | OP_NOT postfix_expr { AppOpExpr OpNot $2 }
-  | IDENTIFIER postfix_expr { AppFnExpr $1 $2 }
+postfix_expr :: { Expr }
+  : postfix_expr OP_TRANSPOSE { AppOpExpr OpTranspose $1 }
+  | app_expr { $1 }
+  ;
+
+access_expr :: { Expr }
+  : access_expr OP_SUBSCRIPT postfix_expr { AppOpExpr OpSubscript (TupleExpr [$1,$3]) }
+  | access_expr OP_SWIZZLE postfix_expr { AppOpExpr OpSwizzle (TupleExpr [$1,$3]) }
+  | access_expr OP_APPEND postfix_expr { AppOpExpr OpAppend (TupleExpr [$1,$3]) }
   | postfix_expr { $1 }
   ;
 
 multiplicative_expr :: { Expr }
-  : multiplicative_expr OP_MUL prefix_expr { AppOpExpr OpMul (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_DIV prefix_expr { AppOpExpr OpDiv (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_LINEAR_MUL prefix_expr { AppOpExpr OpLinearMul (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_SCALE_MUL prefix_expr { AppOpExpr OpScaleMul (TupleExpr [$1,$3]) }
-  | multiplicative_expr OP_SCALE_DIV prefix_expr { AppOpExpr OpScaleDiv (TupleExpr [$1,$3]) }
-  | prefix_expr { $1 }
+  : multiplicative_expr OP_MUL access_expr { AppOpExpr OpMul (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_DIV access_expr { AppOpExpr OpDiv (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_LINEAR_MUL access_expr { AppOpExpr OpLinearMul (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_SCALE_MUL access_expr { AppOpExpr OpScaleMul (TupleExpr [$1,$3]) }
+  | multiplicative_expr OP_SCALE_DIV access_expr { AppOpExpr OpScaleDiv (TupleExpr [$1,$3]) }
+  | access_expr { $1 }
   ;
 
 additive_expr :: { Expr }

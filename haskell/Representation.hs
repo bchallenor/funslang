@@ -27,29 +27,22 @@ data Token
   | TOK_OP_SWIZZLE
   | TOK_OP_APPEND
   | TOK_OP_TRANSPOSE
-  --
   | TOK_OP_NOT
-  --
   | TOK_OP_MUL
   | TOK_OP_DIV
   | TOK_OP_LINEAR_MUL
   | TOK_OP_SCALE_MUL
   | TOK_OP_SCALE_DIV
-  --
   | TOK_OP_ADD
   | TOK_OP_NEG_OP_SUB
-  --
   | TOK_OP_LT
   | TOK_OP_GT
   | TOK_OP_LTE
   | TOK_OP_GTE
-  --
   | TOK_OP_EQ
   | TOK_OP_NEQ
-  --
   | TOK_OP_ID
   | TOK_OP_NID
-  --
   | TOK_OP_AND
   | TOK_OP_OR
   --
@@ -93,7 +86,7 @@ data Expr
   | BoolExpr !Bool
   | VarExpr !String
   | AppOpExpr !Operator !Expr
-  | AppFnExpr !String !Expr
+  | AppExpr !Expr !Expr
   | ArrayExpr ![Expr]
   | ArrayCompExpr !Expr !String !Expr !Expr
   | TupleExpr ![Expr]
