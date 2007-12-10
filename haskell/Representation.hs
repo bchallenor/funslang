@@ -106,7 +106,7 @@ data TypedExpr
   | ArrayTypedExpr !Type ![TypedExpr]
   | TupleTypedExpr !Type ![TypedExpr]
   | IfTypedExpr !Type !TypedExpr !TypedExpr !TypedExpr
-  | LetTypedExpr !Type ![(String, TypedExpr)] !TypedExpr -- body type, bindings, body expression
+  | LetTypedExpr !Type !Patt !TypedExpr !TypedExpr
   | LambdaTypedExpr !Type !Patt !Type !TypedExpr
   
   deriving (Show, Eq)
@@ -124,7 +124,7 @@ typeOf (AppTypedExpr t _ _) = t
 typeOf (ArrayTypedExpr t _) = t
 typeOf (TupleTypedExpr t _) = t
 typeOf (IfTypedExpr t _ _ _) = t
-typeOf (LetTypedExpr t _ _) = t
+typeOf (LetTypedExpr t _ _ _) = t
 typeOf (LambdaTypedExpr t _ _ _) = t
 
 

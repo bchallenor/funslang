@@ -87,19 +87,19 @@ inferType' gamma (IfExpr ec et ef) = do
         else fail ("arms of <" ++ prettyExpr (IfExpr ec et ef) ++ "> must have same type")
     _ -> fail ("condition of <" ++ prettyExpr (IfExpr ec et ef) ++ "> must have " ++ prettyType BoolType ++ " type")
 
-inferType' gamma (LetExpr p bound body) = do
+inferType' gamma (LetExpr p bound body) = do -- todo: remove the redundancy between let-exprs and lambdas...
   bound' <- inferType' gamma bound
-  case matchTypedExprWithPattern bound' p of
-    Just ebindings -> do
-      let tbindings = map (\(k,e) -> (k, typeOf e)) ebindings
+  let tp = (typeOf bound')
+  case matchTypeWithPattern tp p of
+    Just tbindings -> do
       let (vs, _) = unzip tbindings
       case Set.size (Set.fromList vs) == length vs of
         True -> do
           let gamma' = List.foldl' (\m (k,v) -> Map.insert k v m) gamma tbindings
           body' <- inferType' gamma' body
-          return (LetTypedExpr (typeOf body') ebindings body')
+          return (LetTypedExpr (typeOf body') p bound' body')
         False -> fail ("names not unique in pattern <" ++ prettyPatt p ++ ">")
-    Nothing -> fail ("pattern <" ++ prettyPatt p ++ "> does not match bound expression <" ++ prettyExpr bound ++ ">")
+    Nothing -> fail ("pattern <" ++ prettyPatt p ++ "> does not match bound expression <" ++ prettyExpr bound ++ "> with type <" ++ prettyType tp ++ ">")
 
 inferType' gamma (LambdaExpr p tp body) = do
   case matchTypeWithPattern tp p of
@@ -123,32 +123,7 @@ patternMatchError :: [Char]
 patternMatchError = "pattern match failure"
 
 
--- Finds the variable bindings for a given pattern and typed expression
-matchTypedExprWithPattern :: Monad m => TypedExpr -> Patt -> m [(String, TypedExpr)]
-
-matchTypedExprWithPattern (UnitTypedExpr) (UnitPatt) = return []
-matchTypedExprWithPattern _ (UnitPatt) = fail patternMatchError
-
-matchTypedExprWithPattern e (VarPatt s) = return [(s,e)]
-
-matchTypedExprWithPattern (ArrayTypedExpr t es) (ArrayPatt ps) = do
-  if length es == length ps
-    then do
-      bs <- zipWithM matchTypedExprWithPattern es ps
-      return (concat bs)
-    else fail patternMatchError
-matchTypedExprWithPattern _ (ArrayPatt ps) = fail patternMatchError
-
-matchTypedExprWithPattern (TupleTypedExpr t es) (TuplePatt ps) = do
-  if length es == length ps
-    then do
-      bs <- zipWithM matchTypedExprWithPattern es ps
-      return (concat bs)
-    else fail patternMatchError
-matchTypedExprWithPattern _ (TuplePatt ps) = fail patternMatchError
-
-
--- Checks that a given pattern could have the given type
+-- Finds the variable type bindings resulting from matching pattern to type
 matchTypeWithPattern :: Monad m => Type -> Patt -> m [(String, Type)]
 
 matchTypeWithPattern (UnitType) (UnitPatt) = return []
