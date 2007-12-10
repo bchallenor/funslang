@@ -1,4 +1,4 @@
-module Pretty(prettyExpr) where
+module Pretty(prettyExpr, prettyType) where
 
 import Data.List as List
 import Representation
