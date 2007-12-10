@@ -216,69 +216,64 @@ logical_or_expr :: { Expr }
   ;
 
 expr :: { Expr }
-  : LAMBDA lambda_params_opt_list RARROW expr { foldl' (flip LambdaExpr) $4 $2 }
+  : LAMBDA typed_patts RARROW expr { foldl' (\e (p, t) -> LambdaExpr p t e) $4 $2 }
   | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
-  | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
-  | LET IDENTIFIER lambda_params_opt_list EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (flip LambdaExpr) $5 $3) $7 }
+  | LET untyped_patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
+  | LET IDENTIFIER typed_patts EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (\e (p, t) -> LambdaExpr p t e) $5 $3) $7 }
   | logical_or_expr { $1 }
   ;
 
 
 ---
---- Patterns (for let-bindings)
+--- Patterns (with and without type annotations)
 ---
 
-tuple_patt_inner :: { [Patt] }
-  : patt COMMA patt { $3:$1:[] }
-  | tuple_patt_inner COMMA patt { $3:$1 }
+untyped_tuple_patt_inner :: { [Patt] }
+  : untyped_patt COMMA untyped_patt { $3:$1:[] }
+  | untyped_tuple_patt_inner COMMA untyped_patt { $3:$1 }
   ;
 
-tuple_patt :: { Patt }
-  : LPAREN tuple_patt_inner RPAREN { TuplePatt (reverse $2) }
+untyped_tuple_patt :: { Patt }
+  : LPAREN untyped_tuple_patt_inner RPAREN { TuplePatt (reverse $2) }
   ;
 
-array_patt_inner :: { [Patt] }
-  : patt { $1:[] }
-  | array_patt_inner COMMA patt { $3:$1 }
+untyped_array_patt_inner :: { [Patt] }
+  : untyped_patt { $1:[] }
+  | untyped_array_patt_inner COMMA untyped_patt { $3:$1 }
   ;
 
-array_patt :: { Patt }
-  : LBRACKET array_patt_inner RBRACKET { ArrayPatt (reverse $2) }
+untyped_array_patt :: { Patt }
+  : LBRACKET untyped_array_patt_inner RBRACKET { ArrayPatt (reverse $2) }
   ;
 
-primary_patt :: { Patt }
-  : IDENTIFIER { VarPatt $1 }
-  | tuple_patt { $1 }
-  | array_patt { $1 }
-  | LPAREN patt RPAREN { $2 }
+untyped_patt :: { Patt }
+  : LPAREN RPAREN { UnitPatt }
+  | IDENTIFIER { VarPatt $1 }
+  | untyped_tuple_patt { $1 }
+  | untyped_array_patt { $1 }
+  | LPAREN untyped_patt RPAREN { $2 }
   ;
 
-patt :: { Patt }
-  : primary_patt { $1 }
+typed_tuple_patt_inner :: { [(Patt, Type)] }
+  : typed_patt COMMA typed_patt { $3:$1:[] }
+  | typed_tuple_patt_inner COMMA typed_patt { $3:$1 }
   ;
 
-
----
---- Lambda parameters (with mandatory type annotations)
----
-
-lambda_param :: { TypedIdent }
-  : IDENTIFIER TYPESPECIFIER type { ($1,$3) }
+typed_tuple_patt :: { (Patt, Type) }
+  : LPAREN typed_tuple_patt_inner RPAREN { let (ps, ts) = (unzip . reverse) $2 in (TuplePatt ps, TupleType ts) }
   ;
 
-lambda_params :: { [TypedIdent] }
-  : lambda_param { [$1] }
-  | lambda_params COMMA lambda_param { $3:$1 }
+typed_patt :: { (Patt, Type) }
+  : LPAREN RPAREN { (UnitPatt, UnitType) }
+  | IDENTIFIER TYPESPECIFIER type { (VarPatt $1, $3) }
+  | typed_tuple_patt { $1 }
+  | untyped_array_patt TYPESPECIFIER type { ($1, $3) }
+  | LPAREN typed_patt RPAREN { $2 }
   ;
 
-lambda_params_opt :: { [TypedIdent] }
-  : LPAREN RPAREN { [] }
-  | LPAREN lambda_params RPAREN { reverse $2 }
-  ;
-
-lambda_params_opt_list :: { [[TypedIdent]] }
-  : lambda_params_opt { $1:[] }
-  | lambda_params_opt_list lambda_params_opt { $2:$1 }
+typed_patts :: { [(Patt, Type)] }
+  : typed_patt { $1:[] }
+  | typed_patts typed_patt { $2:$1 }
   ;
 
 

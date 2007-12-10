@@ -21,6 +21,9 @@ tuple = paren . comma
 array :: [[Char]] -> [Char]
 array = brack . comma
 
+prettyError :: String
+prettyError = "invalid data passed to Pretty module"
+
 prettyOp1 :: Operator1 -> String
 prettyOp1 Op1Transpose            = "'"
 prettyOp1 Op1Neg                  = "-"
@@ -48,11 +51,6 @@ prettyOp2 Op2NotIdentical         = "/=="
 prettyOp2 Op2And                  = "&&"
 prettyOp2 Op2Or                   = "||"
 
-prettyPatt :: Patt -> String
-prettyPatt (VarPatt s) = s
-prettyPatt (ArrayPatt ps) = array (map prettyPatt ps)
-prettyPatt (TuplePatt ps) = tuple (map prettyPatt ps)
-
 prettyType :: Type -> String
 prettyType (UnitType) = "()"
 prettyType (IntType) = "Int"
@@ -66,8 +64,20 @@ prettyType (TupleType ts) = tuple (map prettyType ts)
 prettyType (ArrayType t i) = paren (prettyType t) ++ " " ++ show i
 prettyType (FunType t1 t2) = paren (prettyType t1) ++ " -> " ++ prettyType t2
 
-prettyTypedIdent :: TypedIdent -> String
-prettyTypedIdent (s, t) = s ++ " :: " ++ prettyType t
+prettyPatt :: Patt -> String
+prettyPatt (UnitPatt) = "()"
+prettyPatt (VarPatt s) = s
+prettyPatt (ArrayPatt ps) = array (map prettyPatt ps)
+prettyPatt (TuplePatt ps) = tuple (map prettyPatt ps)
+
+prettyTypedPatt :: Patt -> Type -> String
+prettyTypedPatt (UnitPatt) (UnitType) = "()"
+prettyTypedPatt (UnitPatt) _ = error prettyError
+prettyTypedPatt (VarPatt s) t = s ++ " :: " ++ prettyType t
+prettyTypedPatt (ArrayPatt ps) (ArrayType t i) = array (map prettyPatt ps) ++ " :: " ++ prettyType (ArrayType t i)
+prettyTypedPatt (ArrayPatt _)  _ = error prettyError
+prettyTypedPatt (TuplePatt ps) (TupleType ts) = tuple (zipWith prettyTypedPatt ps ts)
+prettyTypedPatt (TuplePatt _)  _ = error prettyError
 
 prettyExpr :: Expr -> String
 prettyExpr (UnitExpr) = "()"
@@ -82,4 +92,4 @@ prettyExpr (ArrayExpr es) = array (map prettyExpr es)
 prettyExpr (TupleExpr es) = tuple (map prettyExpr es)
 prettyExpr (IfExpr ec et ef) = "if " ++ prettyExpr ec ++ " then " ++ prettyExpr et ++ " else " ++ prettyExpr ef
 prettyExpr (LetExpr p ea eb) = "let " ++ prettyPatt p ++ " = " ++ prettyExpr ea ++ " in " ++ prettyExpr eb
-prettyExpr (LambdaExpr tids e) = "\\ " ++ tuple (map prettyTypedIdent tids) ++ " -> " ++ prettyExpr e
+prettyExpr (LambdaExpr p t e) = "\\ (" ++ prettyTypedPatt p t ++ ") -> " ++ prettyExpr e

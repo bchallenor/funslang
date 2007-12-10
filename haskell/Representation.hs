@@ -76,9 +76,6 @@ data Type
   deriving (Show, Eq)
 
 
-type TypedIdent = (String, Type)
-
-
 data Expr
   = UnitExpr
   | IntExpr !Integer
@@ -92,13 +89,14 @@ data Expr
   | TupleExpr ![Expr]
   | IfExpr !Expr !Expr !Expr
   | LetExpr !Patt !Expr !Expr
-  | LambdaExpr ![TypedIdent] !Expr
+  | LambdaExpr !Patt !Type !Expr
   
   deriving (Show, Eq)
 
 
 data Patt
-  = VarPatt !String
+  = UnitPatt
+  | VarPatt !String
   | ArrayPatt ![Patt]
   | TuplePatt ![Patt]
   
