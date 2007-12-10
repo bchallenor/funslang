@@ -2,6 +2,7 @@ import Lexer
 import Parser
 import System.Environment
 import Pretty
+import Typing
 
 main :: IO ()
 main = do a:_ <- getArgs
@@ -10,3 +11,5 @@ main = do a:_ <- getArgs
           putStrLn (show e)
           putStrLn ""
           putStrLn (prettyExpr e)
+          putStrLn ""
+          putStrLn (show (inferType e))
