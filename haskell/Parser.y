@@ -66,6 +66,14 @@ import Data.List(foldl')
 
 %error { parseError }
 
+-- Only 1 shift/reduce conflict, from the ambiguity in:
+--     \ x :: Int -> 42
+-- (1) \ (x :: Int) -> 42
+-- (2) \ x :: (Int -> 42)
+-- Shift favours (2), which fails.
+-- This is fine; the user must just be explicit if they meant (1).
+%expect 1
+
 %%
 
 --------------------------------------------------------------------------------
