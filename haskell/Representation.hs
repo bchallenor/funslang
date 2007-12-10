@@ -88,10 +88,44 @@ data Expr
   | ArrayExpr ![Expr]
   | TupleExpr ![Expr]
   | IfExpr !Expr !Expr !Expr
-  | LetExpr !Patt !Expr !Expr
-  | LambdaExpr !Patt !Type !Expr
+  | LetExpr !Patt !Expr !Expr -- pattern, bound expression, body expression
+  | LambdaExpr !Patt !Type !Expr -- pattern, argument type, body expression
   
   deriving (Show, Eq)
+
+
+data TypedExpr
+  = UnitTypedExpr
+  | IntTypedExpr !Integer
+  | FloatTypedExpr !Double
+  | BoolTypedExpr !Bool
+  | VarTypedExpr !Type !String
+  | AppOp1TypedExpr !Type !Operator1 !TypedExpr
+  | AppOp2TypedExpr !Type !Operator2 !TypedExpr !TypedExpr
+  | AppTypedExpr !Type !TypedExpr !TypedExpr
+  | ArrayTypedExpr !Type ![TypedExpr]
+  | TupleTypedExpr !Type ![TypedExpr]
+  | IfTypedExpr !Type !TypedExpr !TypedExpr !TypedExpr
+  | LetTypedExpr !Type ![(String, TypedExpr)] !TypedExpr -- body type, bindings, body expression
+  | LambdaTypedExpr !Type !Patt !Type !TypedExpr
+  
+  deriving (Show, Eq)
+
+
+typeOf :: TypedExpr -> Type
+typeOf (UnitTypedExpr) = UnitType
+typeOf (IntTypedExpr _) = IntType
+typeOf (FloatTypedExpr _) = FloatType
+typeOf (BoolTypedExpr _) = BoolType
+typeOf (VarTypedExpr t _) = t
+typeOf (AppOp1TypedExpr t _ _) = t
+typeOf (AppOp2TypedExpr t _ _ _) = t
+typeOf (AppTypedExpr t _ _) = t
+typeOf (ArrayTypedExpr t _) = t
+typeOf (TupleTypedExpr t _) = t
+typeOf (IfTypedExpr t _ _ _) = t
+typeOf (LetTypedExpr t _ _) = t
+typeOf (LambdaTypedExpr t _ _ _) = t
 
 
 data Patt
