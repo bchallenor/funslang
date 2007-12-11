@@ -11,15 +11,15 @@ OuterColor1 :: Float 3,
 OuterColor2 :: Float 3,
 Creal :: Float,
 Cimag :: Float
-) ->
+) .
 
 \ (
 Position :: Float 3,
 LightIntensity :: Float
-) ->
+) .
 
 -- iteration function
-let iterate (r::Float, i::Float, iter::Int) (n::Int) =
+let iterate (r, i, iter)::(Float, Float, Int) _::Int =
   let rnew = r * r - i * i + Creal in
   let inew = 2.0 * r * i + Cimag in
   let l2 = rnew * rnew + inew * inew in
