@@ -45,8 +45,6 @@ data Token
   | TOK_OP_GTE
   | TOK_OP_EQ
   | TOK_OP_NEQ
-  | TOK_OP_ID
-  | TOK_OP_NID
   | TOK_OP_AND
   | TOK_OP_OR
   --

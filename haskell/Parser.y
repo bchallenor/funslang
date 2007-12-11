@@ -50,8 +50,6 @@ import Data.List(foldl')
   OP_GTE { TOK_OP_GTE }
   OP_EQ { TOK_OP_EQ }
   OP_NEQ { TOK_OP_NEQ }
-  OP_ID { TOK_OP_ID }
-  OP_NID { TOK_OP_NID }
   OP_AND { TOK_OP_AND }
   OP_OR { TOK_OP_OR }
   IF { TOK_IF }
@@ -202,15 +200,9 @@ equality_expr :: { Expr }
   | relational_expr { $1 }
   ;
 
-identity_expr :: { Expr }
-  : identity_expr OP_ID equality_expr { AppOp2Expr Op2Identical $1 $3 }
-  | identity_expr OP_NID equality_expr { AppOp2Expr Op2NotIdentical $1 $3 }
-  | equality_expr { $1 }
-  ;
-
 logical_and_expr :: { Expr }
-  : logical_and_expr OP_AND identity_expr { AppOp2Expr Op2And $1 $3 }
-  | identity_expr { $1 }
+  : logical_and_expr OP_AND equality_expr { AppOp2Expr Op2And $1 $3 }
+  | equality_expr { $1 }
   ;
 
 logical_or_expr :: { Expr }

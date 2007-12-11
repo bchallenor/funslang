@@ -49,8 +49,6 @@ prettyOp2 Op2GreaterThan          = ">"
 prettyOp2 Op2GreaterThanEqual     = ">="
 prettyOp2 Op2Equal                = "=="
 prettyOp2 Op2NotEqual             = "/="
-prettyOp2 Op2Identical            = "==="
-prettyOp2 Op2NotIdentical         = "/=="
 prettyOp2 Op2And                  = "&&"
 prettyOp2 Op2Or                   = "||"
 

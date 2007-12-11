@@ -26,8 +26,6 @@ data Operator2
   | Op2GreaterThanEqual
   | Op2Equal -- t -> t -> b (t not function)
   | Op2NotEqual
-  | Op2Identical
-  | Op2NotIdentical
   | Op2And -- b -> b -> b
   | Op2Or -- b -> b -> b
   

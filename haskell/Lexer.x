@@ -61,8 +61,6 @@ tokens :-
   ">="                      { \s -> TOK_OP_GTE }
   "=="                      { \s -> TOK_OP_EQ }
   "/="                      { \s -> TOK_OP_NEQ }
-  "==="                     { \s -> TOK_OP_ID }
-  "/=="                     { \s -> TOK_OP_NID }
   "&&"                      { \s -> TOK_OP_AND }
   "||"                      { \s -> TOK_OP_OR }
   
