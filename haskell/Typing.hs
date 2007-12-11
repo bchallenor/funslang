@@ -195,6 +195,17 @@ isArithmeticMatrixType t =
 isArithmeticType :: Type -> Bool
 isArithmeticType t = isArithmeticScalarType t || isArithmeticVectorType t || isArithmeticMatrixType t
 
+baseTypeOfArithmeticType :: Type -> Maybe Type
+baseTypeOfArithmeticType t =
+  case t of
+    IntType -> Just IntType
+    ArrayType IntType _ -> Just IntType
+    ArrayType (ArrayType IntType _) _ -> Just IntType
+    FloatType -> Just FloatType
+    ArrayType FloatType _ -> Just FloatType
+    ArrayType (ArrayType FloatType _) _ -> Just FloatType
+    _ -> Nothing
+
 isEqualityType :: Type -> Bool
 isEqualityType t =
   case t of
@@ -250,12 +261,9 @@ specialize (Op2Infix' Op2Append) ts = let [a,b] = ts in
 -- i/f -> i/f -> i/f; i/f n -> i/f n -> i/f n; i/f m n -> i/f m n -> i/f m n
 specialize (Op2Infix' Op2Mul) ts = let [a,b] = ts in
   if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
-specialize (Op2Infix' Op2Div) ts = let [a,b] = ts in
-  if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
-specialize (Op2Infix' Op2Add) ts = let [a,b] = ts in
-  if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
-specialize (Op2Infix' Op2Sub) ts = let [a,b] = ts in
-  if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
+specialize (Op2Infix' Op2Div) ts = specialize (Op2Infix' Op2Mul) ts
+specialize (Op2Infix' Op2Add) ts = specialize (Op2Infix' Op2Mul) ts
+specialize (Op2Infix' Op2Sub) ts = specialize (Op2Infix' Op2Mul) ts
 
 -- i/f q p -> i/f r q -> i/f r p; i/f q -> i/f r q -> i/f r; i/f q p -> i/f q -> i/f p
 specialize (Op2Infix' Op2LinearMul) ts = let [a,b] = ts in
@@ -277,54 +285,31 @@ specialize (Op2Infix' Op2LinearMul) ts = let [a,b] = ts in
       _ -> Nothing
     else Nothing
 
--- specialize (Op2Infix' Op2ScaleMul) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2ScaleDiv) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2LessThan) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2LessThanEqual) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2GreaterThan) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2GreaterThanEqual) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2Equal) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2NotEqual) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2And) ts = let [a,b] = ts in
--- specialize (Op2Infix' Op2Or) ts = let [a,b] = ts in
+-- i/f n -> i/f -> i/f n; i/f m n -> i/f -> i/f m n
+specialize (Op2Infix' Op2ScaleMul) ts = let [a,b] = ts in
+  if isArithmeticVectorType a || isArithmeticMatrixType a
+    then case baseTypeOfArithmeticType a of
+      Just a' -> if a' == b
+        then Just a
+        else Nothing
+      Nothing -> Nothing
+    else Nothing
+specialize (Op2Infix' Op2ScaleDiv) ts = specialize (Op2Infix' Op2ScaleMul) ts
 
+-- i/f -> i/f -> bool
+specialize (Op2Infix' Op2LessThan) ts = let [a,b] = ts in
+  if a == b && isArithmeticScalarType a then Just BoolType else Nothing
+specialize (Op2Infix' Op2LessThanEqual) ts = specialize (Op2Infix' Op2LessThan) ts
+specialize (Op2Infix' Op2GreaterThan) ts = specialize (Op2Infix' Op2LessThan) ts
+specialize (Op2Infix' Op2GreaterThanEqual) ts = specialize (Op2Infix' Op2LessThan) ts
 
+-- Eq a => a -> a -> bool
+specialize (Op2Infix' Op2Equal) ts = let [a,b] = ts in
+  if a == b && isEqualityType a then Just BoolType else Nothing
+specialize (Op2Infix' Op2NotEqual) ts = specialize (Op2Infix' Op2Equal) ts
 
-
-
-
-
-
-
-
-
-
---   = Op2Subscript 
---   | Op2Swizzle 
---   | Op2Append 
---   | Op2Mul 
---   | Op2Div -
---   | Op2LinearMul -- 
---   | Op2ScaleMul -- i/f n -> i/f -> i/f n
---   | Op2ScaleDiv -- as scale div
---   | Op2Add -- a
---   | Op2Sub -- as mul
---   | Op2LessThan -- i/f -> i/f -> bool
---   | Op2LessThanEqual -- as less than
---   | Op2GreaterThan -- as less than
---   | Op2GreaterThanEqual -- as less than
---   | Op2Equal -- notfunction a => a -> a -> bool
---   | Op2NotEqual -- as equal
---   | Op2And -- bool -> bool -> bool
---   | Op2Or -- bool -> bool -> bool
-
-
-
-
-
-
-
-
-
-
+-- bool -> bool -> bool
+specialize (Op2Infix' Op2And) ts = let [a,b] = ts in
+  if a == b && a == BoolType then Just BoolType else Nothing
+specialize (Op2Infix' Op2Or) ts = specialize (Op2Infix' Op2And) ts
 
