@@ -45,6 +45,9 @@ prettyOp (Op2Infix' Op2Equal)                 = "=="
 prettyOp (Op2Infix' Op2NotEqual)              = "/="
 prettyOp (Op2Infix' Op2And)                   = "&&"
 prettyOp (Op2Infix' Op2Or)                    = "||"
+prettyOp (Op2Prefix' Op2_map)                 = "map"
+prettyOp (Op3Prefix' Op3_foldl)               = "foldl"
+prettyOp (Op3Prefix' Op3_foldr)               = "foldr"
 
 prettyType :: Type -> String
 prettyType (UnitType) = "()"
@@ -92,11 +95,13 @@ prettyExpr (FloatExpr d) = show d
 prettyExpr (BoolExpr b) = show b
 prettyExpr (VarExpr s) = s
 prettyExpr (AppOpExpr op' es) =
-  let prefix = space $ map (paren True) (prettyOp op' : map prettyExpr es) in
+  let prefix = space $ prettyOp op' : map ((paren True) . prettyExpr) es in
   case op' of
     Op1Prefix' op -> prefix
     Op1Postfix' op -> let [e] = es in paren True (prettyExpr e) ++ prettyOp op'
     Op2Infix' op -> let [e1,e2] = es in paren True $ paren True (prettyExpr e1) ++ prettyOp op' ++ paren True (prettyExpr e2)
+    Op2Prefix' op -> prefix
+    Op3Prefix' op -> prefix
 prettyExpr (AppFnExpr e1 e2) = paren True (prettyExpr e1) ++ prettyExpr e2
 prettyExpr (ArrayExpr es) = array (map prettyExpr es)
 prettyExpr (TupleExpr es) = tuple (map prettyExpr es)

@@ -46,6 +46,10 @@ data Token
   | TOK_OP_AND
   | TOK_OP_OR
   --
+  | TOK_OP_MAP
+  | TOK_OP_FOLDL
+  | TOK_OP_FOLDR
+  --
   | TOK_IF
   | TOK_THEN
   | TOK_ELSE
@@ -139,8 +143,9 @@ data Patt
 data Op
   = Op1Prefix' !Op1Prefix
   | Op1Postfix' !Op1Postfix
+  | Op2Prefix' !Op2Prefix
   | Op2Infix' !Op2Infix
---  | Op3Prefix' !Op3Prefix
+  | Op3Prefix' !Op3Prefix
 
   deriving (Show, Eq)
 
@@ -197,9 +202,14 @@ data Op2Infix
   deriving (Show, Eq)
 
 
--- data Op3Prefix
---   = Op3_map -- (a -> b) -> a n -> b n
---   | Op3_foldl -- (a -> b -> a) -> a -> b n -> a
---   | Op3_foldr -- (a -> b -> b) -> b -> a n -> b
---   
---   deriving (Show, Eq)
+data Op2Prefix
+  = Op2_map
+  
+  deriving (Show, Eq)
+
+
+data Op3Prefix
+  = Op3_foldl
+  | Op3_foldr
+  
+  deriving (Show, Eq)

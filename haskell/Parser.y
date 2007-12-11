@@ -52,6 +52,9 @@ import Data.List(foldl')
   OP_NEQ { TOK_OP_NEQ }
   OP_AND { TOK_OP_AND }
   OP_OR { TOK_OP_OR }
+  OP_MAP { TOK_OP_MAP }
+  OP_FOLDL { TOK_OP_FOLDL }
+  OP_FOLDR { TOK_OP_FOLDR }
   IF { TOK_IF }
   THEN { TOK_THEN }
   ELSE { TOK_ELSE }
@@ -156,6 +159,9 @@ app_expr :: { Expr }
   : app_expr primary_expr { AppFnExpr $1 $2 }
   | OP_NEG_OP_SUB primary_expr { AppOpExpr (Op1Prefix' Op1Neg) [$2] }
   | OP_NOT primary_expr { AppOpExpr (Op1Prefix' Op1Not) [$2] }
+  | OP_MAP primary_expr primary_expr { AppOpExpr (Op2Prefix' Op2_map) [$2,$3] }
+  | OP_FOLDL primary_expr primary_expr primary_expr { AppOpExpr (Op3Prefix' Op3_foldl) [$2,$3,$4] }
+  | OP_FOLDR primary_expr primary_expr primary_expr { AppOpExpr (Op3Prefix' Op3_foldr) [$2,$3,$4] }
   | primary_expr { $1 }
   ;
 

@@ -64,6 +64,10 @@ tokens :-
   "&&"                      { \s -> TOK_OP_AND }
   "||"                      { \s -> TOK_OP_OR }
   
+  "map"                     { \s -> TOK_OP_MAP }
+  "foldl"                   { \s -> TOK_OP_FOLDL }
+  "foldr"                   { \s -> TOK_OP_FOLDR }
+  
   "if"                      { \s -> TOK_IF }
   "then"                    { \s -> TOK_THEN }
   "else"                    { \s -> TOK_ELSE }

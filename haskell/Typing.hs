@@ -313,3 +313,36 @@ specialize (Op2Infix' Op2And) ts = let [a,b] = ts in
   if a == b && a == BoolType then Just BoolType else Nothing
 specialize (Op2Infix' Op2Or) ts = specialize (Op2Infix' Op2And) ts
 
+-- (a -> b) -> a n -> b n
+specialize (Op2Prefix' Op2_map) ts = let [p,q] = ts in
+  case p of
+    FunType a b -> case q of
+      ArrayType a' n -> if a == a'
+        then Just (ArrayType b n)
+        else Nothing
+      _ -> Nothing
+    _ -> Nothing
+
+-- (a -> b -> a) -> a -> b n -> a
+specialize (Op3Prefix' Op3_foldl) ts = let [p,q,r] = ts in
+  case p of
+    FunType a (FunType b a') -> if q == a && q == a'
+      then case r of
+        ArrayType b' _ -> if b == b'
+          then Just a
+          else Nothing
+        _ -> Nothing
+      else Nothing
+    _ -> Nothing
+
+-- (a -> b -> b) -> b -> a n -> b
+specialize (Op3Prefix' Op3_foldr) ts = let [p,q,r] = ts in
+  case p of
+    FunType a (FunType b b') -> if q == b && q == b'
+      then case r of
+        ArrayType a' _ -> if a == a'
+          then Just b
+          else Nothing
+        _ -> Nothing
+      else Nothing
+    _ -> Nothing
