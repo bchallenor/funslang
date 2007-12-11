@@ -163,7 +163,7 @@ data Op1Prefix
 --   --
 --   | Op1_sample -- t1d -> [f 1 -> f 4]; t2d -> [f 2 -> f 4]; t3d -> [f 3 -> f 4]; tcube -> [f 3 -> f 4]
 --   --
---   | Op1_len -- f n -> f
+--   | Op1_length -- f n -> f
 --   | Op1_dot -- f n -> [f n -> f]
 --   | Op1_normalize -- f n -> f n
 --   | Op1_faceforward -- f n -> [f n -> f n -> f n]
