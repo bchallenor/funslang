@@ -59,6 +59,7 @@ data Token
   | TOK_TYPESPECIFIER
   | TOK_RARROW
   | TOK_LAMBDA
+  | TOK_LAMBDA_DOT
   
   deriving (Eq, Show)
 

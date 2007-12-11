@@ -1,4 +1,4 @@
-module Pretty(prettyExpr, prettyType, prettyPatt, prettyTypedPatt) where
+module Pretty(prettyExpr, prettyType, prettyPatt) where
 
 import Data.List as List
 import Representation
@@ -92,15 +92,6 @@ prettyPatt (VarPatt s) = s
 prettyPatt (ArrayPatt ps) = array (map prettyPatt ps)
 prettyPatt (TuplePatt ps) = tuple (map prettyPatt ps)
 
-prettyTypedPatt :: Patt -> Type -> String
-prettyTypedPatt (UnitPatt) (UnitType) = "()"
-prettyTypedPatt (UnitPatt) _ = error prettyError
-prettyTypedPatt (VarPatt s) t = s ++ " :: " ++ prettyType t
-prettyTypedPatt (ArrayPatt ps) (ArrayType t i) = array (map prettyPatt ps) ++ " :: " ++ prettyType (ArrayType t i)
-prettyTypedPatt (ArrayPatt _)  _ = error prettyError
-prettyTypedPatt (TuplePatt ps) (TupleType ts) = tuple (zipWith prettyTypedPatt ps ts)
-prettyTypedPatt (TuplePatt _)  _ = error prettyError
-
 prettyExpr :: Expr -> String
 prettyExpr (UnitExpr) = "()"
 prettyExpr (IntExpr i) = show i
@@ -114,4 +105,4 @@ prettyExpr (ArrayExpr es) = array (map prettyExpr es)
 prettyExpr (TupleExpr es) = tuple (map prettyExpr es)
 prettyExpr (IfExpr ec et ef) = "if " ++ prettyExpr ec ++ " then " ++ prettyExpr et ++ " else " ++ prettyExpr ef
 prettyExpr (LetExpr p ea eb) = "let " ++ prettyPatt p ++ " = " ++ prettyExpr ea ++ " in " ++ prettyExpr eb
-prettyExpr (LambdaExpr p t e) = "\\ (" ++ prettyTypedPatt p t ++ ") -> " ++ prettyExpr e
+prettyExpr (LambdaExpr p t e) = "\\ (" ++ prettyPatt p ++ " :: " ++ prettyType t ++ ") . " ++ prettyExpr e

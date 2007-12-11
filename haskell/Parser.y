@@ -62,18 +62,11 @@ import Data.List(foldl')
   TYPESPECIFIER { TOK_TYPESPECIFIER }
   RARROW { TOK_RARROW }
   LAMBDA { TOK_LAMBDA }
+  LAMBDA_DOT { TOK_LAMBDA_DOT }
 
 %name parser expr
 
 %error { parseError }
-
--- Only 1 shift/reduce conflict, from the ambiguity in:
---     \ x :: Int -> 42
--- (1) \ (x :: Int) -> 42
--- (2) \ x :: (Int -> 42)
--- Shift favours (2), which fails.
--- This is fine; the user must just be explicit if they meant (1).
-%expect 1
 
 %%
 
@@ -225,7 +218,7 @@ logical_or_expr :: { Expr }
   ;
 
 expr :: { Expr }
-  : LAMBDA typed_patts RARROW expr { foldl' (\e (p, t) -> LambdaExpr p t e) $4 $2 }
+  : LAMBDA typed_patts LAMBDA_DOT expr { foldl' (\e (p, t) -> LambdaExpr p t e) $4 $2 }
   | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
   | LET untyped_patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
   | LET IDENTIFIER typed_patts EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (\e (p, t) -> LambdaExpr p t e) $5 $3) $7 }
@@ -273,9 +266,10 @@ typed_tuple_patt :: { (Patt, Type) }
   ;
 
 typed_patt :: { (Patt, Type) }
-  : LPAREN RPAREN { (UnitPatt, UnitType) }
+  : LPAREN RPAREN TYPESPECIFIER type { (UnitPatt, $4) }
   | IDENTIFIER TYPESPECIFIER type { (VarPatt $1, $3) }
   | typed_tuple_patt { $1 }
+  | untyped_tuple_patt TYPESPECIFIER type { ($1, $3) }
   | untyped_array_patt TYPESPECIFIER type { ($1, $3) }
   | LPAREN typed_patt RPAREN { $2 }
   ;

@@ -75,6 +75,7 @@ tokens :-
   "::"                      { \s -> TOK_TYPESPECIFIER }
   "->"                      { \s -> TOK_RARROW }
   "\"                       { \s -> TOK_LAMBDA }
+  "."                       { \s -> TOK_LAMBDA_DOT }
   
   -- this goes last as it should not take precendence over the keywords
   [$a _] [$a $d _]*         { \s -> TOK_IDENTIFIER s }
