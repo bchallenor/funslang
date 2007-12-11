@@ -51,7 +51,7 @@ inferType' _ (UnitExpr) = do
 inferType' _ (IntExpr i) = do
   if shiftR (abs i) fs_UNSIGNED_INT_BITS == 0
     then return (IntTypedExpr i)
-    else fail ("integer <" ++ show i ++ "> too large for " ++ show fs_UNSIGNED_INT_BITS ++ " bits")
+    else fail ("integer <" ++ show (abs i) ++ "> too large for " ++ show fs_UNSIGNED_INT_BITS ++ " bits")
 
 inferType' _ (FloatExpr d) = do
   return (FloatTypedExpr d)
