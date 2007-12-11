@@ -1,8 +1,7 @@
-module Pretty(prettyExpr, prettyType, prettyPatt) where
+module Pretty(prettyOp, prettyType, prettyExpr, prettyPatt) where
 
 import Data.List as List
 import Representation
-import Library
 
 paren :: Bool -> [Char] -> [Char]
 paren True s = "(" ++ s ++ ")"

@@ -64,11 +64,12 @@ inferType' gamma (VarExpr s) = do
     Just t -> return (VarTypedExpr t s)
     Nothing -> fail ("unknown variable <" ++ s ++ ">")
 
--- inferType' _ (AppOp1Expr _ _) = do
---   fail "todo" -- todo
-
--- inferType' _ (AppOp2Expr _ _ _) = do
---   fail "todo" -- todo
+inferType' gamma (AppOpExpr op' es) = do
+  es' <- mapM (inferType' gamma) es
+  let ts = map typeOf es'
+  case specialize op' ts of
+    Just t -> return (AppOpTypedExpr t op' es')
+    Nothing -> fail ("type error specializing operator in <" ++ prettyExpr (AppOpExpr op' es) ++ ">")
 
 inferType' gamma (AppFnExpr f x) = do
   f' <- inferType' gamma f
@@ -164,3 +165,166 @@ matchTypeWithPattern (TupleType ts) (TuplePatt ps) = do
       return (concat bs)
     else fail patternMatchError
 matchTypeWithPattern _ (TuplePatt ps) = fail patternMatchError
+
+
+--
+-- Type classification
+--
+
+isArithmeticScalarType :: Type -> Bool
+isArithmeticScalarType t =
+  case t of
+    IntType -> True
+    FloatType -> True
+    _ -> False
+
+isArithmeticVectorType :: Type -> Bool
+isArithmeticVectorType t =
+  case t of
+    ArrayType IntType _ -> True
+    ArrayType FloatType _ -> True
+    _ -> False
+
+isArithmeticMatrixType :: Type -> Bool
+isArithmeticMatrixType t =
+  case t of
+    ArrayType (ArrayType IntType _) _ -> True
+    ArrayType (ArrayType FloatType _) _ -> True
+    _ -> False
+
+isArithmeticType :: Type -> Bool
+isArithmeticType t = isArithmeticScalarType t || isArithmeticVectorType t || isArithmeticMatrixType t
+
+isEqualityType :: Type -> Bool
+isEqualityType t =
+  case t of
+    FunType _ _ -> False
+    _ -> True
+
+
+---
+--- Operator specialization
+---
+
+-- Specialize the given operator with the given types to find the return type
+specialize :: Op -> [Type] -> Maybe Type
+
+-- i/f -> i/f; i/f n -> i/f n; i/f m n -> i/f m n
+specialize (Op1Prefix' Op1Neg) ts = let [a] = ts in
+  if isArithmeticType a then Just a else Nothing
+
+-- bool -> bool
+specialize (Op1Prefix' Op1Not) ts = let [a] = ts in
+  if a == BoolType then Just a else Nothing
+
+-- i/f m n -> i/f n m
+specialize (Op1Postfix' Op1Transpose) ts = let [a] = ts in
+  case a of
+    ArrayType (ArrayType b m) n -> Just (ArrayType (ArrayType b n) m)
+    _ -> Nothing
+
+-- a n -> Int -> a
+specialize (Op2Infix' Op2Subscript) ts = let [a,b] = ts in
+  case a of
+    ArrayType c n -> case b of
+      IntType -> Just c
+      _ -> Nothing
+    _ -> Nothing
+
+-- a n -> Int m -> a m
+specialize (Op2Infix' Op2Swizzle) ts = let [a,b] = ts in
+  case a of
+    ArrayType c n -> case b of
+      ArrayType IntType m -> Just (ArrayType c m)
+      _ -> Nothing
+    _ -> Nothing
+
+-- a n -> a m -> a m+n
+specialize (Op2Infix' Op2Append) ts = let [a,b] = ts in
+  case a of
+    ArrayType c n -> case b of
+      ArrayType c' m -> if c == c' then Just (ArrayType c (m+n)) else Nothing
+      _ -> Nothing
+    _ -> Nothing
+
+-- i/f -> i/f -> i/f; i/f n -> i/f n -> i/f n; i/f m n -> i/f m n -> i/f m n
+specialize (Op2Infix' Op2Mul) ts = let [a,b] = ts in
+  if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
+specialize (Op2Infix' Op2Div) ts = let [a,b] = ts in
+  if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
+specialize (Op2Infix' Op2Add) ts = let [a,b] = ts in
+  if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
+specialize (Op2Infix' Op2Sub) ts = let [a,b] = ts in
+  if a == b && isArithmeticType a && isArithmeticType b then Just a else Nothing
+
+-- i/f q p -> i/f r q -> i/f r p; i/f q -> i/f r q -> i/f r; i/f q p -> i/f q -> i/f p
+specialize (Op2Infix' Op2LinearMul) ts = let [a,b] = ts in
+  if isArithmeticType a && isArithmeticType b
+    then case a of
+      ArrayType (ArrayType t q) p -> case b of
+        ArrayType (ArrayType t' r) q' -> if q == q' && t == t'
+          then Just (ArrayType (ArrayType t r) p)
+          else Nothing
+        ArrayType t' q' -> if q == q' && t == t'
+          then Just (ArrayType t' p)
+          else Nothing
+        _ -> Nothing
+      ArrayType t q -> case b of
+        ArrayType (ArrayType t' r) q' -> if q == q' && t == t'
+          then Just (ArrayType t r)
+          else Nothing
+        _ -> Nothing
+      _ -> Nothing
+    else Nothing
+
+-- specialize (Op2Infix' Op2ScaleMul) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2ScaleDiv) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2LessThan) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2LessThanEqual) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2GreaterThan) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2GreaterThanEqual) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2Equal) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2NotEqual) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2And) ts = let [a,b] = ts in
+-- specialize (Op2Infix' Op2Or) ts = let [a,b] = ts in
+
+
+
+
+
+
+
+
+
+
+
+
+--   = Op2Subscript 
+--   | Op2Swizzle 
+--   | Op2Append 
+--   | Op2Mul 
+--   | Op2Div -
+--   | Op2LinearMul -- 
+--   | Op2ScaleMul -- i/f n -> i/f -> i/f n
+--   | Op2ScaleDiv -- as scale div
+--   | Op2Add -- a
+--   | Op2Sub -- as mul
+--   | Op2LessThan -- i/f -> i/f -> bool
+--   | Op2LessThanEqual -- as less than
+--   | Op2GreaterThan -- as less than
+--   | Op2GreaterThanEqual -- as less than
+--   | Op2Equal -- notfunction a => a -> a -> bool
+--   | Op2NotEqual -- as equal
+--   | Op2And -- bool -> bool -> bool
+--   | Op2Or -- bool -> bool -> bool
+
+
+
+
+
+
+
+
+
+
+

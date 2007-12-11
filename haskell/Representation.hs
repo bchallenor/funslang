@@ -1,7 +1,5 @@
 module Representation where
 
-import Library
-
 
 data Token
   = TOK_BOOL
@@ -136,3 +134,72 @@ data Patt
   | TuplePatt ![Patt]
   
   deriving (Show, Eq)
+
+
+data Op
+  = Op1Prefix' !Op1Prefix
+  | Op1Postfix' !Op1Postfix
+  | Op2Infix' !Op2Infix
+--  | Op3Prefix' !Op3Prefix
+
+  deriving (Show, Eq)
+
+
+data Op1Prefix
+  = Op1Neg
+  | Op1Not
+--   --
+--   | Op1_sum -- i/f n -> i/f
+--   | Op1_product -- i/f n -> i/f
+--   | Op1_any -- bool n -> bool
+--   | Op1_all -- bool n -> bool
+--   | Op1_min -- i/f n -> i/f
+--   | Op1_max -- i/f n -> i/f
+--   --
+--   | Op1_sample -- t1d -> [f 1 -> f 4]; t2d -> [f 2 -> f 4]; t3d -> [f 3 -> f 4]; tcube -> [f 3 -> f 4]
+--   --
+--   | Op1_len -- f n -> f
+--   | Op1_dot -- f n -> [f n -> f]
+--   | Op1_normalize -- f n -> f n
+--   | Op1_faceforward -- f n -> [f n -> f n -> f n]
+--   | Op1_reflect -- f n -> [f n -> f n]
+--   | Op1_refract -- f n -> [f n -> f -> f n]
+
+  deriving (Show, Eq)
+
+
+data Op1Postfix
+  = Op1Transpose
+  
+  deriving (Show, Eq)
+
+
+data Op2Infix
+  = Op2Subscript
+  | Op2Swizzle
+  | Op2Append
+  | Op2Mul
+  | Op2Div
+  | Op2LinearMul
+  | Op2ScaleMul
+  | Op2ScaleDiv
+  | Op2Add
+  | Op2Sub
+  | Op2LessThan
+  | Op2LessThanEqual
+  | Op2GreaterThan
+  | Op2GreaterThanEqual
+  | Op2Equal
+  | Op2NotEqual
+  | Op2And
+  | Op2Or
+  
+  deriving (Show, Eq)
+
+
+-- data Op3Prefix
+--   = Op3_map -- (a -> b) -> a n -> b n
+--   | Op3_foldl -- (a -> b -> a) -> a -> b n -> a
+--   | Op3_foldr -- (a -> b -> b) -> b -> a n -> b
+--   
+--   deriving (Show, Eq)
