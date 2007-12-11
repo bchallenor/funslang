@@ -3,6 +3,7 @@ module Typing where
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Set as Set
+import Data.Bits
 import Control.Monad
 import Representation
 import Pretty
@@ -25,6 +26,15 @@ type Env = Map.Map String Type
 
 
 --
+-- Parameters
+--
+
+-- The number of bits, less the sign bit, allowed for Funslang integers
+fs_UNSIGNED_INT_BITS :: Int
+fs_UNSIGNED_INT_BITS = 23
+
+
+--
 -- Type inference
 -- 
 
@@ -35,13 +45,19 @@ inferType = inferType' Map.empty
 -- Helper
 inferType' :: Monad m => Env -> Expr -> m TypedExpr
 
-inferType' _ (UnitExpr) = return (UnitTypedExpr)
+inferType' _ (UnitExpr) = do
+  return (UnitTypedExpr)
 
-inferType' _ (IntExpr i) = return (IntTypedExpr i)
+inferType' _ (IntExpr i) = do
+  if shiftR (abs i) fs_UNSIGNED_INT_BITS == 0
+    then return (IntTypedExpr i)
+    else fail ("integer <" ++ show i ++ "> too large for " ++ show fs_UNSIGNED_INT_BITS ++ " bits")
 
-inferType' _ (FloatExpr d) = return (FloatTypedExpr d)
+inferType' _ (FloatExpr d) = do
+  return (FloatTypedExpr d)
 
-inferType' _ (BoolExpr b) = return (BoolTypedExpr b)
+inferType' _ (BoolExpr b) = do
+  return (BoolTypedExpr b)
 
 inferType' gamma (VarExpr s) = do
   case Map.lookup s gamma of
