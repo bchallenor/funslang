@@ -24,33 +24,28 @@ tuple = paren True . comma
 array :: [[Char]] -> [Char]
 array = brack True . comma
 
-prettyError :: String
-prettyError = "invalid data passed to Pretty module"
-
-prettyOp1 :: Operator1 -> String
-prettyOp1 Op1Transpose            = "'"
-prettyOp1 Op1Neg                  = "-"
-prettyOp1 Op1Not                  = "~"
-
-prettyOp2 :: Operator2 -> String
-prettyOp2 Op2Subscript            = "!"
-prettyOp2 Op2Swizzle              = "!!"
-prettyOp2 Op2Append               = "@"
-prettyOp2 Op2Mul                  = "*"
-prettyOp2 Op2Div                  = "/"
-prettyOp2 Op2LinearMul            = "**"
-prettyOp2 Op2ScaleMul             = "*."
-prettyOp2 Op2ScaleDiv             = "/."
-prettyOp2 Op2Add                  = "+"
-prettyOp2 Op2Sub                  = "-"
-prettyOp2 Op2LessThan             = "<"
-prettyOp2 Op2LessThanEqual        = "<="
-prettyOp2 Op2GreaterThan          = ">"
-prettyOp2 Op2GreaterThanEqual     = ">="
-prettyOp2 Op2Equal                = "=="
-prettyOp2 Op2NotEqual             = "/="
-prettyOp2 Op2And                  = "&&"
-prettyOp2 Op2Or                   = "||"
+prettyOp :: Op -> String
+prettyOp (Op1Prefix' Op1Neg)                  = "-"
+prettyOp (Op1Prefix' Op1Not)                  = "~"
+prettyOp (Op1Postfix' Op1Transpose)           = "'"
+prettyOp (Op2Infix' Op2Subscript)             = "!"
+prettyOp (Op2Infix' Op2Swizzle)               = "!!"
+prettyOp (Op2Infix' Op2Append)                = "@"
+prettyOp (Op2Infix' Op2Mul)                   = "*"
+prettyOp (Op2Infix' Op2Div)                   = "/"
+prettyOp (Op2Infix' Op2LinearMul)             = "**"
+prettyOp (Op2Infix' Op2ScaleMul)              = "*."
+prettyOp (Op2Infix' Op2ScaleDiv)              = "/."
+prettyOp (Op2Infix' Op2Add)                   = "+"
+prettyOp (Op2Infix' Op2Sub)                   = "-"
+prettyOp (Op2Infix' Op2LessThan)              = "<"
+prettyOp (Op2Infix' Op2LessThanEqual)         = "< ="
+prettyOp (Op2Infix' Op2GreaterThan)           = ">"
+prettyOp (Op2Infix' Op2GreaterThanEqual)      = "> ="
+prettyOp (Op2Infix' Op2Equal)                 = " = ="
+prettyOp (Op2Infix' Op2NotEqual)              = "/ ="
+prettyOp (Op2Infix' Op2And)                   = "&&"
+prettyOp (Op2Infix' Op2Or)                    = "||"
 
 prettyType :: Type -> String
 prettyType (UnitType) = "()"
@@ -97,9 +92,13 @@ prettyExpr (IntExpr i) = show i
 prettyExpr (FloatExpr d) = show d
 prettyExpr (BoolExpr b) = show b
 prettyExpr (VarExpr s) = s
-prettyExpr (AppOp1Expr op e1) = space (map (paren True) [prettyOp1 op, prettyExpr e1])
-prettyExpr (AppOp2Expr op e1 e2) = space (map (paren True) [prettyOp2 op, prettyExpr e1, prettyExpr e2])
-prettyExpr (AppExpr e1 e2) = paren True (prettyExpr e1) ++ prettyExpr e2
+prettyExpr (AppOpExpr op' es) =
+  let prefix = space $ map (paren True) (prettyOp op' : map prettyExpr es) in
+  case op' of
+    Op1Prefix' op -> prefix
+    Op1Postfix' op -> let [e] = es in paren True (prettyExpr e) ++ prettyOp op'
+    Op2Infix' op -> let [e1,e2] = es in paren True $ paren True (prettyExpr e1) ++ prettyOp op' ++ paren True (prettyExpr e2)
+prettyExpr (AppFnExpr e1 e2) = paren True (prettyExpr e1) ++ prettyExpr e2
 prettyExpr (ArrayExpr es) = array (map prettyExpr es)
 prettyExpr (TupleExpr es) = tuple (map prettyExpr es)
 prettyExpr (IfExpr ec et ef) = "if " ++ prettyExpr ec ++ " then " ++ prettyExpr et ++ " else " ++ prettyExpr ef

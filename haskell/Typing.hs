@@ -70,13 +70,13 @@ inferType' gamma (VarExpr s) = do
 -- inferType' _ (AppOp2Expr _ _ _) = do
 --   fail "todo" -- todo
 
-inferType' gamma (AppExpr f x) = do
+inferType' gamma (AppFnExpr f x) = do
   f' <- inferType' gamma f
   x' <- inferType' gamma x
   case typeOf f' of
     FunType ta tb -> do
       if ta == typeOf x'
-        then return (AppTypedExpr tb f' x')
+        then return (AppFnTypedExpr tb f' x')
         else fail ("<" ++ prettyExpr x ++ "> has type " ++ prettyType (typeOf x') ++ " but function expects type " ++ prettyType ta)
     _ -> fail ("<" ++ prettyExpr f ++ "> is not of function type")
 

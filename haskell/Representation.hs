@@ -85,9 +85,8 @@ data Expr
   | FloatExpr !Double
   | BoolExpr !Bool
   | VarExpr !String
-  | AppOp1Expr !Operator1 !Expr
-  | AppOp2Expr !Operator2 !Expr !Expr
-  | AppExpr !Expr !Expr
+  | AppOpExpr !Op ![Expr]
+  | AppFnExpr !Expr !Expr
   | ArrayExpr ![Expr]
   | TupleExpr ![Expr]
   | IfExpr !Expr !Expr !Expr
@@ -103,9 +102,8 @@ data TypedExpr
   | FloatTypedExpr !Double
   | BoolTypedExpr !Bool
   | VarTypedExpr !Type !String
-  | AppOp1TypedExpr !Type !Operator1 !TypedExpr
-  | AppOp2TypedExpr !Type !Operator2 !TypedExpr !TypedExpr
-  | AppTypedExpr !Type !TypedExpr !TypedExpr
+  | AppOpTypedExpr !Type !Op ![TypedExpr]
+  | AppFnTypedExpr !Type !TypedExpr !TypedExpr
   | ArrayTypedExpr !Type ![TypedExpr]
   | TupleTypedExpr !Type ![TypedExpr]
   | IfTypedExpr !Type !TypedExpr !TypedExpr !TypedExpr
@@ -121,9 +119,8 @@ typeOf (IntTypedExpr _) = IntType
 typeOf (FloatTypedExpr _) = FloatType
 typeOf (BoolTypedExpr _) = BoolType
 typeOf (VarTypedExpr t _) = t
-typeOf (AppOp1TypedExpr t _ _) = t
-typeOf (AppOp2TypedExpr t _ _ _) = t
-typeOf (AppTypedExpr t _ _) = t
+typeOf (AppOpTypedExpr t _ _) = t
+typeOf (AppFnTypedExpr t _ _) = t
 typeOf (ArrayTypedExpr t _) = t
 typeOf (TupleTypedExpr t _) = t
 typeOf (IfTypedExpr t _ _ _) = t
