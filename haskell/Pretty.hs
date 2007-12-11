@@ -2,6 +2,7 @@ module Pretty(prettyExpr, prettyType, prettyPatt, prettyTypedPatt) where
 
 import Data.List as List
 import Representation
+import Library
 
 paren :: Bool -> [Char] -> [Char]
 paren True s = "(" ++ s ++ ")"

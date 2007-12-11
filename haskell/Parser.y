@@ -2,6 +2,7 @@
 {-# OPTIONS -w #-} -- suppress millions of Happy warnings
 module Parser(parser) where
 import Representation
+import Library
 import Lexer
 import Data.List(foldl')
 }
