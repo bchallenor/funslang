@@ -106,4 +106,4 @@ prettyExpr (ArrayExpr es) = array (map prettyExpr es)
 prettyExpr (TupleExpr es) = tuple (map prettyExpr es)
 prettyExpr (IfExpr ec et ef) = "if " ++ prettyExpr ec ++ " then " ++ prettyExpr et ++ " else " ++ prettyExpr ef
 prettyExpr (LetExpr p ea eb) = "let " ++ prettyPatt p ++ " = " ++ prettyExpr ea ++ " in " ++ prettyExpr eb
-prettyExpr (LambdaExpr p t e) = "\\ (" ++ prettyPatt p ++ " :: " ++ prettyType t ++ ") . " ++ prettyExpr e
+prettyExpr (LambdaExpr p t e) = "\\ " ++ prettyPatt p ++ " :: " ++ prettyType t ++ " . " ++ prettyExpr e

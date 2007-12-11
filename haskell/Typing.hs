@@ -105,7 +105,7 @@ inferType' gamma (IfExpr ec et ef) = do
 
 inferType' gamma (LetExpr p bound body) = do -- todo: remove the redundancy between let-exprs and lambdas...
   bound' <- inferType' gamma bound
-  let tp = (typeOf bound')
+  let tp = typeOf bound'
   case matchTypeWithPattern tp p of
     Just tbindings -> do
       let (vs, _) = unzip tbindings
