@@ -3,9 +3,6 @@ let mix (x::Float 3) (y::Float 3) (a::Float) =
 
 let fract x::Float = x in
 
-let clamp (v::Float 3) (lo::Float) (hi::Float) =
-  map (\x::Float. if x > lo then (if x < hi then x else hi) else lo) v in
-
 
 -- Fragment shader for drawing Julia sets
 -- Author: Ben Challenor
@@ -51,6 +48,4 @@ let basecolor =
 
 let litcolor = basecolor *. LightIntensity in
 
-let clampedcolor = clamp litcolor 0.0 1.0 in
-
-  clampedcolor @ [1.0]
+  litcolor @ [1.0]
