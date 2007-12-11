@@ -25,6 +25,7 @@ data Token
   | TOK_RBRACKET
   | TOK_LPAREN
   | TOK_RPAREN
+  | TOK_WILDCARD
   --
   | TOK_OP_SUBSCRIPT
   | TOK_OP_SWIZZLE
@@ -133,7 +134,8 @@ typeOf (LambdaTypedExpr t _ _ _) = t
 
 
 data Patt
-  = UnitPatt
+  = WildPatt
+  | UnitPatt
   | VarPatt !String
   | ArrayPatt ![Patt]
   | TuplePatt ![Patt]

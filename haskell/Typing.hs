@@ -142,6 +142,8 @@ patternMatchError = "pattern match failure"
 -- Finds the variable type bindings resulting from matching pattern to type
 matchTypeWithPattern :: Monad m => Type -> Patt -> m [(String, Type)]
 
+matchTypeWithPattern _ (WildPatt) = return []
+
 matchTypeWithPattern (UnitType) (UnitPatt) = return []
 matchTypeWithPattern _ (UnitPatt) = fail patternMatchError
 

@@ -31,6 +31,7 @@ import Data.List(foldl')
   RBRACKET { TOK_RBRACKET }
   LPAREN { TOK_LPAREN }
   RPAREN { TOK_RPAREN }
+  WILDCARD { TOK_WILDCARD }
   OP_SUBSCRIPT { TOK_OP_SUBSCRIPT }
   OP_SWIZZLE { TOK_OP_SWIZZLE }
   OP_APPEND { TOK_OP_APPEND }
@@ -249,7 +250,8 @@ untyped_array_patt :: { Patt }
   ;
 
 untyped_patt :: { Patt }
-  : LPAREN RPAREN { UnitPatt }
+  : WILDCARD { WildPatt }
+  | LPAREN RPAREN { UnitPatt }
   | IDENTIFIER { VarPatt $1 }
   | untyped_tuple_patt { $1 }
   | untyped_array_patt { $1 }
@@ -266,7 +268,8 @@ typed_tuple_patt :: { (Patt, Type) }
   ;
 
 typed_patt :: { (Patt, Type) }
-  : LPAREN RPAREN TYPESPECIFIER type { (UnitPatt, $4) }
+  : WILDCARD TYPESPECIFIER type { (WildPatt, $3) }
+  | LPAREN RPAREN TYPESPECIFIER type { (UnitPatt, $4) }
   | IDENTIFIER TYPESPECIFIER type { (VarPatt $1, $3) }
   | typed_tuple_patt { $1 }
   | untyped_tuple_patt TYPESPECIFIER type { ($1, $3) }

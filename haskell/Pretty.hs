@@ -87,6 +87,7 @@ atomType (ArrayType t i) = False
 atomType (FunType t1 t2) = False
 
 prettyPatt :: Patt -> String
+prettyPatt (WildPatt) = "_"
 prettyPatt (UnitPatt) = "()"
 prettyPatt (VarPatt s) = s
 prettyPatt (ArrayPatt ps) = array (map prettyPatt ps)

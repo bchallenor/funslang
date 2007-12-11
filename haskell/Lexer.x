@@ -41,6 +41,7 @@ tokens :-
   "]"                       { \s -> TOK_RBRACKET }
   "("                       { \s -> TOK_LPAREN }
   ")"                       { \s -> TOK_RPAREN }
+  "_"                       { \s -> TOK_WILDCARD }
   
   "!"                       { \s -> TOK_OP_SUBSCRIPT }
   "!!"                      { \s -> TOK_OP_SWIZZLE }
@@ -78,7 +79,7 @@ tokens :-
   "."                       { \s -> TOK_LAMBDA_DOT }
   
   -- this goes last as it should not take precendence over the keywords
-  [$a _] [$a $d _]*         { \s -> TOK_IDENTIFIER s }
+  $a [$a $d]*               { \s -> TOK_IDENTIFIER s }
 
 
 {
