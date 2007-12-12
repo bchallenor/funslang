@@ -23,7 +23,9 @@ module Library where
 --   | Fun_truncate -- f -> f
 --   | Fun_fract -- f -> f
 --   | Fun_mod -- f -> f -> f
---   | Fun_clamp -- f -> f -> f -> f
+--   | Fun_min -- f -> f -> f
+--   | Fun_max -- f -> f -> f
+--   | Fun_clamp -- f -> f -> f -> f (lo->hi->x)
 --   | Fun_mix -- f -> f -> f -> f
 --   | Fun_step -- f -> f -> f
 --   | Fun_smoothstep -- f -> f -> f -> f
@@ -32,5 +34,10 @@ module Library where
 --   | Fun_toFloat -- i -> f
 --   --
 --   | Fun_cross -- f 3 -> f 3 -> f 3
+--   --
+--   | Fun_sample1D -- t1d -> f 1 -> f 4
+--   | Fun_sample2D -- t2d -> f 2 -> f 4
+--   | Fun_sample3D -- t3d -> f 3 -> f 4
+--   | Fun_sampleCube -- tcube -> f 3 -> f 4
 
 --   deriving (Show, Eq)
