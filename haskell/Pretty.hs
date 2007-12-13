@@ -1,4 +1,4 @@
-module Pretty(prettyOp, prettyType, prettyExpr, prettyPatt) where
+module Pretty(prettyType, prettyExpr, prettyPatt) where
 
 import Data.List as List
 import Representation
@@ -23,36 +23,9 @@ tuple = paren True . comma
 array :: [[Char]] -> [Char]
 array = brack True . comma
 
-prettyOp :: Op -> String
-prettyOp (Op1Prefix' Op1Neg)                  = "-"
-prettyOp (Op1Prefix' Op1Not)                  = "~"
-prettyOp (Op1Postfix' Op1Transpose)           = "'"
-prettyOp (Op2Infix' Op2Subscript)             = "!"
-prettyOp (Op2Infix' Op2Swizzle)               = "!!"
-prettyOp (Op2Infix' Op2Append)                = "@"
-prettyOp (Op2Infix' Op2Mul)                   = "*"
-prettyOp (Op2Infix' Op2Div)                   = "/"
-prettyOp (Op2Infix' Op2LinearMul)             = "**"
-prettyOp (Op2Infix' Op2ScaleMul)              = "*."
-prettyOp (Op2Infix' Op2ScaleDiv)              = "/."
-prettyOp (Op2Infix' Op2Add)                   = "+"
-prettyOp (Op2Infix' Op2Sub)                   = "-"
-prettyOp (Op2Infix' Op2LessThan)              = "<"
-prettyOp (Op2Infix' Op2LessThanEqual)         = "<="
-prettyOp (Op2Infix' Op2GreaterThan)           = ">"
-prettyOp (Op2Infix' Op2GreaterThanEqual)      = ">="
-prettyOp (Op2Infix' Op2Equal)                 = "=="
-prettyOp (Op2Infix' Op2NotEqual)              = "/="
-prettyOp (Op2Infix' Op2And)                   = "&&"
-prettyOp (Op2Infix' Op2Or)                    = "||"
-prettyOp (Op2Prefix' Op2_map)                 = "map"
-prettyOp (Op3Prefix' Op3_foldl)               = "foldl"
-prettyOp (Op3Prefix' Op3_foldr)               = "foldr"
-
 prettyType :: Type -> String
 prettyType (UnitType) = "()"
-prettyType (IntType) = "Int"
-prettyType (FloatType) = "Float"
+prettyType (NumType) = "Num"
 prettyType (BoolType) = "Bool"
 prettyType (Texture1DType) = "Texture1D"
 prettyType (Texture2DType) = "Texture2D"
@@ -70,8 +43,7 @@ prettyType (FunType t1 t2) =
 
 atomType :: Type -> Bool
 atomType (UnitType) = True
-atomType (IntType) = True
-atomType (FloatType) = True
+atomType (NumType) = True
 atomType (BoolType) = True
 atomType (Texture1DType) = True
 atomType (Texture2DType) = True
@@ -90,21 +62,12 @@ prettyPatt (TuplePatt ps) = tuple (map prettyPatt ps)
 
 prettyExpr :: Expr -> String
 prettyExpr (UnitExpr) = "()"
-prettyExpr (IntExpr i) = show i
-prettyExpr (FloatExpr d) = show d
+prettyExpr (NumExpr d) = show d
 prettyExpr (BoolExpr b) = show b
 prettyExpr (VarExpr s) = s
-prettyExpr (AppOpExpr op' es) =
-  let prefix = space $ prettyOp op' : map ((paren True) . prettyExpr) es in
-  case op' of
-    Op1Prefix' op -> prefix
-    Op1Postfix' op -> let [e] = es in paren True (prettyExpr e) ++ prettyOp op'
-    Op2Infix' op -> let [e1,e2] = es in paren True $ paren True (prettyExpr e1) ++ prettyOp op' ++ paren True (prettyExpr e2)
-    Op2Prefix' op -> prefix
-    Op3Prefix' op -> prefix
-prettyExpr (AppFnExpr e1 e2) = paren True (prettyExpr e1) ++ prettyExpr e2
+prettyExpr (AppExpr e1 e2) = paren True $ paren True (prettyExpr e1) ++ " " ++ prettyExpr e2
 prettyExpr (ArrayExpr es) = array (map prettyExpr es)
 prettyExpr (TupleExpr es) = tuple (map prettyExpr es)
 prettyExpr (IfExpr ec et ef) = "if " ++ prettyExpr ec ++ " then " ++ prettyExpr et ++ " else " ++ prettyExpr ef
 prettyExpr (LetExpr p ea eb) = "let " ++ prettyPatt p ++ " = " ++ prettyExpr ea ++ " in " ++ prettyExpr eb
-prettyExpr (LambdaExpr p t e) = "\\ " ++ prettyPatt p ++ " :: " ++ prettyType t ++ " . " ++ prettyExpr e
+prettyExpr (LambdaExpr p e) = "\\ " ++ prettyPatt p ++ " . " ++ prettyExpr e

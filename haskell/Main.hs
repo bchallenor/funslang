@@ -2,7 +2,7 @@ import Lexer
 import Parser
 import System.Environment
 import Pretty
-import Typing
+--import Typing
 import Representation
 
 test :: IO ()
@@ -13,16 +13,16 @@ ioe = do
   s <- readFile "test.vp"
   return ((parser . lexer) s)
 
-ioe' :: IO TypedExpr
-ioe' = do
-  e <- ioe
-  e' <- inferType e
-  return e'
+-- ioe' :: IO TypedExpr
+-- ioe' = do
+--   e <- ioe
+--   e' <- inferType e
+--   return e'
 
-iot :: IO Type
-iot = do
-  e' <- ioe'
-  return (typeOf e')
+-- iot :: IO Type
+-- iot = do
+--   e' <- ioe'
+--   return (typeOf e')
 
 main :: IO ()
 main = do
@@ -32,5 +32,5 @@ main = do
   putStrLn (show e)
   putStrLn ""
   putStrLn (prettyExpr e)
-  putStrLn ""
-  putStrLn (case inferType e of Typeable e -> prettyType (typeOf e); Untypeable s -> s)
+--  putStrLn ""
+--  putStrLn (case inferType e of Typeable e -> prettyType (typeOf e); Untypeable s -> s)

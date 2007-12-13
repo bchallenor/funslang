@@ -14,9 +14,8 @@ import Data.List(foldl')
 %tokentype { Token }
 
 %token
+  NUM { TOK_NUM }
   BOOL { TOK_BOOL }
-  INT { TOK_INT }
-  FLOAT { TOK_FLOAT }
   TEXTURE1D { TOK_TEXTURE1D }
   TEXTURE2D { TOK_TEXTURE2D }
   TEXTURE3D { TOK_TEXTURE3D }
@@ -32,18 +31,22 @@ import Data.List(foldl')
   LPAREN { TOK_LPAREN }
   RPAREN { TOK_RPAREN }
   WILDCARD { TOK_WILDCARD }
+  OP_NOT { TOK_OP_NOT }
   OP_SUBSCRIPT { TOK_OP_SUBSCRIPT }
   OP_SWIZZLE { TOK_OP_SWIZZLE }
-  OP_APPEND { TOK_OP_APPEND }
-  OP_TRANSPOSE { TOK_OP_TRANSPOSE }
-  OP_NOT { TOK_OP_NOT }
-  OP_MUL { TOK_OP_MUL }
-  OP_DIV { TOK_OP_DIV }
-  OP_LINEAR_MUL { TOK_OP_LINEAR_MUL }
-  OP_SCALE_MUL { TOK_OP_SCALE_MUL }
-  OP_SCALE_DIV { TOK_OP_SCALE_DIV }
-  OP_ADD { TOK_OP_ADD }
-  OP_NEG_OP_SUB { TOK_OP_NEG_OP_SUB }
+  OP_SCALAR_ADD { TOK_OP_SCALAR_ADD }
+  OP_SCALAR_NEG_OP_SCALAR_SUB { TOK_OP_SCALAR_NEG_OP_SCALAR_SUB }
+  OP_SCALAR_MUL { TOK_OP_SCALAR_MUL }
+  OP_SCALAR_DIV { TOK_OP_SCALAR_DIV }
+  OP_VECTOR_ADD { TOK_OP_VECTOR_ADD }
+  OP_VECTOR_NEG_OP_VECTOR_SUB { TOK_OP_VECTOR_NEG_OP_VECTOR_SUB }
+  OP_VECTOR_MUL { TOK_OP_VECTOR_MUL }
+  OP_VECTOR_DIV { TOK_OP_VECTOR_DIV }
+  OP_VECTOR_SCALAR_MUL { TOK_OP_VECTOR_SCALAR_MUL }
+  OP_VECTOR_SCALAR_DIV { TOK_OP_VECTOR_SCALAR_DIV }
+  OP_MATRIX_MATRIX_LINEAR_MUL { TOK_OP_MATRIX_MATRIX_LINEAR_MUL }
+  OP_MATRIX_VECTOR_LINEAR_MUL { TOK_OP_MATRIX_VECTOR_LINEAR_MUL }
+  OP_VECTOR_MATRIX_LINEAR_MUL { TOK_OP_VECTOR_MATRIX_LINEAR_MUL }
   OP_LT { TOK_OP_LT }
   OP_GT { TOK_OP_GT }
   OP_LTE { TOK_OP_LTE }
@@ -52,9 +55,7 @@ import Data.List(foldl')
   OP_NEQ { TOK_OP_NEQ }
   OP_AND { TOK_OP_AND }
   OP_OR { TOK_OP_OR }
-  OP_MAP { TOK_OP_MAP }
-  OP_FOLDL { TOK_OP_FOLDL }
-  OP_FOLDR { TOK_OP_FOLDR }
+  OP_TRANSPOSE { TOK_OP_TRANSPOSE }
   IF { TOK_IF }
   THEN { TOK_THEN }
   ELSE { TOK_ELSE }
@@ -65,6 +66,17 @@ import Data.List(foldl')
   RARROW { TOK_RARROW }
   LAMBDA { TOK_LAMBDA }
   LAMBDA_DOT { TOK_LAMBDA_DOT }
+
+%left OP_OR
+%left OP_AND
+%nonassoc OP_EQ OP_NEQ
+%nonassoc OP_LT OP_LTE OP_GT OP_GTE
+%left OP_SCALAR_ADD OP_SCALAR_NEG_OP_SCALAR_SUB OP_VECTOR_ADD OP_VECTOR_NEG_OP_VECTOR_SUB
+%right OP_MATRIX_VECTOR_LINEAR_MUL
+%left OP_SCALAR_MUL OP_SCALAR_DIV OP_VECTOR_MUL OP_VECTOR_DIV OP_VECTOR_SCALAR_MUL OP_VECTOR_SCALAR_DIV OP_MATRIX_MATRIX_LINEAR_MUL OP_VECTOR_MATRIX_LINEAR_MUL
+%left OP_SUBSCRIPT OP_SWIZZLE
+%nonassoc OP_NOT
+%nonassoc OP_TRANSPOSE
 
 %name parser expr
 
@@ -80,9 +92,9 @@ import Data.List(foldl')
 -- This means that in some places, lists are constructed backwards and reversed.
 --------------------------------------------------------------------------------
 
----
---- Types
----
+--
+-- Types
+--
 
 tuple_type_inner :: { [Type] }
   : type COMMA type { $3:$1:[] }
@@ -99,8 +111,7 @@ array_type :: { Type }
 
 primary_type :: { Type }
   : LPAREN RPAREN { UnitType }
-  | INT { IntType }
-  | FLOAT { FloatType }
+  | NUM { NumType }
   | BOOL { BoolType }
   | TEXTURE1D { Texture1DType }
   | TEXTURE2D { Texture2DType }
@@ -117,9 +128,46 @@ type :: { Type } -- right recursion for right associativity
   ;
 
 
----
---- Expressions
----
+--
+-- Operators
+--
+-- Note that the prefix negation operators cannot be sectioned.
+--
+
+operator :: { Operator }
+  : OP_NOT { OpNot }
+  --
+  | OP_SUBSCRIPT { OpSubscript }
+  | OP_SWIZZLE { OpSwizzle }
+  | OP_SCALAR_ADD { OpScalarAdd }
+  | OP_SCALAR_NEG_OP_SCALAR_SUB { OpScalarSub }
+  | OP_SCALAR_MUL { OpScalarMul }
+  | OP_SCALAR_DIV { OpScalarDiv }
+  | OP_VECTOR_ADD { OpVectorAdd }
+  | OP_VECTOR_NEG_OP_VECTOR_SUB { OpVectorSub }
+  | OP_VECTOR_MUL { OpVectorMul }
+  | OP_VECTOR_DIV { OpVectorDiv }
+  | OP_VECTOR_SCALAR_MUL { OpVectorScalarMul }
+  | OP_VECTOR_SCALAR_DIV { OpVectorScalarDiv }
+  | OP_MATRIX_MATRIX_LINEAR_MUL { OpMatrixMatrixLinearMul }
+  | OP_MATRIX_VECTOR_LINEAR_MUL { OpMatrixVectorLinearMul }
+  | OP_VECTOR_MATRIX_LINEAR_MUL { OpVectorMatrixLinearMul }
+  | OP_LT { OpLessThan }
+  | OP_GT { OpGreaterThan }
+  | OP_LTE { OpLessThanEqual }
+  | OP_GTE { OpGreaterThanEqual }
+  | OP_EQ { OpEqual }
+  | OP_NEQ { OpNotEqual }
+  | OP_AND { OpAnd }
+  | OP_OR { OpOr }
+  --
+  | OP_TRANSPOSE { OpTranspose }
+  ;
+
+
+--
+-- Expressions
+--
 
 tuple_expr_inner :: { [Expr] }
   : expr COMMA expr { $3:$1:[] }
@@ -140,144 +188,103 @@ array_expr :: { Expr }
   ;
 
 array_range_expr :: { Expr }
-  : LBRACKET LITERAL_INT RANGE_DOTS LITERAL_INT RBRACKET { ArrayExpr (map IntExpr (if $2<=$4 then [$2..$4] else reverse [$4..$2])) }
+  : LBRACKET LITERAL_INT RANGE_DOTS LITERAL_INT RBRACKET { ArrayExpr (map (NumExpr . fromInteger) (if $2<=$4 then [$2..$4] else reverse [$4..$2])) }
   ;
 
 primary_expr :: { Expr }
   : LPAREN RPAREN { UnitExpr }
-  | LITERAL_INT { IntExpr $1 }
-  | LITERAL_FLOAT { FloatExpr $1 }
+  | LITERAL_INT { NumExpr (fromInteger $1) }
+  | LITERAL_FLOAT { NumExpr $1 }
   | LITERAL_BOOL { BoolExpr $1 }
   | IDENTIFIER { VarExpr $1 }
   | tuple_expr { $1 }
   | array_expr { $1 }
   | array_range_expr { $1 }
+  | LPAREN operator RPAREN { VarExpr (show $2) }
   | LPAREN expr RPAREN { $2 }
   ;
 
 app_expr :: { Expr }
-  : app_expr primary_expr { AppFnExpr $1 $2 }
-  | OP_NEG_OP_SUB primary_expr { AppOpExpr (Op1Prefix' Op1Neg) [$2] }
-  | OP_NOT primary_expr { AppOpExpr (Op1Prefix' Op1Not) [$2] }
-  | OP_MAP primary_expr primary_expr { AppOpExpr (Op2Prefix' Op2_map) [$2,$3] }
-  | OP_FOLDL primary_expr primary_expr primary_expr { AppOpExpr (Op3Prefix' Op3_foldl) [$2,$3,$4] }
-  | OP_FOLDR primary_expr primary_expr primary_expr { AppOpExpr (Op3Prefix' Op3_foldr) [$2,$3,$4] }
+  : app_expr primary_expr { AppExpr $1 $2 }
   | primary_expr { $1 }
   ;
 
-postfix_expr :: { Expr }
-  : postfix_expr OP_TRANSPOSE { AppOpExpr (Op1Postfix' Op1Transpose) [$1] }
+operator_expr :: { Expr }
+  : OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { prefixExpr OpScalarNeg $2 }
+  | OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { prefixExpr OpVectorNeg $2 }
+  | OP_NOT operator_expr { prefixExpr OpNot $2 }
+  --
+  | operator_expr OP_SUBSCRIPT operator_expr { infixExpr OpSubscript $1 $3 }
+  | operator_expr OP_SWIZZLE operator_expr { infixExpr OpSwizzle $1 $3 }
+  | operator_expr OP_SCALAR_ADD operator_expr { infixExpr OpScalarAdd $1 $3 }
+  | operator_expr OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { infixExpr OpScalarSub $1 $3 }
+  | operator_expr OP_SCALAR_MUL operator_expr { infixExpr OpScalarMul $1 $3 }
+  | operator_expr OP_SCALAR_DIV operator_expr { infixExpr OpScalarDiv $1 $3 }
+  | operator_expr OP_VECTOR_ADD operator_expr { infixExpr OpVectorAdd $1 $3 }
+  | operator_expr OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { infixExpr OpVectorSub $1 $3 }
+  | operator_expr OP_VECTOR_MUL operator_expr { infixExpr OpVectorMul $1 $3 }
+  | operator_expr OP_VECTOR_DIV operator_expr { infixExpr OpVectorDiv $1 $3 }
+  | operator_expr OP_VECTOR_SCALAR_MUL operator_expr { infixExpr OpVectorScalarMul $1 $3 }
+  | operator_expr OP_VECTOR_SCALAR_DIV operator_expr { infixExpr OpVectorScalarDiv $1 $3 }
+  | operator_expr OP_MATRIX_MATRIX_LINEAR_MUL operator_expr { infixExpr OpMatrixMatrixLinearMul $1 $3 }
+  | operator_expr OP_MATRIX_VECTOR_LINEAR_MUL operator_expr { infixExpr OpMatrixVectorLinearMul $1 $3 }
+  | operator_expr OP_VECTOR_MATRIX_LINEAR_MUL operator_expr { infixExpr OpVectorMatrixLinearMul $1 $3 }
+  | operator_expr OP_LT operator_expr { infixExpr OpLessThan $1 $3 }
+  | operator_expr OP_GT operator_expr { infixExpr OpGreaterThan $1 $3 }
+  | operator_expr OP_LTE operator_expr { infixExpr OpLessThanEqual $1 $3 }
+  | operator_expr OP_GTE operator_expr { infixExpr OpGreaterThanEqual $1 $3 }
+  | operator_expr OP_EQ operator_expr { infixExpr OpEqual $1 $3 }
+  | operator_expr OP_NEQ operator_expr { infixExpr OpNotEqual $1 $3 }
+  | operator_expr OP_AND operator_expr { infixExpr OpAnd $1 $3 }
+  | operator_expr OP_OR operator_expr { infixExpr OpOr $1 $3 }
+  --
+  | operator_expr OP_TRANSPOSE { postfixExpr OpTranspose $1 }
   | app_expr { $1 }
   ;
 
-access_expr :: { Expr }
-  : access_expr OP_SUBSCRIPT postfix_expr { AppOpExpr (Op2Infix' Op2Subscript) [$1,$3] }
-  | access_expr OP_SWIZZLE postfix_expr { AppOpExpr (Op2Infix' Op2Swizzle) [$1,$3] }
-  | access_expr OP_APPEND postfix_expr { AppOpExpr (Op2Infix' Op2Append) [$1,$3] }
-  | postfix_expr { $1 }
-  ;
-
-multiplicative_expr :: { Expr }
-  : multiplicative_expr OP_MUL access_expr { AppOpExpr (Op2Infix' Op2Mul) [$1,$3] }
-  | multiplicative_expr OP_DIV access_expr { AppOpExpr (Op2Infix' Op2Div) [$1,$3] }
-  | multiplicative_expr OP_LINEAR_MUL access_expr { AppOpExpr (Op2Infix' Op2LinearMul) [$1,$3] }
-  | multiplicative_expr OP_SCALE_MUL access_expr { AppOpExpr (Op2Infix' Op2ScaleMul) [$1,$3] }
-  | multiplicative_expr OP_SCALE_DIV access_expr { AppOpExpr (Op2Infix' Op2ScaleDiv) [$1,$3] }
-  | access_expr { $1 }
-  ;
-
-additive_expr :: { Expr }
-  : additive_expr OP_ADD multiplicative_expr { AppOpExpr (Op2Infix' Op2Add) [$1,$3] }
-  | additive_expr OP_NEG_OP_SUB multiplicative_expr { AppOpExpr (Op2Infix' Op2Sub) [$1,$3] }
-  | multiplicative_expr { $1 }
-  ;
-
-relational_expr :: { Expr }
-  : relational_expr OP_LT additive_expr { AppOpExpr (Op2Infix' Op2LessThan) [$1,$3] }
-  | relational_expr OP_GT additive_expr { AppOpExpr (Op2Infix' Op2GreaterThan) [$1,$3] }
-  | relational_expr OP_LTE additive_expr { AppOpExpr (Op2Infix' Op2LessThanEqual) [$1,$3] }
-  | relational_expr OP_GTE additive_expr { AppOpExpr (Op2Infix' Op2GreaterThanEqual) [$1,$3] }
-  | additive_expr { $1 }
-  ;
-
-equality_expr :: { Expr }
-  : equality_expr OP_EQ relational_expr { AppOpExpr (Op2Infix' Op2Equal) [$1,$3] }
-  | equality_expr OP_NEQ relational_expr { AppOpExpr (Op2Infix' Op2NotEqual) [$1,$3] }
-  | relational_expr { $1 }
-  ;
-
-logical_and_expr :: { Expr }
-  : logical_and_expr OP_AND equality_expr { AppOpExpr (Op2Infix' Op2And) [$1,$3] }
-  | equality_expr { $1 }
-  ;
-
-logical_or_expr :: { Expr }
-  : logical_or_expr OP_OR logical_and_expr { AppOpExpr (Op2Infix' Op2Or) [$1,$3] }
-  | logical_and_expr { $1 }
-  ;
-
 expr :: { Expr }
-  : LAMBDA typed_patts LAMBDA_DOT expr { foldl' (\e (p, t) -> LambdaExpr p t e) $4 $2 }
+  : LAMBDA patts LAMBDA_DOT expr { foldl' (flip LambdaExpr) $4 $2 }
   | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
-  | LET untyped_patt EQUALS expr IN expr { LetExpr $2 $4 $6 } -- todo: function defs
-  | LET IDENTIFIER typed_patts EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (\e (p, t) -> LambdaExpr p t e) $5 $3) $7 }
-  | logical_or_expr { $1 }
+  | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 }
+  | LET IDENTIFIER patts EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (flip LambdaExpr) $5 $3) $7 }
+  | operator_expr { $1 }
   ;
 
 
----
---- Patterns (with and without type annotations)
----
+--
+-- Patterns
+--
 
-untyped_tuple_patt_inner :: { [Patt] }
-  : untyped_patt COMMA untyped_patt { $3:$1:[] }
-  | untyped_tuple_patt_inner COMMA untyped_patt { $3:$1 }
+tuple_patt_inner :: { [Patt] }
+  : patt COMMA patt { $3:$1:[] }
+  | tuple_patt_inner COMMA patt { $3:$1 }
   ;
 
-untyped_tuple_patt :: { Patt }
-  : LPAREN untyped_tuple_patt_inner RPAREN { TuplePatt (reverse $2) }
+tuple_patt :: { Patt }
+  : LPAREN tuple_patt_inner RPAREN { TuplePatt (reverse $2) }
   ;
 
-untyped_array_patt_inner :: { [Patt] }
-  : untyped_patt { $1:[] }
-  | untyped_array_patt_inner COMMA untyped_patt { $3:$1 }
+array_patt_inner :: { [Patt] }
+  : patt { $1:[] }
+  | array_patt_inner COMMA patt { $3:$1 }
   ;
 
-untyped_array_patt :: { Patt }
-  : LBRACKET untyped_array_patt_inner RBRACKET { ArrayPatt (reverse $2) }
+array_patt :: { Patt }
+  : LBRACKET array_patt_inner RBRACKET { ArrayPatt (reverse $2) }
   ;
 
-untyped_patt :: { Patt }
+patt :: { Patt }
   : WILDCARD { WildPatt }
   | LPAREN RPAREN { UnitPatt }
   | IDENTIFIER { VarPatt $1 }
-  | untyped_tuple_patt { $1 }
-  | untyped_array_patt { $1 }
-  | LPAREN untyped_patt RPAREN { $2 }
+  | tuple_patt { $1 }
+  | array_patt { $1 }
+  | LPAREN patt RPAREN { $2 }
   ;
 
-typed_tuple_patt_inner :: { [(Patt, Type)] }
-  : typed_patt COMMA typed_patt { $3:$1:[] }
-  | typed_tuple_patt_inner COMMA typed_patt { $3:$1 }
-  ;
-
-typed_tuple_patt :: { (Patt, Type) }
-  : LPAREN typed_tuple_patt_inner RPAREN { let (ps, ts) = (unzip . reverse) $2 in (TuplePatt ps, TupleType ts) }
-  ;
-
-typed_patt :: { (Patt, Type) }
-  : WILDCARD TYPESPECIFIER type { (WildPatt, $3) }
-  | LPAREN RPAREN TYPESPECIFIER type { (UnitPatt, $4) }
-  | IDENTIFIER TYPESPECIFIER type { (VarPatt $1, $3) }
-  | typed_tuple_patt { $1 }
-  | untyped_tuple_patt TYPESPECIFIER type { ($1, $3) }
-  | untyped_array_patt TYPESPECIFIER type { ($1, $3) }
-  | LPAREN typed_patt RPAREN { $2 }
-  ;
-
-typed_patts :: { [(Patt, Type)] }
-  : typed_patt { $1:[] }
-  | typed_patts typed_patt { $2:$1 }
+patts :: { [Patt] }
+  : patt { $1:[] }
+  | patts patt { $2:$1 }
   ;
 
 
@@ -288,4 +295,13 @@ typed_patts :: { [(Patt, Type)] }
 {
 parseError :: [Token] -> a
 parseError ts = error ("Parse error at: " ++ show ts)
+
+prefixExpr :: Operator -> Expr -> Expr
+prefixExpr op a = AppExpr (VarExpr (show op)) a
+
+infixExpr :: Operator -> Expr -> Expr -> Expr
+infixExpr op a b = AppExpr (AppExpr (VarExpr (show op)) a) b
+
+postfixExpr :: Operator -> Expr -> Expr
+postfixExpr op a = AppExpr (VarExpr (show op)) a
 }

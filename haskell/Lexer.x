@@ -22,8 +22,7 @@ tokens :-
   "--" .*                   ; -- ignore comments (upto newline)
   
   "Bool"                    { \s -> TOK_BOOL }
-  "Int"                     { \s -> TOK_INT }
-  "Float"                   { \s -> TOK_FLOAT }
+  "Num"                     { \s -> TOK_NUM }
   
   "Texture1D"               { \s -> TOK_TEXTURE1D }
   "Texture2D"               { \s -> TOK_TEXTURE2D }
@@ -43,18 +42,22 @@ tokens :-
   ")"                       { \s -> TOK_RPAREN }
   "_"                       { \s -> TOK_WILDCARD }
   
+  "~"                       { \s -> TOK_OP_NOT }
   "!"                       { \s -> TOK_OP_SUBSCRIPT }
   "!!"                      { \s -> TOK_OP_SWIZZLE }
-  "@"                       { \s -> TOK_OP_APPEND }
-  "'"                       { \s -> TOK_OP_TRANSPOSE }
-  "~"                       { \s -> TOK_OP_NOT }
-  "*"                       { \s -> TOK_OP_MUL }
-  "/"                       { \s -> TOK_OP_DIV }
-  "**"                      { \s -> TOK_OP_LINEAR_MUL }
-  "*."                      { \s -> TOK_OP_SCALE_MUL }
-  "/."                      { \s -> TOK_OP_SCALE_DIV }
-  "+"                       { \s -> TOK_OP_ADD }
-  "-"                       { \s -> TOK_OP_NEG_OP_SUB }
+  "+"                       { \s -> TOK_OP_SCALAR_ADD }
+  "-"                       { \s -> TOK_OP_SCALAR_NEG_OP_SCALAR_SUB }
+  "*"                       { \s -> TOK_OP_SCALAR_MUL }
+  "/"                       { \s -> TOK_OP_SCALAR_DIV }
+  "++"                      { \s -> TOK_OP_VECTOR_ADD }
+  "--"                      { \s -> TOK_OP_VECTOR_NEG_OP_VECTOR_SUB }
+  "**"                      { \s -> TOK_OP_VECTOR_MUL }
+  "//"                      { \s -> TOK_OP_VECTOR_DIV }
+  "**."                     { \s -> TOK_OP_VECTOR_SCALAR_MUL }
+  "//."                     { \s -> TOK_OP_VECTOR_SCALAR_DIV }
+  "#"                       { \s -> TOK_OP_MATRIX_MATRIX_LINEAR_MUL }
+  "#."                      { \s -> TOK_OP_MATRIX_VECTOR_LINEAR_MUL }
+  ".#"                      { \s -> TOK_OP_VECTOR_MATRIX_LINEAR_MUL }
   "<"                       { \s -> TOK_OP_LT }
   ">"                       { \s -> TOK_OP_GT }
   "<="                      { \s -> TOK_OP_LTE }
@@ -63,10 +66,7 @@ tokens :-
   "/="                      { \s -> TOK_OP_NEQ }
   "&&"                      { \s -> TOK_OP_AND }
   "||"                      { \s -> TOK_OP_OR }
-  
-  "map"                     { \s -> TOK_OP_MAP }
-  "foldl"                   { \s -> TOK_OP_FOLDL }
-  "foldr"                   { \s -> TOK_OP_FOLDR }
+  "'"                       { \s -> TOK_OP_TRANSPOSE }
   
   "if"                      { \s -> TOK_IF }
   "then"                    { \s -> TOK_THEN }
@@ -80,8 +80,8 @@ tokens :-
   "\"                       { \s -> TOK_LAMBDA }
   "."                       { \s -> TOK_LAMBDA_DOT }
   
-  -- this goes last as it should not take precendence over the keywords
-  $a [$a $d]*               { \s -> TOK_IDENTIFIER s }
+  -- this goes last as it should not take precedence over the keywords
+  $a [$a $d _]*           { \s -> TOK_IDENTIFIER s }
 
 
 {
