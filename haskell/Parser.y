@@ -99,8 +99,8 @@ import Data.List(foldl')
 --
 
 tuple_type_inner :: { [ExType] }
-  : primary_type COMMA primary_type { $3:$1:[] }
-  | tuple_type_inner COMMA primary_type { $3:$1 }
+  : fun_type COMMA fun_type { $3:$1:[] }
+  | tuple_type_inner COMMA fun_type { $3:$1 }
   ;
 
 primary_type :: { ExType }
