@@ -1,5 +1,6 @@
 module Representation where
 
+import qualified Data.Map as Map
 
 data Token
   = TOK_REAL
@@ -65,10 +66,27 @@ data Token
   deriving (Eq, Show)
 
 
--- Rather than store identifiers for type/dim vars, we assign them numbers.
+-- Rather than store identifiers for type/dim vars, we assign them numeric references.
 -- These numbers are then converted back to a,b,c etc in the pretty print.
-type TypeVarRef = Int
-type DimVarRef = Int
+class (Eq a, Show a, Ord a) => VarRef a where
+  nextFresh :: a -> a
+
+data TypeVarRef = TypeVarRef !Int
+  deriving (Eq, Show, Ord)
+
+instance VarRef TypeVarRef where
+  nextFresh (TypeVarRef i) = TypeVarRef (succ i)
+
+data DimVarRef = DimVarRef !Int
+  deriving (Eq, Show, Ord)
+
+instance VarRef DimVarRef where
+  nextFresh (DimVarRef i) = DimVarRef (succ i)
+
+-- next unmapped ref, map from identifiers to refs
+type VarRefEncodeContext = ((TypeVarRef, Map.Map Char TypeVarRef), (DimVarRef, Map.Map Char DimVarRef))
+-- next unmapped var, map from refs to identifiers
+type VarRefDecodeContext = ((Char, Map.Map TypeVarRef Char), (Char, Map.Map DimVarRef Char))
 
 
 data Type
