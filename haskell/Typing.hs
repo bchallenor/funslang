@@ -6,8 +6,24 @@ module Typing where
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
+import qualified Data.Foldable as Foldable
 import Pretty
 import Representation
+
+
+-- todo: come up with a better way of doing this
+data Typeability a
+  = Typeable !a
+  | Untypeable !String
+  
+  deriving (Show, Eq)
+
+instance Monad Typeability where
+  (Typeable x) >>= k = k x
+  (Untypeable s) >>= _ = Untypeable s
+  return = Typeable
+  fail = Untypeable
+
 
 
 -- A type scheme generalizes a type over the type vars and dim vars.
@@ -64,76 +80,69 @@ ftv (TypeArray t d) = ftv t
 ftv (TypeTuple ts) = List.foldl1' Set.union (map ftv ts)
 ftv (TypeFun t1 t2) = ftv t1 `Set.union` ftv t2
 ftv (TypeVar tvref) = Set.singleton tvref
-ftv _ = Set.empty -- all other types are atoms
+ftv _ = Set.empty -- nothing else can contain a var
 
 -- Returns the substitution that binds a type variable to a type.
-bindTypeVarRef :: TypeVarRef -> Type -> Either String TypeVarSubst
+bindTypeVarRef :: Monad m => TypeVarRef -> Type -> m TypeVarSubst
 bindTypeVarRef tvref t
-  | TypeVar tvref == t = Right nullTypeVarSubst -- identity substitutions should not fail occurs check
+  | TypeVar tvref == t = return nullTypeVarSubst -- identity substitutions should not fail occurs check
   | tvref `Set.member` ftv t =
     let [tv, pt] = prettyTypes [TypeVar tvref, t] in
-    Left ("occurs check: " ++ tv ++ " = " ++ pt) -- oops
-  | otherwise = Right (Map.singleton tvref t) -- finally, we can do the bind
+    fail $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
+  | otherwise = return (Map.singleton tvref t) -- finally, we can do the bind
 
 -- Finds the free dim variables in a dim.
 fdv :: Dim -> Set.Set DimVarRef
 fdv (DimVar dvref) = Set.singleton dvref
-fdv _ = Set.empty -- all other dims are atoms
+fdv _ = Set.empty -- nothing else can contain a var
 
 -- Returns the substitution that binds a dim variable to a dim.
-bindDimVarRef :: DimVarRef -> Dim -> Either String DimVarSubst
+bindDimVarRef :: Monad m => DimVarRef -> Dim -> m DimVarSubst
 bindDimVarRef dvref d
-  | DimVar dvref == d = Right nullDimVarSubst
-  | otherwise = Right (Map.singleton dvref d)
+  | DimVar dvref == d = return nullDimVarSubst
+  | otherwise = return (Map.singleton dvref d)
 
 -- Returns the most general unifier of two types.
--- mgu :: Type -> Type -> Either String Subst
--- mgu (TypeUnit) (TypeUnit) = Left nullSubst
--- mgu (TypeReal) (TypeReal) = Left nullSubst
--- mgu (TypeBool) (TypeBool) = Left nullSubst
--- mgu (TypeTexture1D) (TypeTexture1D) = Left nullSubst
--- mgu (TypeTexture2D) (TypeTexture2D) = Left nullSubst
--- mgu (TypeTexture3D) (TypeTexture3D) = Left nullSubst
--- mgu (TypeTextureCube) (TypeTextureCube) = Left nullSubst
--- mgu (TypeArray t (DimFix i)) (TypeArray t' (DimFix i')) =
---   if i == i'
---     then mgu t t'
---     else Right "array sizes do not match"
--- mgu (TypeTuple ts)
--- mgu (TypeFun t1 t2)
--- mgu (TypeVar tvref
+mgu :: Type -> Type -> Typeability Subst
+mgu (TypeUnit) (TypeUnit) = return nullSubst
+mgu (TypeReal) (TypeReal) = return nullSubst
+mgu (TypeBool) (TypeBool) = return nullSubst
+mgu (TypeTexture1D) (TypeTexture1D) = return nullSubst
+mgu (TypeTexture2D) (TypeTexture2D) = return nullSubst
+mgu (TypeTexture3D) (TypeTexture3D) = return nullSubst
+mgu (TypeTextureCube) (TypeTextureCube) = return nullSubst
+mgu (TypeArray t (DimVar dvref)) (TypeArray t' d') = do
+  dsub1 <- bindDimVarRef dvref d'
+  (tsub2, dsub2) <- mgu (applySubst (nullTypeVarSubst, dsub1) t) (applySubst (nullTypeVarSubst, dsub1) t')
+  return $ (tsub2, dsub2) `composeSubst` (nullTypeVarSubst, dsub1)
+mgu (TypeArray t d) (TypeArray t' (DimVar dvref')) =
+  mgu (TypeArray t' (DimVar dvref')) (TypeArray t d) -- swap
+mgu (TypeArray t (DimFix i)) (TypeArray t' (DimFix i')) =
+  if i == i'
+    then mgu t t'
+    else fail "array dimensions do not match"
+mgu (TypeTuple ts) (TypeTuple ts') =
+  if length ts == length ts'
+    then Foldable.foldlM (
+      \sub1 (t, t') -> do
+        sub2 <- mgu (applySubst sub1 t) (applySubst sub1 t')
+        return $ sub2 `composeSubst` sub1
+      ) nullSubst (zip ts ts')
+    else fail "tuple lengths do not match"
+mgu (TypeFun t1 t2) (TypeFun t1' t2') = do
+  sub1 <- mgu t1 t1'
+  sub2 <- mgu (applySubst sub1 t2) (applySubst sub1 t2')
+  return $ sub2 `composeSubst` sub1
+mgu (TypeVar tvref) t' = do
+  tsub <- bindTypeVarRef tvref t'
+  return (tsub, nullDimVarSubst)
+mgu t (TypeVar tvref') = do
+  tsub <- bindTypeVarRef tvref' t
+  return (tsub, nullDimVarSubst)
+mgu t1 t2 =
+  let [pt1, pt2] = prettyTypes [t1, t2] in
+  fail $ "could not unify <" ++ pt1 ++ "> with <" ++ pt2 ++ ">"
 
--- mgu :: Type -> Type -> TI Subst
--- mgu (TFun l r) (TFun l' r')  =  do  s1 <- mgu l l'
---                                     s2 <- mgu (apply s1 r) (apply s1 r')
---                                     return (s1 `composeSubst` s2)
--- mgu (TVar u) t               =  varBind u t
--- mgu t (TVar u)               =  varBind u t
--- mgu TInt TInt                =  return nullSubst
--- mgu TBool TBool              =  return nullSubst
--- mgu t1 t2                    =  throwError $ "types do not unify: " ++ show t1 ++ 
---                                 " vs. " ++ show t2
-
--- varBind :: String -> Type -> TI Subst
--- varBind u t  | t == TVar u           =  return nullSubst
---              | u `Set.member` ftv t  =  throwError $ "occur check fails: " ++ u ++
---                                          " vs. " ++ show t
---              | otherwise             =  return (Map.singleton u t)
-
-
--- mgu :: Type -> Type -> Subst
--- mgu (UnitType) (UnitType) = nullSubst
--- mgu (RealType) (RealType) = nullSubst
--- mgu (BoolType) (BoolType) = nullSubst
--- mgu (Texture1DType) (Texture1DType) = nullSubst
--- mgu (Texture2DType) (Texture2DType) = nullSubst
--- mgu (Texture3DType) (Texture3DType) = nullSubst
--- mgu (TextureCubeType) (TextureCubeType) = nullSubst
--- mgu (ArrayType t i)
--- mgu (TupleType ts)
--- mgu (FunType t1 t2)
--- mgu (TypeVarType tvref)
--- mgu (DimVarType t dvref)
 
 
 

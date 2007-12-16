@@ -2,7 +2,7 @@ import Lexer
 import Parser
 import System.Environment
 import Pretty
---import Typing
+import Typing
 import Representation
 
 test :: IO ()
