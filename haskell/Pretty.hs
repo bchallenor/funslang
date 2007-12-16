@@ -1,6 +1,6 @@
-module Pretty(prettyType, prettyExpr, prettyPatt) where
+module Pretty(prettyType, prettyTypes, prettyExpr, prettyPatt) where
 
-import Data.List as List
+import qualified Data.List as List
 import Representation
 
 paren :: Bool -> [Char] -> [Char]
@@ -23,8 +23,13 @@ tuple = paren True . comma
 array :: [[Char]] -> [Char]
 array = brack True . comma
 
+-- Prints a type in a fresh context.
 prettyType :: Type -> String
 prettyType = prettyExType . exTypeFromType
+
+-- Prints a list of types in the same fresh context.
+prettyTypes :: [Type] -> [String]
+prettyTypes = map prettyExType . exTypesFromTypes
 
 prettyExType :: ExType -> String
 prettyExType (ExTypeUnit) = "()"

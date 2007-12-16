@@ -186,6 +186,10 @@ typeFromExType' a@(ExTypeArray xt (ExDimVar dv)) = do
 exTypeFromType :: Type -> ExType
 exTypeFromType t = evalState (exTypeFromType' t) ((typeVars, Map.empty), (dimVars, Map.empty))
 
+-- Decodes many internal types (in the same context).
+exTypesFromTypes :: [Type] -> [ExType]
+exTypesFromTypes ts = evalState (mapM exTypeFromType' ts) ((typeVars, Map.empty), (dimVars, Map.empty))
+
 exTypeFromType' :: Type -> State TypeDecodeContext ExType
 exTypeFromType' (TypeUnit) = return ExTypeUnit
 exTypeFromType' (TypeReal) = return ExTypeReal
