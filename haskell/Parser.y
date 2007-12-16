@@ -115,7 +115,7 @@ primary_type :: { ExType }
   | LPAREN tuple_type_inner RPAREN { ExTypeTuple (reverse $2) }
   | TYPE_VAR { ExTypeVar $1 }
   | primary_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
-  | LPAREN type RPAREN { $2 }
+  | LPAREN fun_type RPAREN { $2 }
   ;
 
 fun_type :: { ExType } -- right recursion for right associativity
