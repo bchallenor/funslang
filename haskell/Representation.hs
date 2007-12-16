@@ -1,6 +1,8 @@
 module Representation where
 
 import qualified Data.Map as Map
+import Control.Monad.State
+
 
 data Token
   = TOK_REAL
@@ -16,6 +18,7 @@ data Token
   | TOK_LITERAL_FLOAT !Double    -- better than machine precision
   --
   | TOK_IDENTIFIER !String
+  | TOK_TYPE_VAR !String
   --
   | TOK_COMMA
   | TOK_RANGE_DOTS
@@ -67,28 +70,47 @@ data Token
 
 
 -- Rather than store identifiers for type/dim vars, we assign them numeric references.
--- These numbers are then converted back to a,b,c etc in the pretty print.
-class (Eq a, Show a, Ord a) => VarRef a where
-  nextFresh :: a -> a
-
+-- These numbers are then converted back to a,b,c / m,n,o etc in the pretty print.
 data TypeVarRef = TypeVarRef !Int
   deriving (Eq, Show, Ord)
-
-instance VarRef TypeVarRef where
-  nextFresh (TypeVarRef i) = TypeVarRef (succ i)
 
 data DimVarRef = DimVarRef !Int
   deriving (Eq, Show, Ord)
 
-instance VarRef DimVarRef where
-  nextFresh (DimVarRef i) = DimVarRef (succ i)
+-- pool of fresh var refs, map from identifiers to refs
+type TypeEncodeContext = (([TypeVarRef], Map.Map String TypeVarRef), ([DimVarRef], Map.Map String DimVarRef))
+-- pool of fresh vars, map from refs to identifiers
+type TypeDecodeContext = (([String], Map.Map TypeVarRef String), ([String], Map.Map DimVarRef String))
 
--- next unmapped ref, map from identifiers to refs
-type VarRefEncodeContext = ((TypeVarRef, Map.Map Char TypeVarRef), (DimVarRef, Map.Map Char DimVarRef))
--- next unmapped var, map from refs to identifiers
-type VarRefDecodeContext = ((Char, Map.Map TypeVarRef Char), (Char, Map.Map DimVarRef Char))
+-- pools to draw from
+typeVarRefs :: [TypeVarRef]
+typeVarRefs = map TypeVarRef [0..]
+typeVars :: [String]
+typeVars = map (\x->['\'',x]) ['a'..'l']
+dimVarRefs :: [DimVarRef]
+dimVarRefs = map DimVarRef [0..]
+dimVars :: [String]
+dimVars = map (\x->[x]) ['m'..'z']
+
+-- as types appear in source or pretty-printed form
+data DecodedType
+  = UnitDecodedType
+  | RealDecodedType
+  | BoolDecodedType
+  | Texture1DDecodedType
+  | Texture2DDecodedType
+  | Texture3DDecodedType
+  | TextureCubeDecodedType
+  | ArrayDecodedType !DecodedType !Integer
+  | TupleDecodedType ![DecodedType]
+  | FunDecodedType !DecodedType !DecodedType
+  | TypeVarDecodedType !String -- including the apostrophe, e.g. "'a"
+  | DimVarDecodedType !DecodedType !String
+  
+  deriving (Show, Eq)
 
 
+-- as types are represented internally
 data Type
   = UnitType
   | RealType
@@ -104,6 +126,84 @@ data Type
   | DimVarType !Type !DimVarRef
   
   deriving (Show, Eq)
+
+
+-- Takes pools of fresh var refs and a source-form type, and encodes it.
+encodeType :: [TypeVarRef] -> [DimVarRef] -> DecodedType -> Type
+encodeType fresh_tvrefs fresh_dvrefs dt = evalState (encodeType' dt) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
+
+encodeType' :: DecodedType -> State TypeEncodeContext Type
+encodeType' (UnitDecodedType) = return UnitType
+encodeType' (RealDecodedType) = return RealType
+encodeType' (BoolDecodedType) = return BoolType
+encodeType' (Texture1DDecodedType) = return Texture1DType
+encodeType' (Texture2DDecodedType) = return Texture2DType
+encodeType' (Texture3DDecodedType) = return Texture3DType
+encodeType' (TextureCubeDecodedType) = return TextureCubeType
+encodeType' (TupleDecodedType dts) = do
+  ts <- mapM encodeType' dts
+  return $ TupleType ts
+encodeType' (ArrayDecodedType dt i) = do
+  t <- encodeType' dt
+  return $ ArrayType t i
+encodeType' (FunDecodedType dt1 dt2) = do
+  t1 <- encodeType' dt1
+  t2 <- encodeType' dt2
+  return $ FunType t1 t2
+encodeType' (TypeVarDecodedType tv) = do
+  ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
+  case Map.lookup tv tv_to_tvref of
+    Just tvref -> return $ TypeVarType tvref
+    Nothing -> do
+      put ((tail fresh_tvrefs, Map.insert tv (head fresh_tvrefs) tv_to_tvref), (fresh_dvrefs, dv_to_dvref))
+      encodeType' $ TypeVarDecodedType tv
+encodeType' (DimVarDecodedType dt dv) = do
+  t <- encodeType' dt
+  ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
+  case Map.lookup dv dv_to_dvref of
+    Just dvref -> return $ DimVarType t dvref
+    Nothing -> do
+      put ((fresh_tvrefs, tv_to_tvref), (tail fresh_dvrefs, Map.insert dv (head fresh_dvrefs) dv_to_dvref))
+      encodeType' $ DimVarDecodedType dt dv
+
+
+-- Takes an internal type, and decodes it.
+decodeType :: Type -> DecodedType
+decodeType t = evalState (decodeType' t) ((typeVars, Map.empty), (dimVars, Map.empty))
+
+decodeType' :: Type -> State TypeDecodeContext DecodedType
+decodeType' (UnitType) = return UnitDecodedType
+decodeType' (RealType) = return RealDecodedType
+decodeType' (BoolType) = return BoolDecodedType
+decodeType' (Texture1DType) = return Texture1DDecodedType
+decodeType' (Texture2DType) = return Texture2DDecodedType
+decodeType' (Texture3DType) = return Texture3DDecodedType
+decodeType' (TextureCubeType) = return TextureCubeDecodedType
+decodeType' (TupleType ts) = do
+  dts <- mapM decodeType' ts
+  return $ TupleDecodedType dts
+decodeType' (ArrayType t i) = do
+  dt <- decodeType' t
+  return $ ArrayDecodedType dt i
+decodeType' (FunType t1 t2) = do
+  dt1 <- decodeType' t1
+  dt2 <- decodeType' t2
+  return $ FunDecodedType dt1 dt2
+decodeType' (TypeVarType tvref) = do
+  ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
+  case Map.lookup tvref tvref_to_tv of
+    Just tv -> return $ TypeVarDecodedType tv
+    Nothing -> do
+      put ((tail fresh_tvs, Map.insert tvref (head fresh_tvs) tvref_to_tv), (fresh_dvs, dvref_to_dv))
+      decodeType' $ TypeVarType tvref
+decodeType' (DimVarType t dvref) = do
+  dt <- decodeType' t
+  ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
+  case Map.lookup dvref dvref_to_dv of
+    Just dv -> return $ DimVarDecodedType dt dv
+    Nothing -> do
+      put ((fresh_tvs, tvref_to_tv), (tail fresh_dvs, Map.insert dvref (head fresh_dvs) dvref_to_dv))
+      decodeType' $ DimVarType t dvref
 
 
 data Expr

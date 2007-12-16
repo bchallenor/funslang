@@ -1,6 +1,6 @@
 {
 {-# OPTIONS -w #-} -- suppress millions of Happy warnings
-module Parser(parser) where
+module Parser(parseType,parseExpr) where
 import Representation
 import Library
 import Lexer
@@ -24,6 +24,7 @@ import Data.List(foldl')
   LITERAL_INT { TOK_LITERAL_INT $$ }
   LITERAL_FLOAT { TOK_LITERAL_FLOAT $$ }
   IDENTIFIER { TOK_IDENTIFIER $$ }
+  TYPE_VAR { TOK_TYPE_VAR $$ }
   COMMA { TOK_COMMA }
   RANGE_DOTS { TOK_RANGE_DOTS }
   LBRACKET { TOK_LBRACKET }
@@ -78,7 +79,8 @@ import Data.List(foldl')
 %nonassoc OP_NOT
 %nonassoc OP_TRANSPOSE
 
-%name parser expr
+%name parseExpr expr
+%name parseType type
 
 %error { parseError }
 
@@ -96,35 +98,33 @@ import Data.List(foldl')
 -- Types
 --
 
-tuple_type_inner :: { [Type] }
-  : type COMMA type { $3:$1:[] }
-  | tuple_type_inner COMMA type { $3:$1 }
+tuple_type_inner :: { [DecodedType] }
+  : primary_type COMMA primary_type { $3:$1:[] }
+  | tuple_type_inner COMMA primary_type { $3:$1 }
   ;
 
-tuple_type :: { Type }
-  : LPAREN tuple_type_inner RPAREN { TupleType (reverse $2) }
+primary_type :: { DecodedType }
+  : LPAREN RPAREN { UnitDecodedType }
+  | REAL { RealDecodedType }
+  | BOOL { BoolDecodedType }
+  | TEXTURE1D { Texture1DDecodedType }
+  | TEXTURE2D { Texture2DDecodedType }
+  | TEXTURE3D { Texture3DDecodedType }
+  | TEXTURECUBE { TextureCubeDecodedType }
+  | primary_type LITERAL_INT { ArrayDecodedType $1 $2 } -- todo: error on zero
+  | LPAREN tuple_type_inner RPAREN { TupleDecodedType (reverse $2) }
+  | TYPE_VAR { TypeVarDecodedType $1 }
+  | primary_type IDENTIFIER { DimVarDecodedType $1 $2 }
+  | LPAREN primary_type RPAREN { $2 }
   ;
 
-array_type :: { Type }
-  : primary_type LITERAL_INT { ArrayType $1 $2 } --todo: error on zero
-  ;
-
-primary_type :: { Type }
-  : LPAREN RPAREN { UnitType }
-  | REAL { RealType }
-  | BOOL { BoolType }
-  | TEXTURE1D { Texture1DType }
-  | TEXTURE2D { Texture2DType }
-  | TEXTURE3D { Texture3DType }
-  | TEXTURECUBE { TextureCubeType }
-  | tuple_type { $1 }
-  | array_type { $1 }
-  | LPAREN type RPAREN { $2 }
-  ;
-
-type :: { Type } -- right recursion for right associativity
-  : primary_type RARROW type { FunType $1 $3 }
+fun_type :: { DecodedType } -- right recursion for right associativity
+  : primary_type RARROW fun_type { FunDecodedType $1 $3 }
   | primary_type { $1 }
+  ;
+
+type :: { Type }
+  : fun_type { encodeType typeVarRefs dimVarRefs $1 } -- todo: start at fresh refs for this parser
   ;
 
 

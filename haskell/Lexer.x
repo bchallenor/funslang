@@ -80,8 +80,10 @@ tokens :-
   "\"                       { \s -> TOK_LAMBDA }
   "."                       { \s -> TOK_LAMBDA_DOT }
   
+  "'" $a [$a $d _]*         { \s -> TOK_TYPE_VAR s }
+  
   -- this goes last as it should not take precedence over the keywords
-  $a [$a $d _]*           { \s -> TOK_IDENTIFIER s }
+  $a [$a $d _]*             { \s -> TOK_IDENTIFIER s }
 
 
 {

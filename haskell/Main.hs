@@ -11,7 +11,7 @@ test = withArgs ["test.vp"] main
 ioe :: IO Expr
 ioe = do
   s <- readFile "test.vp"
-  return ((parser . lexer) s)
+  return ((parseExpr . lexer) s)
 
 -- ioe' :: IO TypedExpr
 -- ioe' = do
@@ -28,7 +28,7 @@ main :: IO ()
 main = do
   a:_ <- getArgs
   s <- readFile a
-  let e = (parser . lexer) s
+  let e = (parseExpr . lexer) s
   putStrLn (show e)
   putStrLn ""
   putStrLn (prettyExpr e)
