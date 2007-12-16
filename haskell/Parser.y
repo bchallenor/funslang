@@ -1,6 +1,6 @@
 {
 {-# OPTIONS -w #-} -- suppress millions of Happy warnings
-module Parser(parseType,parseExpr) where
+module Parser(parseExType,parseExpr) where
 import Representation
 import Library
 import Lexer
@@ -80,7 +80,7 @@ import Data.List(foldl')
 %nonassoc OP_TRANSPOSE
 
 %name parseExpr expr
-%name parseType type
+%name parseExType ex_type
 
 %error { parseError }
 
@@ -99,8 +99,8 @@ import Data.List(foldl')
 --
 
 tuple_type_inner :: { [ExType] }
-  : fun_type COMMA fun_type { $3:$1:[] }
-  | tuple_type_inner COMMA fun_type { $3:$1 }
+  : ex_type COMMA ex_type { $3:$1:[] }
+  | tuple_type_inner COMMA ex_type { $3:$1 }
   ;
 
 primary_type :: { ExType }
@@ -115,16 +115,16 @@ primary_type :: { ExType }
   | LPAREN tuple_type_inner RPAREN { ExTypeTuple (reverse $2) }
   | TYPE_VAR { ExTypeVar $1 }
   | primary_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
-  | LPAREN fun_type RPAREN { $2 }
+  | LPAREN ex_type RPAREN { $2 }
   ;
 
-fun_type :: { ExType } -- right recursion for right associativity
-  : primary_type RARROW fun_type { ExTypeFun $1 $3 }
+ex_type :: { ExType } -- right recursion for right associativity
+  : primary_type RARROW ex_type { ExTypeFun $1 $3 }
   | primary_type { $1 }
   ;
 
 type :: { Type }
-  : fun_type { typeFromExType typeVarRefs dimVarRefs $1 } -- todo: start at fresh refs for this parser
+  : ex_type { typeFromExType typeVarRefs dimVarRefs $1 } -- todo: start at fresh refs for this parser
   ;
 
 

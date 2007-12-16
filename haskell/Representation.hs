@@ -145,7 +145,11 @@ data Type
 
 -- Encodes an external type (given pools of fresh var refs).
 typeFromExType :: [TypeVarRef] -> [DimVarRef] -> ExType -> Type
-typeFromExType fresh_tvrefs fresh_dvrefs dt = evalState (typeFromExType' dt) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
+typeFromExType fresh_tvrefs fresh_dvrefs xt = evalState (typeFromExType' xt) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
+
+-- Encodes many external types (in the same context).
+typesFromExTypes :: [TypeVarRef] -> [DimVarRef] -> [ExType] -> [Type]
+typesFromExTypes fresh_tvrefs fresh_dvrefs xts = evalState (mapM typeFromExType' xts) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
 
 typeFromExType' :: ExType -> State TypeEncodeContext Type
 typeFromExType' (ExTypeUnit) = return TypeUnit
