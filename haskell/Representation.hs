@@ -2,7 +2,7 @@ module Representation where
 
 
 data Token
-  = TOK_NUM
+  = TOK_REAL
   | TOK_BOOL
   --
   | TOK_TEXTURE1D
@@ -65,25 +65,33 @@ data Token
   deriving (Eq, Show)
 
 
+-- Rather than store identifiers for type/dim vars, we assign them numbers.
+-- These numbers are then converted back to a,b,c etc in the pretty print.
+type TypeVarRef = Int
+type DimVarRef = Int
+
+
 data Type
   = UnitType
-  | NumType
+  | RealType
   | BoolType
   | Texture1DType
   | Texture2DType
   | Texture3DType
   | TextureCubeType
-  | TupleType ![Type]
   | ArrayType !Type !Integer
+  | TupleType ![Type]
   | FunType !Type !Type
+  | TypeVarType !TypeVarRef
+  | DimVarType !Type !DimVarRef
   
   deriving (Show, Eq)
 
 
 data Expr
-  = UnitExpr
-  | NumExpr !Double
-  | BoolExpr !Bool
+  = UnitConstExpr
+  | RealConstExpr !Double
+  | BoolConstExpr !Bool
   | VarExpr !String
   | AppExpr !Expr !Expr
   | ArrayExpr ![Expr]

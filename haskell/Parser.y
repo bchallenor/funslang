@@ -14,7 +14,7 @@ import Data.List(foldl')
 %tokentype { Token }
 
 %token
-  NUM { TOK_NUM }
+  REAL { TOK_REAL }
   BOOL { TOK_BOOL }
   TEXTURE1D { TOK_TEXTURE1D }
   TEXTURE2D { TOK_TEXTURE2D }
@@ -111,7 +111,7 @@ array_type :: { Type }
 
 primary_type :: { Type }
   : LPAREN RPAREN { UnitType }
-  | NUM { NumType }
+  | REAL { RealType }
   | BOOL { BoolType }
   | TEXTURE1D { Texture1DType }
   | TEXTURE2D { Texture2DType }
@@ -188,14 +188,14 @@ array_expr :: { Expr }
   ;
 
 array_range_expr :: { Expr }
-  : LBRACKET LITERAL_INT RANGE_DOTS LITERAL_INT RBRACKET { ArrayExpr (map (NumExpr . fromInteger) (if $2<=$4 then [$2..$4] else reverse [$4..$2])) }
+  : LBRACKET LITERAL_INT RANGE_DOTS LITERAL_INT RBRACKET { ArrayExpr (map (RealConstExpr . fromInteger) (if $2<=$4 then [$2..$4] else reverse [$4..$2])) }
   ;
 
 primary_expr :: { Expr }
-  : LPAREN RPAREN { UnitExpr }
-  | LITERAL_INT { NumExpr (fromInteger $1) }
-  | LITERAL_FLOAT { NumExpr $1 }
-  | LITERAL_BOOL { BoolExpr $1 }
+  : LPAREN RPAREN { UnitConstExpr }
+  | LITERAL_INT { RealConstExpr (fromInteger $1) }
+  | LITERAL_FLOAT { RealConstExpr $1 }
+  | LITERAL_BOOL { BoolConstExpr $1 }
   | IDENTIFIER { VarExpr $1 }
   | tuple_expr { $1 }
   | array_expr { $1 }

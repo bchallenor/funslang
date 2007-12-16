@@ -22,7 +22,7 @@ tokens :-
   "--" .*                   ; -- ignore comments (upto newline)
   
   "Bool"                    { \s -> TOK_BOOL }
-  "Num"                     { \s -> TOK_NUM }
+  "Real"                    { \s -> TOK_REAL }
   
   "Texture1D"               { \s -> TOK_TEXTURE1D }
   "Texture2D"               { \s -> TOK_TEXTURE2D }
