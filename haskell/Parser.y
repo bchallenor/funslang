@@ -98,33 +98,33 @@ import Data.List(foldl')
 -- Types
 --
 
-tuple_type_inner :: { [DecodedType] }
+tuple_type_inner :: { [ExType] }
   : primary_type COMMA primary_type { $3:$1:[] }
   | tuple_type_inner COMMA primary_type { $3:$1 }
   ;
 
-primary_type :: { DecodedType }
-  : LPAREN RPAREN { UnitDecodedType }
-  | REAL { RealDecodedType }
-  | BOOL { BoolDecodedType }
-  | TEXTURE1D { Texture1DDecodedType }
-  | TEXTURE2D { Texture2DDecodedType }
-  | TEXTURE3D { Texture3DDecodedType }
-  | TEXTURECUBE { TextureCubeDecodedType }
-  | primary_type LITERAL_INT { ArrayDecodedType $1 (FixedDecodedDim $2) } -- todo: error on zero
-  | LPAREN tuple_type_inner RPAREN { TupleDecodedType (reverse $2) }
-  | TYPE_VAR { TypeVarDecodedType $1 }
-  | primary_type IDENTIFIER { ArrayDecodedType $1 (DimVarDecodedDim $2) }
+primary_type :: { ExType }
+  : LPAREN RPAREN { ExTypeUnit }
+  | REAL { ExTypeReal }
+  | BOOL { ExTypeBool }
+  | TEXTURE1D { ExTypeTexture1D }
+  | TEXTURE2D { ExTypeTexture2D }
+  | TEXTURE3D { ExTypeTexture3D }
+  | TEXTURECUBE { ExTypeTextureCube }
+  | primary_type LITERAL_INT { ExTypeArray $1 (ExDimFix $2) } -- todo: error on zero
+  | LPAREN tuple_type_inner RPAREN { ExTypeTuple (reverse $2) }
+  | TYPE_VAR { ExTypeVar $1 }
+  | primary_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
   | LPAREN primary_type RPAREN { $2 }
   ;
 
-fun_type :: { DecodedType } -- right recursion for right associativity
-  : primary_type RARROW fun_type { FunDecodedType $1 $3 }
+fun_type :: { ExType } -- right recursion for right associativity
+  : primary_type RARROW fun_type { ExTypeFun $1 $3 }
   | primary_type { $1 }
   ;
 
 type :: { Type }
-  : fun_type { encodeType typeVarRefs dimVarRefs $1 } -- todo: start at fresh refs for this parser
+  : fun_type { typeFromExType typeVarRefs dimVarRefs $1 } -- todo: start at fresh refs for this parser
   ;
 
 

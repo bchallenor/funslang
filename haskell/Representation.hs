@@ -93,132 +93,132 @@ dimVars :: [String]
 dimVars = map (\x->[x]) ['m'..'z']
 
 
--- as dims appear in source or pretty-printed form
-data DecodedDim
-  = FixedDecodedDim !Integer
-  | DimVarDecodedDim !String
+-- as dims appear externally (in source or pretty-printed form)
+data ExDim
+  = ExDimFix !Integer
+  | ExDimVar !String
   
   deriving (Show, Eq)
 
 
--- as types appear in source or pretty-printed form
-data DecodedType
-  = UnitDecodedType
-  | RealDecodedType
-  | BoolDecodedType
-  | Texture1DDecodedType
-  | Texture2DDecodedType
-  | Texture3DDecodedType
-  | TextureCubeDecodedType
-  | ArrayDecodedType !DecodedType !DecodedDim
-  | TupleDecodedType ![DecodedType]
-  | FunDecodedType !DecodedType !DecodedType
-  | TypeVarDecodedType !String -- including the apostrophe, e.g. "'a"
+-- as types appear externally (in source or pretty-printed form)
+data ExType
+  = ExTypeUnit
+  | ExTypeReal
+  | ExTypeBool
+  | ExTypeTexture1D
+  | ExTypeTexture2D
+  | ExTypeTexture3D
+  | ExTypeTextureCube
+  | ExTypeArray !ExType !ExDim
+  | ExTypeTuple ![ExType]
+  | ExTypeFun !ExType !ExType
+  | ExTypeVar !String -- including the apostrophe, e.g. "'a"
   
   deriving (Show, Eq)
 
 
 -- as dims are represented internally
 data Dim
-  = FixedDim !Integer
-  | DimVarDim !DimVarRef
+  = DimFix !Integer
+  | DimVar !DimVarRef
   
   deriving (Show, Eq)
 
 
 -- as types are represented internally
 data Type
-  = UnitType
-  | RealType
-  | BoolType
-  | Texture1DType
-  | Texture2DType
-  | Texture3DType
-  | TextureCubeType
-  | ArrayType !Type !Dim
-  | TupleType ![Type]
-  | FunType !Type !Type
-  | TypeVarType !TypeVarRef
+  = TypeUnit
+  | TypeReal
+  | TypeBool
+  | TypeTexture1D
+  | TypeTexture2D
+  | TypeTexture3D
+  | TypeTextureCube
+  | TypeArray !Type !Dim
+  | TypeTuple ![Type]
+  | TypeFun !Type !Type
+  | TypeVar !TypeVarRef
   
   deriving (Show, Eq)
 
 
--- Takes pools of fresh var refs and a source-form type, and encodes it.
-encodeType :: [TypeVarRef] -> [DimVarRef] -> DecodedType -> Type
-encodeType fresh_tvrefs fresh_dvrefs dt = evalState (encodeType' dt) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
+-- Encodes an external type (given pools of fresh var refs).
+typeFromExType :: [TypeVarRef] -> [DimVarRef] -> ExType -> Type
+typeFromExType fresh_tvrefs fresh_dvrefs dt = evalState (typeFromExType' dt) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
 
-encodeType' :: DecodedType -> State TypeEncodeContext Type
-encodeType' (UnitDecodedType) = return UnitType
-encodeType' (RealDecodedType) = return RealType
-encodeType' (BoolDecodedType) = return BoolType
-encodeType' (Texture1DDecodedType) = return Texture1DType
-encodeType' (Texture2DDecodedType) = return Texture2DType
-encodeType' (Texture3DDecodedType) = return Texture3DType
-encodeType' (TextureCubeDecodedType) = return TextureCubeType
-encodeType' (TupleDecodedType dts) = do
-  ts <- mapM encodeType' dts
-  return $ TupleType ts
-encodeType' (ArrayDecodedType dt (FixedDecodedDim i)) = do
-  t <- encodeType' dt
-  return $ ArrayType t (FixedDim i)
-encodeType' (FunDecodedType dt1 dt2) = do
-  t1 <- encodeType' dt1
-  t2 <- encodeType' dt2
-  return $ FunType t1 t2
-encodeType' a@(TypeVarDecodedType tv) = do
+typeFromExType' :: ExType -> State TypeEncodeContext Type
+typeFromExType' (ExTypeUnit) = return TypeUnit
+typeFromExType' (ExTypeReal) = return TypeReal
+typeFromExType' (ExTypeBool) = return TypeBool
+typeFromExType' (ExTypeTexture1D) = return TypeTexture1D
+typeFromExType' (ExTypeTexture2D) = return TypeTexture2D
+typeFromExType' (ExTypeTexture3D) = return TypeTexture3D
+typeFromExType' (ExTypeTextureCube) = return TypeTextureCube
+typeFromExType' (ExTypeTuple dts) = do
+  ts <- mapM typeFromExType' dts
+  return $ TypeTuple ts
+typeFromExType' (ExTypeArray dt (ExDimFix i)) = do
+  t <- typeFromExType' dt
+  return $ TypeArray t (DimFix i)
+typeFromExType' (ExTypeFun dt1 dt2) = do
+  t1 <- typeFromExType' dt1
+  t2 <- typeFromExType' dt2
+  return $ TypeFun t1 t2
+typeFromExType' a@(ExTypeVar tv) = do
   ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
   case Map.lookup tv tv_to_tvref of
-    Just tvref -> return $ TypeVarType tvref
+    Just tvref -> return $ TypeVar tvref
     Nothing -> do
       put ((tail fresh_tvrefs, Map.insert tv (head fresh_tvrefs) tv_to_tvref), (fresh_dvrefs, dv_to_dvref))
-      encodeType' a
-encodeType' a@(ArrayDecodedType dt (DimVarDecodedDim dv)) = do
-  t <- encodeType' dt
+      typeFromExType' a
+typeFromExType' a@(ExTypeArray dt (ExDimVar dv)) = do
+  t <- typeFromExType' dt
   ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
   case Map.lookup dv dv_to_dvref of
-    Just dvref -> return $ ArrayType t (DimVarDim dvref)
+    Just dvref -> return $ TypeArray t (DimVar dvref)
     Nothing -> do
       put ((fresh_tvrefs, tv_to_tvref), (tail fresh_dvrefs, Map.insert dv (head fresh_dvrefs) dv_to_dvref))
-      encodeType' a
+      typeFromExType' a
 
 
--- Takes an internal type, and decodes it.
-decodeType :: Type -> DecodedType
-decodeType t = evalState (decodeType' t) ((typeVars, Map.empty), (dimVars, Map.empty))
+-- Decodes an internal type.
+exTypeFromType :: Type -> ExType
+exTypeFromType t = evalState (exTypeFromType' t) ((typeVars, Map.empty), (dimVars, Map.empty))
 
-decodeType' :: Type -> State TypeDecodeContext DecodedType
-decodeType' (UnitType) = return UnitDecodedType
-decodeType' (RealType) = return RealDecodedType
-decodeType' (BoolType) = return BoolDecodedType
-decodeType' (Texture1DType) = return Texture1DDecodedType
-decodeType' (Texture2DType) = return Texture2DDecodedType
-decodeType' (Texture3DType) = return Texture3DDecodedType
-decodeType' (TextureCubeType) = return TextureCubeDecodedType
-decodeType' (TupleType ts) = do
-  dts <- mapM decodeType' ts
-  return $ TupleDecodedType dts
-decodeType' (ArrayType t (FixedDim i)) = do
-  dt <- decodeType' t
-  return $ ArrayDecodedType dt (FixedDecodedDim i)
-decodeType' (FunType t1 t2) = do
-  dt1 <- decodeType' t1
-  dt2 <- decodeType' t2
-  return $ FunDecodedType dt1 dt2
-decodeType' a@(TypeVarType tvref) = do
+exTypeFromType' :: Type -> State TypeDecodeContext ExType
+exTypeFromType' (TypeUnit) = return ExTypeUnit
+exTypeFromType' (TypeReal) = return ExTypeReal
+exTypeFromType' (TypeBool) = return ExTypeBool
+exTypeFromType' (TypeTexture1D) = return ExTypeTexture1D
+exTypeFromType' (TypeTexture2D) = return ExTypeTexture2D
+exTypeFromType' (TypeTexture3D) = return ExTypeTexture3D
+exTypeFromType' (TypeTextureCube) = return ExTypeTextureCube
+exTypeFromType' (TypeTuple ts) = do
+  dts <- mapM exTypeFromType' ts
+  return $ ExTypeTuple dts
+exTypeFromType' (TypeArray t (DimFix i)) = do
+  dt <- exTypeFromType' t
+  return $ ExTypeArray dt (ExDimFix i)
+exTypeFromType' (TypeFun t1 t2) = do
+  dt1 <- exTypeFromType' t1
+  dt2 <- exTypeFromType' t2
+  return $ ExTypeFun dt1 dt2
+exTypeFromType' a@(TypeVar tvref) = do
   ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
   case Map.lookup tvref tvref_to_tv of
-    Just tv -> return $ TypeVarDecodedType tv
+    Just tv -> return $ ExTypeVar tv
     Nothing -> do
       put ((tail fresh_tvs, Map.insert tvref (head fresh_tvs) tvref_to_tv), (fresh_dvs, dvref_to_dv))
-      decodeType' a
-decodeType' a@(ArrayType t (DimVarDim dvref)) = do
-  dt <- decodeType' t
+      exTypeFromType' a
+exTypeFromType' a@(TypeArray t (DimVar dvref)) = do
+  dt <- exTypeFromType' t
   ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
   case Map.lookup dvref dvref_to_dv of
-    Just dv -> return $ ArrayDecodedType dt (DimVarDecodedDim dv)
+    Just dv -> return $ ExTypeArray dt (ExDimVar dv)
     Nothing -> do
       put ((fresh_tvs, tvref_to_tv), (tail fresh_dvs, Map.insert dvref (head fresh_dvs) dvref_to_dv))
-      decodeType' a
+      exTypeFromType' a
 
 
 data Expr

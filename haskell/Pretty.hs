@@ -24,26 +24,26 @@ array :: [[Char]] -> [Char]
 array = brack True . comma
 
 prettyType :: Type -> String
-prettyType = prettyDecodedType . decodeType
+prettyType = prettyExType . exTypeFromType
 
-prettyDecodedType :: DecodedType -> String
-prettyDecodedType (UnitDecodedType) = "()"
-prettyDecodedType (RealDecodedType) = "Real"
-prettyDecodedType (BoolDecodedType) = "Bool"
-prettyDecodedType (Texture1DDecodedType) = "Texture1D"
-prettyDecodedType (Texture2DDecodedType) = "Texture2D"
-prettyDecodedType (Texture3DDecodedType) = "Texture3D"
-prettyDecodedType (TextureCubeDecodedType) = "TextureCube"
-prettyDecodedType (TupleDecodedType dts) = tuple $ map prettyDecodedType dts
-prettyDecodedType (ArrayDecodedType dt (FixedDecodedDim i)) = paren (isFunctionDecodedType dt) (prettyDecodedType dt) ++ " " ++ show i
-prettyDecodedType (FunDecodedType dt1 dt2) = paren (isFunctionDecodedType dt1) (prettyDecodedType dt1) ++ " -> " ++ (prettyDecodedType dt2)
-prettyDecodedType (TypeVarDecodedType tv) = tv
-prettyDecodedType (ArrayDecodedType dt (DimVarDecodedDim dv)) = paren (isFunctionDecodedType dt) (prettyDecodedType dt) ++ " " ++ dv
+prettyExType :: ExType -> String
+prettyExType (ExTypeUnit) = "()"
+prettyExType (ExTypeReal) = "Real"
+prettyExType (ExTypeBool) = "Bool"
+prettyExType (ExTypeTexture1D) = "Texture1D"
+prettyExType (ExTypeTexture2D) = "Texture2D"
+prettyExType (ExTypeTexture3D) = "Texture3D"
+prettyExType (ExTypeTextureCube) = "TextureCube"
+prettyExType (ExTypeTuple dts) = tuple $ map prettyExType dts
+prettyExType (ExTypeArray dt (ExDimFix i)) = paren (isExTypeFun dt) (prettyExType dt) ++ " " ++ show i
+prettyExType (ExTypeFun dt1 dt2) = paren (isExTypeFun dt1) (prettyExType dt1) ++ " -> " ++ (prettyExType dt2)
+prettyExType (ExTypeVar tv) = tv
+prettyExType (ExTypeArray dt (ExDimVar dv)) = paren (isExTypeFun dt) (prettyExType dt) ++ " " ++ dv
 
 -- We only need parens if the left subtype of a type is a function type.
-isFunctionDecodedType :: DecodedType -> Bool
-isFunctionDecodedType (FunDecodedType _ _) = True
-isFunctionDecodedType _ = False
+isExTypeFun :: ExType -> Bool
+isExTypeFun (ExTypeFun _ _) = True
+isExTypeFun _ = False
 
 prettyPatt :: Patt -> String
 prettyPatt (WildPatt) = "_"
