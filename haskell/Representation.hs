@@ -92,6 +92,15 @@ dimVarRefs = map DimVarRef [0..]
 dimVars :: [String]
 dimVars = map (\x->[x]) ['m'..'z']
 
+
+-- as dims appear in source or pretty-printed form
+data DecodedDim
+  = FixedDecodedDim !Integer
+  | DimVarDecodedDim !String
+  
+  deriving (Show, Eq)
+
+
 -- as types appear in source or pretty-printed form
 data DecodedType
   = UnitDecodedType
@@ -101,11 +110,18 @@ data DecodedType
   | Texture2DDecodedType
   | Texture3DDecodedType
   | TextureCubeDecodedType
-  | ArrayDecodedType !DecodedType !Integer
+  | ArrayDecodedType !DecodedType !DecodedDim
   | TupleDecodedType ![DecodedType]
   | FunDecodedType !DecodedType !DecodedType
   | TypeVarDecodedType !String -- including the apostrophe, e.g. "'a"
-  | DimVarDecodedType !DecodedType !String
+  
+  deriving (Show, Eq)
+
+
+-- as dims are represented internally
+data Dim
+  = FixedDim !Integer
+  | DimVarDim !DimVarRef
   
   deriving (Show, Eq)
 
@@ -119,11 +135,10 @@ data Type
   | Texture2DType
   | Texture3DType
   | TextureCubeType
-  | ArrayType !Type !Integer
+  | ArrayType !Type !Dim
   | TupleType ![Type]
   | FunType !Type !Type
   | TypeVarType !TypeVarRef
-  | DimVarType !Type !DimVarRef
   
   deriving (Show, Eq)
 
@@ -143,28 +158,28 @@ encodeType' (TextureCubeDecodedType) = return TextureCubeType
 encodeType' (TupleDecodedType dts) = do
   ts <- mapM encodeType' dts
   return $ TupleType ts
-encodeType' (ArrayDecodedType dt i) = do
+encodeType' (ArrayDecodedType dt (FixedDecodedDim i)) = do
   t <- encodeType' dt
-  return $ ArrayType t i
+  return $ ArrayType t (FixedDim i)
 encodeType' (FunDecodedType dt1 dt2) = do
   t1 <- encodeType' dt1
   t2 <- encodeType' dt2
   return $ FunType t1 t2
-encodeType' (TypeVarDecodedType tv) = do
+encodeType' a@(TypeVarDecodedType tv) = do
   ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
   case Map.lookup tv tv_to_tvref of
     Just tvref -> return $ TypeVarType tvref
     Nothing -> do
       put ((tail fresh_tvrefs, Map.insert tv (head fresh_tvrefs) tv_to_tvref), (fresh_dvrefs, dv_to_dvref))
-      encodeType' $ TypeVarDecodedType tv
-encodeType' (DimVarDecodedType dt dv) = do
+      encodeType' a
+encodeType' a@(ArrayDecodedType dt (DimVarDecodedDim dv)) = do
   t <- encodeType' dt
   ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
   case Map.lookup dv dv_to_dvref of
-    Just dvref -> return $ DimVarType t dvref
+    Just dvref -> return $ ArrayType t (DimVarDim dvref)
     Nothing -> do
       put ((fresh_tvrefs, tv_to_tvref), (tail fresh_dvrefs, Map.insert dv (head fresh_dvrefs) dv_to_dvref))
-      encodeType' $ DimVarDecodedType dt dv
+      encodeType' a
 
 
 -- Takes an internal type, and decodes it.
@@ -182,28 +197,28 @@ decodeType' (TextureCubeType) = return TextureCubeDecodedType
 decodeType' (TupleType ts) = do
   dts <- mapM decodeType' ts
   return $ TupleDecodedType dts
-decodeType' (ArrayType t i) = do
+decodeType' (ArrayType t (FixedDim i)) = do
   dt <- decodeType' t
-  return $ ArrayDecodedType dt i
+  return $ ArrayDecodedType dt (FixedDecodedDim i)
 decodeType' (FunType t1 t2) = do
   dt1 <- decodeType' t1
   dt2 <- decodeType' t2
   return $ FunDecodedType dt1 dt2
-decodeType' (TypeVarType tvref) = do
+decodeType' a@(TypeVarType tvref) = do
   ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
   case Map.lookup tvref tvref_to_tv of
     Just tv -> return $ TypeVarDecodedType tv
     Nothing -> do
       put ((tail fresh_tvs, Map.insert tvref (head fresh_tvs) tvref_to_tv), (fresh_dvs, dvref_to_dv))
-      decodeType' $ TypeVarType tvref
-decodeType' (DimVarType t dvref) = do
+      decodeType' a
+decodeType' a@(ArrayType t (DimVarDim dvref)) = do
   dt <- decodeType' t
   ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
   case Map.lookup dvref dvref_to_dv of
-    Just dv -> return $ DimVarDecodedType dt dv
+    Just dv -> return $ ArrayDecodedType dt (DimVarDecodedDim dv)
     Nothing -> do
       put ((fresh_tvs, tvref_to_tv), (tail fresh_dvs, Map.insert dvref (head fresh_dvs) dvref_to_dv))
-      decodeType' $ DimVarType t dvref
+      decodeType' a
 
 
 data Expr

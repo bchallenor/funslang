@@ -35,10 +35,10 @@ prettyDecodedType (Texture2DDecodedType) = "Texture2D"
 prettyDecodedType (Texture3DDecodedType) = "Texture3D"
 prettyDecodedType (TextureCubeDecodedType) = "TextureCube"
 prettyDecodedType (TupleDecodedType dts) = tuple $ map prettyDecodedType dts
-prettyDecodedType (ArrayDecodedType dt i) = paren (isFunctionDecodedType dt) (prettyDecodedType dt) ++ " " ++ show i
+prettyDecodedType (ArrayDecodedType dt (FixedDecodedDim i)) = paren (isFunctionDecodedType dt) (prettyDecodedType dt) ++ " " ++ show i
 prettyDecodedType (FunDecodedType dt1 dt2) = paren (isFunctionDecodedType dt1) (prettyDecodedType dt1) ++ " -> " ++ (prettyDecodedType dt2)
 prettyDecodedType (TypeVarDecodedType tv) = tv
-prettyDecodedType (DimVarDecodedType dt dv) = paren (isFunctionDecodedType dt) (prettyDecodedType dt) ++ " " ++ dv
+prettyDecodedType (ArrayDecodedType dt (DimVarDecodedDim dv)) = paren (isFunctionDecodedType dt) (prettyDecodedType dt) ++ " " ++ dv
 
 -- We only need parens if the left subtype of a type is a function type.
 isFunctionDecodedType :: DecodedType -> Bool

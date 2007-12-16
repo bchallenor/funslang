@@ -111,10 +111,10 @@ primary_type :: { DecodedType }
   | TEXTURE2D { Texture2DDecodedType }
   | TEXTURE3D { Texture3DDecodedType }
   | TEXTURECUBE { TextureCubeDecodedType }
-  | primary_type LITERAL_INT { ArrayDecodedType $1 $2 } -- todo: error on zero
+  | primary_type LITERAL_INT { ArrayDecodedType $1 (FixedDecodedDim $2) } -- todo: error on zero
   | LPAREN tuple_type_inner RPAREN { TupleDecodedType (reverse $2) }
   | TYPE_VAR { TypeVarDecodedType $1 }
-  | primary_type IDENTIFIER { DimVarDecodedType $1 $2 }
+  | primary_type IDENTIFIER { ArrayDecodedType $1 (DimVarDecodedDim $2) }
   | LPAREN primary_type RPAREN { $2 }
   ;
 
