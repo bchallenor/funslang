@@ -155,15 +155,15 @@ typeFromExType' (ExTypeTexture1D) = return TypeTexture1D
 typeFromExType' (ExTypeTexture2D) = return TypeTexture2D
 typeFromExType' (ExTypeTexture3D) = return TypeTexture3D
 typeFromExType' (ExTypeTextureCube) = return TypeTextureCube
-typeFromExType' (ExTypeTuple dts) = do
-  ts <- mapM typeFromExType' dts
+typeFromExType' (ExTypeTuple xts) = do
+  ts <- mapM typeFromExType' xts
   return $ TypeTuple ts
-typeFromExType' (ExTypeArray dt (ExDimFix i)) = do
-  t <- typeFromExType' dt
+typeFromExType' (ExTypeArray xt (ExDimFix i)) = do
+  t <- typeFromExType' xt
   return $ TypeArray t (DimFix i)
-typeFromExType' (ExTypeFun dt1 dt2) = do
-  t1 <- typeFromExType' dt1
-  t2 <- typeFromExType' dt2
+typeFromExType' (ExTypeFun xt1 xt2) = do
+  t1 <- typeFromExType' xt1
+  t2 <- typeFromExType' xt2
   return $ TypeFun t1 t2
 typeFromExType' a@(ExTypeVar tv) = do
   ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
@@ -172,8 +172,8 @@ typeFromExType' a@(ExTypeVar tv) = do
     Nothing -> do
       put ((tail fresh_tvrefs, Map.insert tv (head fresh_tvrefs) tv_to_tvref), (fresh_dvrefs, dv_to_dvref))
       typeFromExType' a
-typeFromExType' a@(ExTypeArray dt (ExDimVar dv)) = do
-  t <- typeFromExType' dt
+typeFromExType' a@(ExTypeArray xt (ExDimVar dv)) = do
+  t <- typeFromExType' xt
   ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
   case Map.lookup dv dv_to_dvref of
     Just dvref -> return $ TypeArray t (DimVar dvref)
@@ -195,15 +195,15 @@ exTypeFromType' (TypeTexture2D) = return ExTypeTexture2D
 exTypeFromType' (TypeTexture3D) = return ExTypeTexture3D
 exTypeFromType' (TypeTextureCube) = return ExTypeTextureCube
 exTypeFromType' (TypeTuple ts) = do
-  dts <- mapM exTypeFromType' ts
-  return $ ExTypeTuple dts
+  xts <- mapM exTypeFromType' ts
+  return $ ExTypeTuple xts
 exTypeFromType' (TypeArray t (DimFix i)) = do
-  dt <- exTypeFromType' t
-  return $ ExTypeArray dt (ExDimFix i)
+  xt <- exTypeFromType' t
+  return $ ExTypeArray xt (ExDimFix i)
 exTypeFromType' (TypeFun t1 t2) = do
-  dt1 <- exTypeFromType' t1
-  dt2 <- exTypeFromType' t2
-  return $ ExTypeFun dt1 dt2
+  xt1 <- exTypeFromType' t1
+  xt2 <- exTypeFromType' t2
+  return $ ExTypeFun xt1 xt2
 exTypeFromType' a@(TypeVar tvref) = do
   ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
   case Map.lookup tvref tvref_to_tv of
@@ -212,10 +212,10 @@ exTypeFromType' a@(TypeVar tvref) = do
       put ((tail fresh_tvs, Map.insert tvref (head fresh_tvs) tvref_to_tv), (fresh_dvs, dvref_to_dv))
       exTypeFromType' a
 exTypeFromType' a@(TypeArray t (DimVar dvref)) = do
-  dt <- exTypeFromType' t
+  xt <- exTypeFromType' t
   ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
   case Map.lookup dvref dvref_to_dv of
-    Just dv -> return $ ExTypeArray dt (ExDimVar dv)
+    Just dv -> return $ ExTypeArray xt (ExDimVar dv)
     Nothing -> do
       put ((fresh_tvs, tvref_to_tv), (tail fresh_dvs, Map.insert dvref (head fresh_dvs) dvref_to_dv))
       exTypeFromType' a

@@ -34,11 +34,11 @@ prettyExType (ExTypeTexture1D) = "Texture1D"
 prettyExType (ExTypeTexture2D) = "Texture2D"
 prettyExType (ExTypeTexture3D) = "Texture3D"
 prettyExType (ExTypeTextureCube) = "TextureCube"
-prettyExType (ExTypeTuple dts) = tuple $ map prettyExType dts
-prettyExType (ExTypeArray dt (ExDimFix i)) = paren (isExTypeFun dt) (prettyExType dt) ++ " " ++ show i
-prettyExType (ExTypeFun dt1 dt2) = paren (isExTypeFun dt1) (prettyExType dt1) ++ " -> " ++ (prettyExType dt2)
+prettyExType (ExTypeTuple xts) = tuple $ map prettyExType xts
+prettyExType (ExTypeArray xt (ExDimFix i)) = paren (isExTypeFun xt) (prettyExType xt) ++ " " ++ show i
+prettyExType (ExTypeFun xt1 xt2) = paren (isExTypeFun xt1) (prettyExType xt1) ++ " -> " ++ (prettyExType xt2)
 prettyExType (ExTypeVar tv) = tv
-prettyExType (ExTypeArray dt (ExDimVar dv)) = paren (isExTypeFun dt) (prettyExType dt) ++ " " ++ dv
+prettyExType (ExTypeArray xt (ExDimVar dv)) = paren (isExTypeFun xt) (prettyExType xt) ++ " " ++ dv
 
 -- We only need parens if the left subtype of a type is a function type.
 isExTypeFun :: ExType -> Bool
