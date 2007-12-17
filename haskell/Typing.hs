@@ -21,6 +21,21 @@ runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> Either String a
 runTI ti state = evalState (runErrorT ti) state
 
 
+-- Take a fresh type variable.
+freshTypeVar :: TI Type
+freshTypeVar = do
+  (fresh_tvref:fresh_tvrefs, fresh_dvrefs) <- get
+  put (fresh_tvrefs, fresh_dvrefs)
+  return $ TypeVar fresh_tvref
+
+-- Take a fresh dim variable.
+freshDimVar :: TI Dim
+freshDimVar = do
+  (fresh_tvrefs, fresh_dvref:fresh_dvrefs) <- get
+  put (fresh_tvrefs, fresh_dvrefs)
+  return $ DimVar fresh_dvref
+
+
 -- A substitution binds type vars to types and dim vars to dims.
 type TypeVarSubst = Map.Map TypeVarRef Type
 type DimVarSubst = Map.Map DimVarRef Dim
@@ -176,6 +191,20 @@ remove (Gamma env) ident = Gamma (Map.delete ident env)
 generalize :: Env -> Type -> Scheme
 generalize gamma t = Scheme (fv t `differenceVarRefs` fv gamma) t
 
+-- Instantiate a type scheme to give a type.
+instantiate :: Scheme -> TI Type
+instantiate (Scheme (tvrefs, dvrefs) t) = do
+  tsub <- Foldable.foldlM (
+    \tsub tvref -> do
+      tv <- freshTypeVar
+      return $ Map.insert tvref tv tsub
+    ) nullTypeVarSubst tvrefs
+  dsub <- Foldable.foldlM (
+    \dsub dvref -> do
+      dv <- freshDimVar
+      return $ Map.insert dvref dv dsub
+    ) nullDimVarSubst dvrefs
+  return $ applySubst (tsub, dsub) t
 
 
 
