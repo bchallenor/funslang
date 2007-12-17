@@ -113,8 +113,9 @@ mgu (TypeTexture3D) (TypeTexture3D) = return nullSubst
 mgu (TypeTextureCube) (TypeTextureCube) = return nullSubst
 mgu (TypeArray t (DimVar dvref)) (TypeArray t' d') = do
   dsub1 <- bindDimVarRef dvref d'
-  (tsub2, dsub2) <- mgu (applySubst (nullTypeVarSubst, dsub1) t) (applySubst (nullTypeVarSubst, dsub1) t')
-  return $ (tsub2, dsub2) `composeSubst` (nullTypeVarSubst, dsub1)
+  let sub1 = (nullTypeVarSubst, dsub1)
+  sub2 <- mgu (applySubst sub1 t) (applySubst sub1 t')
+  return $ sub2 `composeSubst` sub1
 mgu (TypeArray t d) (TypeArray t' (DimVar dvref')) =
   mgu (TypeArray t' (DimVar dvref')) (TypeArray t d) -- swap
 mgu (TypeArray t (DimFix i)) (TypeArray t' (DimFix i')) =
@@ -124,7 +125,7 @@ mgu (TypeArray t (DimFix i)) (TypeArray t' (DimFix i')) =
 mgu (TypeTuple ts) (TypeTuple ts') =
   if length ts == length ts'
     then Foldable.foldlM (
-      \sub1 (t, t') -> do
+      \ sub1 (t, t') -> do
         sub2 <- mgu (applySubst sub1 t) (applySubst sub1 t')
         return $ sub2 `composeSubst` sub1
       ) nullSubst (zip ts ts')
