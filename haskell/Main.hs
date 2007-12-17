@@ -38,7 +38,7 @@ ti :: Expr -> String
 ti e =
   let (m, freshVarRefs) = initLibrary in
     case runTI (principalType (Gamma m) e) freshVarRefs of
-      Right (s, t) -> show s ++ "\n\n" ++ show t ++ "\n\n" ++ prettyType (applySubst s t)
+      Right (s, t) -> show s ++ "\n\n" ++ show t ++ "\n\n" ++ prettyType t
       Left s -> s
 
 main :: IO ()
