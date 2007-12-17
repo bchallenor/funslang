@@ -26,12 +26,12 @@ ioe = do
 --   e' <- ioe'
 --   return (typeOf e')
 
-unify :: String -> String -> Typeability Subst
+unify :: String -> String -> Either String Subst
 unify tstr1 tstr2 = do
   let xt1 = parseExType $ lexer tstr1
   let xt2 = parseExType $ lexer tstr2
   let [t1, t2] = typesFromExTypes typeVarRefs dimVarRefs [xt1, xt2]
-  mgu t1 t2
+  runTI (mgu t1 t2) (typeVarRefs, dimVarRefs)
 
 main :: IO ()
 main = do

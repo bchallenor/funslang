@@ -7,23 +7,18 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 import qualified Data.Foldable as Foldable
+import Control.Monad.State
+import Control.Monad.Error
 import Pretty
 import Representation
 
 
--- todo: come up with a better way of doing this
-data Typeability a
-  = Typeable !a
-  | Untypeable !String
-  
-  deriving (Show, Eq)
+-- The type inference monad holds the fresh var ref state (use put/get),
+-- and can return errors (use throwError).
+type TI a = ErrorT String (State ([TypeVarRef], [DimVarRef])) a
 
-instance Monad Typeability where
-  (Typeable x) >>= k = k x
-  (Untypeable s) >>= _ = Untypeable s
-  return = Typeable
-  fail = Untypeable
-
+runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> Either String a
+runTI ti state = evalState (runErrorT ti) state
 
 
 -- A substitution binds type vars to types and dim vars to dims.
@@ -94,22 +89,22 @@ composeSubst :: Subst -> Subst -> Subst
   ((Map.map (applyTypeVarSubst tsub2) tsub1) `Map.union` tsub2, (Map.map (applyDimVarSubst dsub2) dsub1) `Map.union` dsub2)
 
 -- Returns the substitution that binds a type variable to a type.
-bindTypeVarRef :: Monad m => TypeVarRef -> Type -> m TypeVarSubst
+bindTypeVarRef :: TypeVarRef -> Type -> TI TypeVarSubst
 bindTypeVarRef tvref t
   | TypeVar tvref == t = return nullTypeVarSubst -- identity substitutions should not fail occurs check
   | let (ftv, fdv) = fv t in tvref `Set.member` ftv =
     let [tv, pt] = prettyTypes [TypeVar tvref, t] in
-      fail $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
+      throwError $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
   | otherwise = return (Map.singleton tvref t) -- finally, we can do the bind
 
 -- Returns the substitution that binds a dim variable to a dim.
-bindDimVarRef :: Monad m => DimVarRef -> Dim -> m DimVarSubst
+bindDimVarRef :: DimVarRef -> Dim -> TI DimVarSubst
 bindDimVarRef dvref d
   | DimVar dvref == d = return nullDimVarSubst
   | otherwise = return (Map.singleton dvref d)
 
 -- Returns the most general unifier of two types.
-mgu :: Type -> Type -> Typeability Subst
+mgu :: Type -> Type -> TI Subst
 mgu (TypeUnit) (TypeUnit) = return nullSubst
 mgu (TypeReal) (TypeReal) = return nullSubst
 mgu (TypeBool) (TypeBool) = return nullSubst
@@ -127,7 +122,7 @@ mgu (TypeArray t d) (TypeArray t' (DimVar dvref')) =
 mgu (TypeArray t (DimFix i)) (TypeArray t' (DimFix i')) =
   if i == i'
     then mgu t t'
-    else fail "array dimensions do not match"
+    else throwError "array dimensions do not match"
 mgu (TypeTuple ts) (TypeTuple ts') =
   if length ts == length ts'
     then Foldable.foldlM (
@@ -135,7 +130,7 @@ mgu (TypeTuple ts) (TypeTuple ts') =
         sub2 <- mgu (applySubst sub1 t) (applySubst sub1 t')
         return $ sub2 `composeSubst` sub1
       ) nullSubst (zip ts ts')
-    else fail "tuple lengths do not match"
+    else throwError "tuple lengths do not match"
 mgu (TypeFun t1 t2) (TypeFun t1' t2') = do
   sub1 <- mgu t1 t1'
   sub2 <- mgu (applySubst sub1 t2) (applySubst sub1 t2')
@@ -148,7 +143,7 @@ mgu t (TypeVar tvref') = do
   return (tsub, nullDimVarSubst)
 mgu t1 t2 =
   let [pt1, pt2] = prettyTypes [t1, t2] in
-    fail $ "could not unify <" ++ pt1 ++ "> with <" ++ pt2 ++ ">"
+    throwError $ "could not unify <" ++ pt1 ++ "> with <" ++ pt2 ++ ">"
 
 
 -- A type scheme generalizes a type over the bound type vars and dim vars.
