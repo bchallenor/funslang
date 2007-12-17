@@ -230,26 +230,26 @@ exTypeFromType' a@(TypeArray t (DimVar dvref)) = do
 
 
 data Expr
-  = UnitConstExpr
-  | RealConstExpr !Double
-  | BoolConstExpr !Bool
-  | VarExpr !String
-  | AppExpr !Expr !Expr
-  | ArrayExpr ![Expr]
-  | TupleExpr ![Expr]
-  | IfExpr !Expr !Expr !Expr
-  | LetExpr !Patt !Expr !Expr -- pattern, bound expression, body expression
-  | LambdaExpr !Patt !Expr -- pattern, body expression
+  = ExprUnitLiteral
+  | ExprRealLiteral !Double
+  | ExprBoolLiteral !Bool
+  | ExprVar !String
+  | ExprApp !Expr !Expr
+  | ExprArray ![Expr]
+  | ExprTuple ![Expr]
+  | ExprIf !Expr !Expr !Expr
+  | ExprLet !Patt !Expr !Expr -- pattern, bound expression, body expression
+  | ExprLambda !Patt !Expr -- pattern, body expression
   
   deriving (Show, Eq)
 
 
 data Patt
-  = WildPatt
-  | UnitPatt
-  | VarPatt !String
-  | ArrayPatt ![Patt]
-  | TuplePatt ![Patt]
+  = PattWild
+  | PattUnit
+  | PattVar !String
+  | PattArray ![Patt]
+  | PattTuple ![Patt]
   
   deriving (Show, Eq)
 

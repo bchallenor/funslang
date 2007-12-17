@@ -175,7 +175,7 @@ tuple_expr_inner :: { [Expr] }
   ;
 
 tuple_expr :: { Expr }
-  : LPAREN tuple_expr_inner RPAREN { TupleExpr (reverse $2) }
+  : LPAREN tuple_expr_inner RPAREN { ExprTuple (reverse $2) }
   ;
 
 array_expr_inner :: { [Expr] }
@@ -184,28 +184,28 @@ array_expr_inner :: { [Expr] }
   ;
 
 array_expr :: { Expr }
-  : LBRACKET array_expr_inner RBRACKET { ArrayExpr (reverse $2) }
+  : LBRACKET array_expr_inner RBRACKET { ExprArray (reverse $2) }
   ;
 
 array_range_expr :: { Expr }
-  : LBRACKET LITERAL_INT RANGE_DOTS LITERAL_INT RBRACKET { ArrayExpr (map (RealConstExpr . fromInteger) (if $2<=$4 then [$2..$4] else reverse [$4..$2])) }
+  : LBRACKET LITERAL_INT RANGE_DOTS LITERAL_INT RBRACKET { ExprArray (map (ExprRealLiteral . fromInteger) (if $2<=$4 then [$2..$4] else reverse [$4..$2])) }
   ;
 
 primary_expr :: { Expr }
-  : LPAREN RPAREN { UnitConstExpr }
-  | LITERAL_INT { RealConstExpr (fromInteger $1) }
-  | LITERAL_FLOAT { RealConstExpr $1 }
-  | LITERAL_BOOL { BoolConstExpr $1 }
-  | IDENTIFIER { VarExpr $1 }
+  : LPAREN RPAREN { ExprUnitLiteral }
+  | LITERAL_INT { ExprRealLiteral (fromInteger $1) }
+  | LITERAL_FLOAT { ExprRealLiteral $1 }
+  | LITERAL_BOOL { ExprBoolLiteral $1 }
+  | IDENTIFIER { ExprVar $1 }
   | tuple_expr { $1 }
   | array_expr { $1 }
   | array_range_expr { $1 }
-  | LPAREN operator RPAREN { VarExpr (show $2) }
+  | LPAREN operator RPAREN { ExprVar (show $2) }
   | LPAREN expr RPAREN { $2 }
   ;
 
 app_expr :: { Expr }
-  : app_expr primary_expr { AppExpr $1 $2 }
+  : app_expr primary_expr { ExprApp $1 $2 }
   | primary_expr { $1 }
   ;
 
@@ -243,10 +243,10 @@ operator_expr :: { Expr }
   ;
 
 expr :: { Expr }
-  : LAMBDA patts LAMBDA_DOT expr { foldl' (flip LambdaExpr) $4 $2 }
-  | IF expr THEN expr ELSE expr { IfExpr $2 $4 $6 }
-  | LET patt EQUALS expr IN expr { LetExpr $2 $4 $6 }
-  | LET IDENTIFIER patts EQUALS expr IN expr { LetExpr (VarPatt $2) (foldl' (flip LambdaExpr) $5 $3) $7 }
+  : LAMBDA patts LAMBDA_DOT expr { foldl' (flip ExprLambda) $4 $2 }
+  | IF expr THEN expr ELSE expr { ExprIf $2 $4 $6 }
+  | LET patt EQUALS expr IN expr { ExprLet $2 $4 $6 }
+  | LET IDENTIFIER patts EQUALS expr IN expr { ExprLet (PattVar $2) (foldl' (flip ExprLambda) $5 $3) $7 }
   | operator_expr { $1 }
   ;
 
@@ -261,7 +261,7 @@ tuple_patt_inner :: { [Patt] }
   ;
 
 tuple_patt :: { Patt }
-  : LPAREN tuple_patt_inner RPAREN { TuplePatt (reverse $2) }
+  : LPAREN tuple_patt_inner RPAREN { PattTuple (reverse $2) }
   ;
 
 array_patt_inner :: { [Patt] }
@@ -270,13 +270,13 @@ array_patt_inner :: { [Patt] }
   ;
 
 array_patt :: { Patt }
-  : LBRACKET array_patt_inner RBRACKET { ArrayPatt (reverse $2) }
+  : LBRACKET array_patt_inner RBRACKET { PattArray (reverse $2) }
   ;
 
 patt :: { Patt }
-  : WILDCARD { WildPatt }
-  | LPAREN RPAREN { UnitPatt }
-  | IDENTIFIER { VarPatt $1 }
+  : WILDCARD { PattWild }
+  | LPAREN RPAREN { PattUnit }
+  | IDENTIFIER { PattVar $1 }
   | tuple_patt { $1 }
   | array_patt { $1 }
   | LPAREN patt RPAREN { $2 }
@@ -297,11 +297,11 @@ parseError :: [Token] -> a
 parseError ts = error ("Parse error at: " ++ show ts)
 
 prefixExpr :: Operator -> Expr -> Expr
-prefixExpr op a = AppExpr (VarExpr (show op)) a
+prefixExpr op a = ExprApp (ExprVar (show op)) a
 
 infixExpr :: Operator -> Expr -> Expr -> Expr
-infixExpr op a b = AppExpr (AppExpr (VarExpr (show op)) a) b
+infixExpr op a b = ExprApp (ExprApp (ExprVar (show op)) a) b
 
 postfixExpr :: Operator -> Expr -> Expr
-postfixExpr op a = AppExpr (VarExpr (show op)) a
+postfixExpr op a = ExprApp (ExprVar (show op)) a
 }

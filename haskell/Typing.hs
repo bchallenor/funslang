@@ -69,7 +69,7 @@ applyDimVarSubst dsub d@(DimVar dvref) =
   case Map.lookup dvref dsub of
     Just d' -> d'
     Nothing -> d
-applyDimVarSubst dsub d = d -- all other dims are atoms, and map to themselves
+applyDimVarSubst _ d = d -- all other dims are atoms, and map to themselves
 
 -- Type variable substitution.
 applyTypeVarSubst :: TypeVarSubst -> Type -> Type
@@ -79,7 +79,7 @@ applyTypeVarSubst tsub = applySubst (tsub, nullDimVarSubst)
 instance ContainsTypeDimVars Type where
 
   fv (TypeArray t (DimVar dvref)) = fv t `unionVarRefs` (Set.empty, Set.singleton dvref)
-  fv (TypeArray t (DimFix i)) = fv t
+  fv (TypeArray t (DimFix _)) = fv t
   fv (TypeTuple ts) = List.foldl1' unionVarRefs (map fv ts)
   fv (TypeFun t1 t2) = fv t1 `unionVarRefs` fv t2
   fv (TypeVar tvref) = (Set.singleton tvref, Set.empty)
@@ -88,11 +88,11 @@ instance ContainsTypeDimVars Type where
   applySubst (tsub, dsub) (TypeArray t d) = TypeArray (applySubst (tsub, dsub) t) (applyDimVarSubst dsub d)
   applySubst (tsub, dsub) (TypeTuple ts) = TypeTuple (map (applySubst (tsub, dsub)) ts)
   applySubst (tsub, dsub) (TypeFun t1 t2) = TypeFun (applySubst (tsub, dsub) t1) (applySubst (tsub, dsub) t2)
-  applySubst (tsub, dsub) t@(TypeVar tvref) =
+  applySubst (tsub, _) t@(TypeVar tvref) =
     case Map.lookup tvref tsub of
       Just t' -> t'
       Nothing -> t
-  applySubst (tsub, dsub) t = t -- all other types are atoms, and map to themselves
+  applySubst (_, _) t = t -- all other types are atoms, and map to themselves
 
 -- Substitution composition, finding s3 such that s3 t = s2(s1(t))
 -- s3 contains:
@@ -107,7 +107,7 @@ composeSubst :: Subst -> Subst -> Subst
 bindTypeVarRef :: TypeVarRef -> Type -> TI TypeVarSubst
 bindTypeVarRef tvref t
   | TypeVar tvref == t = return nullTypeVarSubst -- identity substitutions should not fail occurs check
-  | let (ftv, fdv) = fv t in tvref `Set.member` ftv =
+  | let (ftv, _) = fv t in tvref `Set.member` ftv =
     let [tv, pt] = prettyTypes [TypeVar tvref, t] in
       throwError $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
   | otherwise = return (Map.singleton tvref t) -- finally, we can do the bind
@@ -211,16 +211,16 @@ instantiate (Scheme (tvrefs, dvrefs) t) = do
 -- Returns the principal type of the expression, and the substitution that must
 -- be applied to gamma to achieve this.
 -- principalType :: Env -> Expr -> TI (Subst, Type)
--- principalType _ (UnitConstExpr) = (nullSubst, TypeUnit)
--- principalType _ (RealConstExpr _)
--- principalType _ (BoolConstExpr _)
--- principalType (VarExpr ident)
--- principalType (AppExpr e1 e2)
--- principalType (ArrayExpr es)
--- principalType (TupleExpr es)
--- principalType (IfExpr eb e1 e2)
--- principalType (LetExpr (VarPatt ident) ebound ebody)
--- principalType (LambdaExpr (VarPatt ident) ebody)
+-- principalType _ (ExprUnitLiteral) = (nullSubst, TypeUnit)
+-- principalType _ (ExprRealLiteral _)
+-- principalType _ (ExprBoolLiteral _)
+-- principalType (ExprVar ident)
+-- principalType (ExprApp e1 e2)
+-- principalType (ExprArray es)
+-- principalType (ExprTuple es)
+-- principalType (ExprIf eb e1 e2)
+-- principalType (ExprLet (PattVar ident) ebound ebody)
+-- principalType (ExprLambda (PattVar ident) ebody)
 
 
 
