@@ -1,5 +1,7 @@
 -- Particularly useful in writing the inference system was "Algorithm W Step by Step"
--- by Martin Grabmuller <http://uebb.cs.tu-berlin.de/~magr/pub/AlgorithmW.pdf>
+-- by Martin Grabmuller <http://uebb.cs.tu-berlin.de/~magr/pub/AlgorithmW.pdf>.
+-- The principal type algorithm, however, is based on that in the Types course
+-- by Prof. Andrew M. Pitts.
 
 module Typing where
 
@@ -222,7 +224,13 @@ principalType (Gamma env) (ExprVar ident) =
       t <- instantiate sigma
       return (nullSubst, t)
     Nothing -> throwError $ "unbound variable: " ++ ident
--- principalType (ExprApp e1 e2)
+principalType gamma (ExprApp e1 e2) = do
+  (s1, t1) <- principalType gamma e1
+  let s1gamma = applySubst s1 gamma
+  (s2, t2) <- principalType s1gamma e2
+  alpha <- freshTypeVar
+  s3 <- mgu (applySubst s2 t1) (TypeFun t2 alpha)
+  return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubst s3 alpha)
 -- principalType (ExprArray es)
 -- principalType (ExprTuple es)
 -- principalType (ExprIf eb e1 e2)
