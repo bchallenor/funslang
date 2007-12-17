@@ -26,13 +26,24 @@ instance Monad Typeability where
 
 
 
--- A type scheme generalizes a type over the type vars and dim vars.
-data Scheme = Scheme ![TypeVarRef] ![DimVarRef] !Type
-
 -- A substitution binds type vars to types and dim vars to dims.
 type TypeVarSubst = Map.Map TypeVarRef Type
 type DimVarSubst = Map.Map DimVarRef Dim
 type Subst = (TypeVarSubst, DimVarSubst)
+
+-- VarRefs will represent sets of free or bound type and dim vars.
+type VarRefs = (Set.Set TypeVarRef, Set.Set DimVarRef)
+
+unionVarRefs :: VarRefs -> VarRefs -> VarRefs
+unionVarRefs (l1, r1) (l2, r2) = (Set.union l1 l2, Set.union r1 r2)
+
+differenceVarRefs :: VarRefs -> VarRefs -> VarRefs
+differenceVarRefs (l1, r1) (l2, r2) = (Set.difference l1 l2, Set.difference r1 r2)
+
+-- We'll want to overload these functions for Type, Scheme, and Env.
+class ContainsTypeDimVars a where
+  fv :: a -> VarRefs
+  applySubst :: Subst -> a -> a
 
 -- Null substitutions.
 nullTypeVarSubst :: TypeVarSubst
@@ -54,16 +65,24 @@ applyDimVarSubst dsub d = d -- all other dims are atoms, and map to themselves
 applyTypeVarSubst :: TypeVarSubst -> Type -> Type
 applyTypeVarSubst tsub = applySubst (tsub, nullDimVarSubst)
 
--- Type and dim variable substitution.
-applySubst :: Subst -> Type -> Type
-applySubst (tsub, dsub) (TypeArray t d) = TypeArray (applySubst (tsub, dsub) t) (applyDimVarSubst dsub d)
-applySubst (tsub, dsub) (TypeTuple ts) = TypeTuple (map (applySubst (tsub, dsub)) ts)
-applySubst (tsub, dsub) (TypeFun t1 t2) = TypeFun (applySubst (tsub, dsub) t1) (applySubst (tsub, dsub) t2)
-applySubst (tsub, dsub) t@(TypeVar tvref) =
-  case Map.lookup tvref tsub of
-    Just t' -> t'
-    Nothing -> t
-applySubst (tsub, dsub) t = t -- all other types are atoms, and map to themselves
+-- We can now provide the ContainsTypeDimVars functions for Type.
+instance ContainsTypeDimVars Type where
+
+  fv (TypeArray t (DimVar dvref)) = fv t `unionVarRefs` (Set.empty, Set.singleton dvref)
+  fv (TypeArray t (DimFix i)) = fv t
+  fv (TypeTuple ts) = List.foldl1' unionVarRefs (map fv ts)
+  fv (TypeFun t1 t2) = fv t1 `unionVarRefs` fv t2
+  fv (TypeVar tvref) = (Set.singleton tvref, Set.empty)
+  fv _ = (Set.empty, Set.empty) -- nothing else can contain a var
+  
+  applySubst (tsub, dsub) (TypeArray t d) = TypeArray (applySubst (tsub, dsub) t) (applyDimVarSubst dsub d)
+  applySubst (tsub, dsub) (TypeTuple ts) = TypeTuple (map (applySubst (tsub, dsub)) ts)
+  applySubst (tsub, dsub) (TypeFun t1 t2) = TypeFun (applySubst (tsub, dsub) t1) (applySubst (tsub, dsub) t2)
+  applySubst (tsub, dsub) t@(TypeVar tvref) =
+    case Map.lookup tvref tsub of
+      Just t' -> t'
+      Nothing -> t
+  applySubst (tsub, dsub) t = t -- all other types are atoms, and map to themselves
 
 -- Substitution composition, finding s3 such that s3 t = s2(s1(t))
 -- s3 contains:
@@ -74,27 +93,14 @@ composeSubst :: Subst -> Subst -> Subst
 (tsub2, dsub2) `composeSubst` (tsub1, dsub1) =
   ((Map.map (applyTypeVarSubst tsub2) tsub1) `Map.union` tsub2, (Map.map (applyDimVarSubst dsub2) dsub1) `Map.union` dsub2)
 
--- Finds the free type variables in a type.
-ftv :: Type -> Set.Set TypeVarRef
-ftv (TypeArray t d) = ftv t
-ftv (TypeTuple ts) = List.foldl1' Set.union (map ftv ts)
-ftv (TypeFun t1 t2) = ftv t1 `Set.union` ftv t2
-ftv (TypeVar tvref) = Set.singleton tvref
-ftv _ = Set.empty -- nothing else can contain a var
-
 -- Returns the substitution that binds a type variable to a type.
 bindTypeVarRef :: Monad m => TypeVarRef -> Type -> m TypeVarSubst
 bindTypeVarRef tvref t
   | TypeVar tvref == t = return nullTypeVarSubst -- identity substitutions should not fail occurs check
-  | tvref `Set.member` ftv t =
+  | let (ftv, fdv) = fv t in tvref `Set.member` ftv =
     let [tv, pt] = prettyTypes [TypeVar tvref, t] in
-    fail $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
+      fail $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
   | otherwise = return (Map.singleton tvref t) -- finally, we can do the bind
-
--- Finds the free dim variables in a dim.
-fdv :: Dim -> Set.Set DimVarRef
-fdv (DimVar dvref) = Set.singleton dvref
-fdv _ = Set.empty -- nothing else can contain a var
 
 -- Returns the substitution that binds a dim variable to a dim.
 bindDimVarRef :: Monad m => DimVarRef -> Dim -> m DimVarSubst
@@ -142,9 +148,38 @@ mgu t (TypeVar tvref') = do
   return (tsub, nullDimVarSubst)
 mgu t1 t2 =
   let [pt1, pt2] = prettyTypes [t1, t2] in
-  fail $ "could not unify <" ++ pt1 ++ "> with <" ++ pt2 ++ ">"
+    fail $ "could not unify <" ++ pt1 ++ "> with <" ++ pt2 ++ ">"
 
 
+-- A type scheme generalizes a type over the bound type vars and dim vars.
+data Scheme = Scheme !VarRefs !Type
+
+instance ContainsTypeDimVars Scheme where
+
+  fv (Scheme vrefs t) = fv t `differenceVarRefs` vrefs
+
+  applySubst (tsub, dsub) (Scheme (tvrefs, dvrefs) t) =
+    let tsub' = Set.fold Map.delete tsub tvrefs in
+    let dsub' = Set.fold Map.delete dsub dvrefs in
+      Scheme (tvrefs, dvrefs) (applySubst (tsub', dsub') t)
+
+
+-- A type environment maps identifiers to type schemes.
+data Env = Gamma !(Map.Map String Scheme)
+
+instance ContainsTypeDimVars Env where
+  
+  fv (Gamma env) = List.foldl' unionVarRefs (Set.empty, Set.empty) (map fv (Map.elems env))
+
+  applySubst sub (Gamma env) = Gamma (Map.map (applySubst sub) env)
+
+remove :: Env -> String -> Env
+remove (Gamma env) ident = Gamma (Map.delete ident env)
+
+
+-- Generalize a type to a type scheme given an environment (to avoid capture).
+generalize :: Env -> Type -> Scheme
+generalize gamma t = Scheme (fv t `differenceVarRefs` fv gamma) t
 
 
 
