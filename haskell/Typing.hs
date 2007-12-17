@@ -231,8 +231,15 @@ principalType gamma (ExprApp e1 e2) = do
   alpha <- freshTypeVar
   s3 <- mgu (applySubst s2 t1) (TypeFun t2 alpha)
   return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubst s3 alpha)
--- principalType (ExprArray es)
--- principalType (ExprTuple es)
+-- principalType gamma (ExprArray es) = do
+--   alpha <- freshTypeVar -- the type of the array
+principalType gamma (ExprTuple es) = do
+  (s1, s1gamma, ts1) <- Foldable.foldrM (
+    \ e (s1, s1gamma, ts1) -> do
+      (s2, t2) <- principalType s1gamma e
+      return (s2 `composeSubst` s1, applySubst s2 s1gamma, t2:ts1)
+    ) (nullSubst, gamma, []) es -- the empty tuple is invalid, but es has valid length
+  return (s1, TypeTuple ts1)
 principalType gamma (ExprIf e1 e2 e3) = do
   (s1, t1) <- principalType gamma e1
   s2 <- mgu t1 TypeBool
