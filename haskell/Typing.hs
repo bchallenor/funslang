@@ -76,10 +76,6 @@ applyDimVarSubst dsub d@(DimVar dvref) =
     Nothing -> d
 applyDimVarSubst _ d = d -- all other dims are atoms, and map to themselves
 
--- Type variable substitution.
-applyTypeVarSubst :: TypeVarSubst -> Type -> Type
-applyTypeVarSubst tsub = applySubst (tsub, nullDimVarSubst)
-
 -- We can now provide the ContainsTypeDimVars functions for Type.
 instance ContainsTypeDimVars Type where
 
@@ -106,7 +102,7 @@ instance ContainsTypeDimVars Type where
 -- Note that Map.union prefers its first argument when duplicate keys are encountered.
 composeSubst :: Subst -> Subst -> Subst
 (tsub2, dsub2) `composeSubst` (tsub1, dsub1) =
-  ((Map.map (applyTypeVarSubst tsub2) tsub1) `Map.union` tsub2, (Map.map (applyDimVarSubst dsub2) dsub1) `Map.union` dsub2)
+  ((Map.map (applySubst (tsub2, dsub2)) tsub1) `Map.union` tsub2, (Map.map (applyDimVarSubst dsub2) dsub1) `Map.union` dsub2)
 
 -- Returns the substitution that binds a type variable to a type.
 bindTypeVarRef :: TypeVarRef -> Type -> TI TypeVarSubst
