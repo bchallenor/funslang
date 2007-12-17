@@ -19,7 +19,7 @@ $s = [\ \t\n\f\v\r]
 tokens :-
   
   $s+                       ; -- ignore whitespace
-  "--" .*                   ; -- ignore comments (upto newline)
+  "%" .*                    ; -- ignore comments (upto newline)
   
   "Bool"                    { \s -> TOK_BOOL }
   "Real"                    { \s -> TOK_REAL }
