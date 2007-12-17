@@ -258,7 +258,7 @@ data Operator
   = OpScalarNeg
   | OpVectorNeg
   | OpNot
-  ---
+  --
   | OpSubscript
   | OpSwizzle
   | OpScalarAdd
@@ -282,7 +282,7 @@ data Operator
   | OpNotEqual
   | OpAnd
   | OpOr
-  ---
+  --
   | OpTranspose
   
   deriving Eq
@@ -292,7 +292,7 @@ instance Show Operator where
   show OpScalarNeg = "negate"
   show OpVectorNeg = "negates"
   show OpNot = "~"
-  ---
+  --
   show OpSubscript = "!"
   show OpSwizzle = "!!"
   show OpScalarAdd = "+"
@@ -316,5 +316,5 @@ instance Show Operator where
   show OpNotEqual = "/="
   show OpAnd = "&&"
   show OpOr = "||"
-  ---
+  --
   show OpTranspose = "'"
