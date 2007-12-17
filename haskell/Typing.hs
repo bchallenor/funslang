@@ -187,7 +187,7 @@ remove :: Env -> String -> Env
 remove (Gamma env) ident = Gamma (Map.delete ident env)
 
 
--- Generalize a type to a type scheme given an environment (to avoid capture).
+-- Generalize a type to a type scheme (given an environment, allowing us to avoid capture).
 generalize :: Env -> Type -> Scheme
 generalize gamma t = Scheme (fv t `differenceVarRefs` fv gamma) t
 
@@ -205,4 +205,22 @@ instantiate (Scheme (tvrefs, dvrefs) t) = do
       return $ Map.insert dvref dv dsub
     ) nullDimVarSubst dvrefs
   return $ applySubst (tsub, dsub) t
+
+
+-- Type inference! The cool stuff.
+-- Returns the principal type of the expression, and the substitution that must
+-- be applied to gamma to achieve this.
+-- principalType :: Env -> Expr -> TI (Subst, Type)
+-- principalType _ (UnitConstExpr) = (nullSubst, TypeUnit)
+-- principalType _ (RealConstExpr _)
+-- principalType _ (BoolConstExpr _)
+-- principalType (VarExpr ident)
+-- principalType (AppExpr e1 e2)
+-- principalType (ArrayExpr es)
+-- principalType (TupleExpr es)
+-- principalType (IfExpr eb e1 e2)
+-- principalType (LetExpr (VarPatt ident) ebound ebody)
+-- principalType (LambdaExpr (VarPatt ident) ebody)
+
+
 
