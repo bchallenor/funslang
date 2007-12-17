@@ -122,7 +122,7 @@ ex_type :: { ExType } -- right recursion for right associativity
   ;
 
 type :: { Type }
-  : ex_type { typeFromExType typeVarRefs dimVarRefs $1 } -- todo: start at fresh refs for this parser
+  : ex_type { let (t, _) = typeFromExType initFreshVarRefs $1 in t } -- todo: start at appropriate refs for this parser
   ;
 
 

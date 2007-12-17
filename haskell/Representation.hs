@@ -77,20 +77,22 @@ data TypeVarRef = TypeVarRef !Int
 data DimVarRef = DimVarRef !Int
   deriving (Eq, Show, Ord)
 
--- pool of fresh var refs, map from identifiers to refs
-type TypeEncodeContext = (([TypeVarRef], Map.Map String TypeVarRef), ([DimVarRef], Map.Map String DimVarRef))
--- pool of fresh vars, map from refs to identifiers
-type TypeDecodeContext = (([String], Map.Map TypeVarRef String), ([String], Map.Map DimVarRef String))
+-- pools of fresh type/dim var refs, maps from identifiers to refs
+type TypeEncodeContext = (([TypeVarRef], [DimVarRef]), (Map.Map String TypeVarRef, Map.Map String DimVarRef))
+-- pools of fresh type/dim vars, maps from refs to identifiers
+type TypeDecodeContext = (([String], [String]), (Map.Map TypeVarRef String, Map.Map DimVarRef String))
 
--- pools to draw from
-typeVarRefs :: [TypeVarRef]
-typeVarRefs = map TypeVarRef [0..]
-typeVars :: [String]
-typeVars = map (\x->['\'',x]) ['a'..'l']
-dimVarRefs :: [DimVarRef]
-dimVarRefs = map DimVarRef [0..]
-dimVars :: [String]
-dimVars = map (\x->[x]) ['m'..'z']
+-- These variables are used in the internal representation of types.
+-- We do not want to worry about alpha conversion, so they MUST NOT be reused.
+-- They should only be used directly by the library initializer; after that you
+-- need to ask the library which fresh variables remain.
+initFreshVarRefs :: ([TypeVarRef], [DimVarRef])
+initFreshVarRefs = (map TypeVarRef [0..], map DimVarRef [0..])
+
+-- These variables are only used in converting an internal type to an external type,
+-- so they can be reused as often as you like.
+initFreshVars :: ([String], [String])
+initFreshVars = (map (\x->['\'',x]) ['a'..'l'], map (\x->[x]) ['m'..'z'])
 
 
 -- as dims appear externally (in source or pretty-printed form)
@@ -144,12 +146,16 @@ data Type
 
 
 -- Encodes an external type (given pools of fresh var refs).
-typeFromExType :: [TypeVarRef] -> [DimVarRef] -> ExType -> Type
-typeFromExType fresh_tvrefs fresh_dvrefs xt = evalState (typeFromExType' xt) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
+typeFromExType :: ([TypeVarRef], [DimVarRef]) -> ExType -> (Type, ([TypeVarRef], [DimVarRef]))
+typeFromExType fresh_vrefs xt =
+  let (t, (fresh_vrefs', _)) = runState (typeFromExType' xt) (fresh_vrefs, (Map.empty, Map.empty)) in
+    (t, fresh_vrefs')
 
 -- Encodes many external types (in the same context).
-typesFromExTypes :: [TypeVarRef] -> [DimVarRef] -> [ExType] -> [Type]
-typesFromExTypes fresh_tvrefs fresh_dvrefs xts = evalState (mapM typeFromExType' xts) ((fresh_tvrefs, Map.empty), (fresh_dvrefs, Map.empty))
+typesFromExTypes :: ([TypeVarRef], [DimVarRef]) -> [ExType] -> ([Type], ([TypeVarRef], [DimVarRef]))
+typesFromExTypes fresh_vrefs xts =
+  let (t, (fresh_vrefs', _)) = runState (mapM typeFromExType' xts) (fresh_vrefs, (Map.empty, Map.empty)) in
+    (t, fresh_vrefs')
 
 typeFromExType' :: ExType -> State TypeEncodeContext Type
 typeFromExType' (ExTypeUnit) = return TypeUnit
@@ -170,29 +176,29 @@ typeFromExType' (ExTypeFun xt1 xt2) = do
   t2 <- typeFromExType' xt2
   return $ TypeFun t1 t2
 typeFromExType' a@(ExTypeVar tv) = do
-  ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
+  ((fresh_tvref:fresh_tvrefs, fresh_dvrefs), (tv_to_tvref, dv_to_dvref)) <- get
   case Map.lookup tv tv_to_tvref of
     Just tvref -> return $ TypeVar tvref
     Nothing -> do
-      put ((tail fresh_tvrefs, Map.insert tv (head fresh_tvrefs) tv_to_tvref), (fresh_dvrefs, dv_to_dvref))
+      put ((fresh_tvrefs, fresh_dvrefs), (Map.insert tv fresh_tvref tv_to_tvref, dv_to_dvref))
       typeFromExType' a
 typeFromExType' a@(ExTypeArray xt (ExDimVar dv)) = do
   t <- typeFromExType' xt
-  ((fresh_tvrefs, tv_to_tvref), (fresh_dvrefs, dv_to_dvref)) <- get
+  ((fresh_tvrefs, fresh_dvref:fresh_dvrefs), (tv_to_tvref, dv_to_dvref)) <- get
   case Map.lookup dv dv_to_dvref of
     Just dvref -> return $ TypeArray t (DimVar dvref)
     Nothing -> do
-      put ((fresh_tvrefs, tv_to_tvref), (tail fresh_dvrefs, Map.insert dv (head fresh_dvrefs) dv_to_dvref))
+      put ((fresh_tvrefs, fresh_dvrefs), (tv_to_tvref, Map.insert dv fresh_dvref dv_to_dvref))
       typeFromExType' a
 
 
 -- Decodes an internal type.
 exTypeFromType :: Type -> ExType
-exTypeFromType t = evalState (exTypeFromType' t) ((typeVars, Map.empty), (dimVars, Map.empty))
+exTypeFromType t = evalState (exTypeFromType' t) (initFreshVars, (Map.empty, Map.empty))
 
 -- Decodes many internal types (in the same context).
 exTypesFromTypes :: [Type] -> [ExType]
-exTypesFromTypes ts = evalState (mapM exTypeFromType' ts) ((typeVars, Map.empty), (dimVars, Map.empty))
+exTypesFromTypes ts = evalState (mapM exTypeFromType' ts) (initFreshVars, (Map.empty, Map.empty))
 
 exTypeFromType' :: Type -> State TypeDecodeContext ExType
 exTypeFromType' (TypeUnit) = return ExTypeUnit
@@ -213,19 +219,19 @@ exTypeFromType' (TypeFun t1 t2) = do
   xt2 <- exTypeFromType' t2
   return $ ExTypeFun xt1 xt2
 exTypeFromType' a@(TypeVar tvref) = do
-  ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
+  ((fresh_tv:fresh_tvs, fresh_dvs), (tvref_to_tv, dvref_to_dv)) <- get
   case Map.lookup tvref tvref_to_tv of
     Just tv -> return $ ExTypeVar tv
     Nothing -> do
-      put ((tail fresh_tvs, Map.insert tvref (head fresh_tvs) tvref_to_tv), (fresh_dvs, dvref_to_dv))
+      put ((fresh_tvs, fresh_dvs), (Map.insert tvref fresh_tv tvref_to_tv, dvref_to_dv))
       exTypeFromType' a
 exTypeFromType' a@(TypeArray t (DimVar dvref)) = do
   xt <- exTypeFromType' t
-  ((fresh_tvs, tvref_to_tv), (fresh_dvs, dvref_to_dv)) <- get
+  ((fresh_tvs, fresh_dv:fresh_dvs), (tvref_to_tv, dvref_to_dv)) <- get
   case Map.lookup dvref dvref_to_dv of
     Just dv -> return $ ExTypeArray xt (ExDimVar dv)
     Nothing -> do
-      put ((fresh_tvs, tvref_to_tv), (tail fresh_dvs, Map.insert dvref (head fresh_dvs) dvref_to_dv))
+      put ((fresh_tvs, fresh_dvs), (tvref_to_tv, Map.insert dvref fresh_dv dvref_to_dv))
       exTypeFromType' a
 
 
