@@ -6,7 +6,7 @@ import System.Environment
 import Pretty
 import Typing
 import Representation
-import qualified Data.Map as Map
+import Library
 
 test :: IO ()
 test = withArgs ["test.vp"] main
@@ -36,8 +36,8 @@ unify tstr1 tstr2 = do
 
 ti :: Expr -> String
 ti e =
-  case runTI (principalType (Gamma Map.empty) e) (typeVarRefs, dimVarRefs) of
-    Right (s, t) -> show s ++ "  " ++ prettyType t
+  case runTI (principalType (libraryEnv) e) (typeVarRefs, dimVarRefs) of
+    Right (s, t) -> show s ++ "  " ++ show (applySubst s t) ++ "  " ++ prettyType (applySubst s t)
     Left s -> s
 
 main :: IO ()

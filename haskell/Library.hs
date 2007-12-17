@@ -1,7 +1,9 @@
-module Library() where
+module Library(libraryEnv, query) where
+
+import qualified Data.List as List
+import qualified Data.Map as Map
 
 import Typing
-import Pretty
 import Lexer
 import Parser
 import Representation
@@ -17,6 +19,24 @@ data Fixity
   deriving (Show, Eq)
 
 
+-- A typing environment populated only with the library functions.
+libraryEnv :: Env
+libraryEnv =
+  Gamma $
+    List.foldl' (
+      \ env (_, ident, sigma, _, _, _) -> Map.insert ident sigma env
+    ) Map.empty library
+
+
+-- Queries the library, for debugging purposes.
+query :: String -> String
+query ident =
+  let Gamma m = libraryEnv in
+    case Map.lookup ident m of
+      Just sigma -> show sigma
+      Nothing -> "not in library"
+
+
 -- Parses the given type string, and generalizes it as if let-bound.
 sig :: String -> Scheme
 sig tstr =
@@ -30,18 +50,18 @@ library = [
   (Prefix, show OpScalarNeg, sig "Real -> Real", "scalar negate (as desugared from \"-\")", False, ["x"]),
   (Prefix, show OpVectorNeg, sig "Real n -> Real n", "vector negate (component-wise) (as desugared from \"--\")", False, ["x"]),
   (Prefix, show OpNot, sig "Bool -> Bool", "logical not", False, ["x"]),
-  (InfixL, show OpSubscript, sig "a n -> Real -> 'a", "subscript (if n is statically determinable, bounds checking occurs; if n is not statically determinable, there is no bounds check, and the left argument must be a uniform)", False, ["as", "n"]),
-  (InfixL, show OpSwizzle, sig "a n -> Real m -> 'a m", "swizzle, return vector of all subscripts supplied (if ns are all statically determinable, bounds checking occurs; if any n is not statically determinable, there is no bounds check, and the left argument must be a uniform) ", False, ["as", "ns"]),
+  (InfixL, show OpSubscript, sig "'a n -> Real -> 'a", "subscript (if n is statically determinable, bounds checking occurs; if n is not statically determinable, there is no bounds check, and the left argument must be a uniform)", False, ["as", "n"]),
+  (InfixL, show OpSwizzle, sig "'a n -> Real m -> 'a m", "swizzle, return vector of all subscripts supplied (if ns are all statically determinable, bounds checking occurs; if any n is not statically determinable, there is no bounds check, and the left argument must be a uniform) ", False, ["as", "ns"]),
   (InfixL, show OpScalarAdd, sig "Real -> Real -> Real", "scalar add", False, ["x", "y"]),
   (InfixL, show OpScalarSub, sig "Real -> Real -> Real", "scalar sub", False, ["x", "y"]),
   (InfixL, show OpScalarMul, sig "Real -> Real -> Real", "scalar mul", False, ["x", "y"]),
   (InfixL, show OpScalarDiv, sig "Real -> Real -> Real", "scalar div", False, ["x", "y"]),
-  (InfixL, show OpVectorAdd, sig "Real -> Real -> Real", "vector add (component-wise)", False, ["x", "y"]),
-  (InfixL, show OpVectorSub, sig "Real -> Real -> Real", "vector sub (component-wise)", False, ["x", "y"]),
-  (InfixL, show OpVectorMul, sig "Real -> Real -> Real", "vector mul (component-wise)", False, ["x", "y"]),
-  (InfixL, show OpVectorDiv, sig "Real -> Real -> Real", "vector div (component-wise)", False, ["x", "y"]),
-  (InfixL, show OpVectorScalarMul, sig "Real p -> Real -> Real p", "vector-scalar mul", False, ["x", "y"]),
-  (InfixL, show OpVectorScalarDiv, sig "Real p -> Real -> Real p", "vector-scalar div", False, ["x", "y"]),
+  (InfixL, show OpVectorAdd, sig "Real n -> Real n -> Real n", "vector add (component-wise)", False, ["x", "y"]),
+  (InfixL, show OpVectorSub, sig "Real n -> Real n -> Real n", "vector sub (component-wise)", False, ["x", "y"]),
+  (InfixL, show OpVectorMul, sig "Real n -> Real n -> Real n", "vector mul (component-wise)", False, ["x", "y"]),
+  (InfixL, show OpVectorDiv, sig "Real n -> Real n -> Real n", "vector div (component-wise)", False, ["x", "y"]),
+  (InfixL, show OpVectorScalarMul, sig "Real n -> Real -> Real n", "vector-scalar mul", False, ["x", "y"]),
+  (InfixL, show OpVectorScalarDiv, sig "Real n -> Real -> Real n", "vector-scalar div", False, ["x", "y"]),
   (InfixL, show OpMatrixMatrixLinearMul, sig "Real q p -> Real r q -> Real r p", "matrix-matrix linear algebraic mul", False, ["x", "y"]),
   (InfixR, show OpMatrixVectorLinearMul, sig "Real q p -> Real q -> Real p", "matrix-vector linear algebraic mul", False, ["x", "y"]),
   (InfixL, show OpVectorMatrixLinearMul, sig "Real q -> Real r q -> Real r", "vector-matrix linear algebraic mul", False, ["x", "y"]),

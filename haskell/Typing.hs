@@ -167,7 +167,7 @@ mgu t1 t2 =
 
 
 -- A type scheme generalizes a type over the bound type vars and dim vars.
-data Scheme = Scheme !VarRefs !Type
+data Scheme = Scheme !VarRefs !Type deriving (Show, Eq)
 
 instance ContainsTypeDimVars Scheme where
 
@@ -180,19 +180,19 @@ instance ContainsTypeDimVars Scheme where
 
 
 -- A type environment maps identifiers to type schemes.
-data Env = Gamma !(Map.Map String Scheme)
+data Env = Gamma !(Map.Map String Scheme) deriving (Show, Eq)
 
 instance ContainsTypeDimVars Env where
   
-  fv (Gamma env) = List.foldl' unionVarRefs (Set.empty, Set.empty) (map fv (Map.elems env))
+  fv (Gamma m) = List.foldl' unionVarRefs (Set.empty, Set.empty) (map fv (Map.elems m))
 
-  applySubst sub (Gamma env) = Gamma (Map.map (applySubst sub) env)
+  applySubst sub (Gamma m) = Gamma (Map.map (applySubst sub) m)
 
 removeIdent :: String -> Env -> Env
-removeIdent ident (Gamma env) = Gamma (Map.delete ident env)
+removeIdent ident (Gamma m) = Gamma (Map.delete ident m)
 
 insertIdent :: String -> Scheme -> Env -> Env
-insertIdent ident sigma (Gamma env) = Gamma (Map.insert ident sigma env)
+insertIdent ident sigma (Gamma m) = Gamma (Map.insert ident sigma m)
 
 
 -- Instantiate a type scheme to give a type.
@@ -218,8 +218,8 @@ principalType :: Env -> Expr -> TI (Subst, Type)
 principalType _ (ExprUnitLiteral) = return (nullSubst, TypeUnit)
 principalType _ (ExprRealLiteral _) = return (nullSubst, TypeReal)
 principalType _ (ExprBoolLiteral _) = return (nullSubst, TypeBool)
-principalType (Gamma env) (ExprVar ident) =
-  case Map.lookup ident env of
+principalType (Gamma m) (ExprVar ident) =
+  case Map.lookup ident m of
     Just sigma -> do
       t <- instantiate sigma
       return (nullSubst, t)
