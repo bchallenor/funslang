@@ -233,7 +233,15 @@ principalType gamma (ExprApp e1 e2) = do
   return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubst s3 alpha)
 -- principalType (ExprArray es)
 -- principalType (ExprTuple es)
--- principalType (ExprIf eb e1 e2)
+principalType gamma (ExprIf e1 e2 e3) = do
+  (s1, t1) <- principalType gamma e1
+  s2 <- mgu t1 TypeBool
+  let s2s1gamma = applySubst s2 (applySubst s1 gamma)
+  (s3, t3) <- principalType s2s1gamma e2
+  let s3s2s1gamma = applySubst s3 s2s1gamma
+  (s4, t4) <- principalType s3s2s1gamma e3
+  s5 <- mgu (applySubst s4 t3) t4
+  return ((s5 `composeSubst` (s4 `composeSubst` (s3 `composeSubst` (s2 `composeSubst` s1)))), applySubst s5 t4)
 principalType gamma (ExprLet (PattVar ident) e1 e2) = do
   (s1, t1) <- principalType gamma e1
   -- we should remove any mapping for ident now, because we're going to shadow it,
