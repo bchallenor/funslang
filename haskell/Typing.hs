@@ -65,14 +65,14 @@ applySubst (tsub, dsub) t@(TypeVar tvref) =
     Nothing -> t
 applySubst (tsub, dsub) t = t -- all other types are atoms, and map to themselves
 
--- Substitution composition, finding s3 such that s3 t = s1(s2(t))
+-- Substitution composition, finding s3 such that s3 t = s2(s1(t))
 -- s3 contains:
--- a) all the bindings in s2 with s1 applied to their right hand sides
--- b) all the bindings in s1, except if they clash with a) in which case a) takes precendence
+-- a) all the bindings in s1 with s2 applied to their right hand sides
+-- b) all the bindings in s2, except if they clash with a) in which case a) takes precendence
 -- Note that Map.union prefers its first argument when duplicate keys are encountered.
 composeSubst :: Subst -> Subst -> Subst
-composeSubst (tsub1, dsub1) (tsub2, dsub2) =
-  ((Map.map (applyTypeVarSubst tsub1) tsub2) `Map.union` tsub1, (Map.map (applyDimVarSubst dsub1) dsub2) `Map.union` dsub1)
+(tsub2, dsub2) `composeSubst` (tsub1, dsub1) =
+  ((Map.map (applyTypeVarSubst tsub2) tsub1) `Map.union` tsub2, (Map.map (applyDimVarSubst dsub2) dsub1) `Map.union` dsub2)
 
 -- Finds the free type variables in a type.
 ftv :: Type -> Set.Set TypeVarRef
