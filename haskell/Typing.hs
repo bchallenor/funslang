@@ -174,9 +174,12 @@ instance ContainsTypeDimVars Scheme where
   fv (Scheme vrefs t) = fv t `differenceVarRefs` vrefs
 
   applySubst (tsub, dsub) (Scheme (tvrefs, dvrefs) t) =
-    let tsub' = Set.fold Map.delete tsub tvrefs in
-    let dsub' = Set.fold Map.delete dsub dvrefs in
-      Scheme (tvrefs, dvrefs) (applySubst (tsub', dsub') t)
+    let captureErrorMsg = "captured variable applying substitution to type scheme! var refs should be unique!" in
+    if 0 /= (Set.size $ Map.keysSet tsub `Set.intersection` tvrefs)
+      then error captureErrorMsg
+      else if 0 /= (Set.size $ Map.keysSet dsub `Set.intersection` dvrefs)
+        then error captureErrorMsg
+        else Scheme (tvrefs, dvrefs) (applySubst (tsub, dsub) t)
 
 
 -- A type environment maps identifiers to type schemes.
