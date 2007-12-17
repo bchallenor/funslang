@@ -44,6 +44,9 @@ type Subst = (TypeVarSubst, DimVarSubst)
 -- VarRefs will represent sets of free or bound type and dim vars.
 type VarRefs = (Set.Set TypeVarRef, Set.Set DimVarRef)
 
+emptyVarRefs :: VarRefs
+emptyVarRefs = (Set.empty, Set.empty)
+
 unionVarRefs :: VarRefs -> VarRefs -> VarRefs
 unionVarRefs (l1, r1) (l2, r2) = (Set.union l1 l2, Set.union r1 r2)
 
@@ -232,7 +235,10 @@ principalType gamma (ExprLet (PattVar ident) e1 e2) = do
   let a = fv t1 `differenceVarRefs` fv s1gamma'
   (s2, t2) <- principalType (insertIdent ident (Scheme a t1) s1gamma') e2
   return (s2 `composeSubst` s1, t2)
-
+principalType gamma (ExprLambda (PattVar ident) e) = do
+  alpha <- freshTypeVar
+  (s, t) <- principalType (insertIdent ident (Scheme emptyVarRefs alpha) gamma) e
+  return (s, TypeFun (applySubst s alpha) t)
 
 
 

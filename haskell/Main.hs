@@ -34,8 +34,11 @@ unify tstr1 tstr2 = do
   let [t1, t2] = typesFromExTypes typeVarRefs dimVarRefs [xt1, xt2]
   runTI (mgu t1 t2) (typeVarRefs, dimVarRefs)
 
-ti :: Expr -> Either String (Subst, Type)
-ti e = runTI (principalType (Gamma Map.empty) e) (typeVarRefs, dimVarRefs)
+ti :: Expr -> String
+ti e =
+  case runTI (principalType (Gamma Map.empty) e) (typeVarRefs, dimVarRefs) of
+    Right (s, t) -> show s ++ "  " ++ prettyType t
+    Left s -> s
 
 main :: IO ()
 main = do
@@ -46,4 +49,4 @@ main = do
   putStrLn ""
   putStrLn (prettyExpr e)
   putStrLn ""
-  putStrLn (show $ ti e)
+  putStrLn $ ti e
