@@ -183,13 +183,12 @@ instance ContainsTypeDimVars Env where
 
   applySubst sub (Gamma env) = Gamma (Map.map (applySubst sub) env)
 
-remove :: Env -> String -> Env
-remove (Gamma env) ident = Gamma (Map.delete ident env)
+removeIdent :: String -> Env -> Env
+removeIdent ident (Gamma env) = Gamma (Map.delete ident env)
 
+insertIdent :: String -> Scheme -> Env -> Env
+insertIdent ident sigma (Gamma env) = Gamma (Map.insert ident sigma env)
 
--- Generalize a type to a type scheme (given an environment, allowing us to avoid capture).
-generalize :: Env -> Type -> Scheme
-generalize gamma t = Scheme (fv t `differenceVarRefs` fv gamma) t
 
 -- Instantiate a type scheme to give a type.
 instantiate :: Scheme -> TI Type
@@ -210,17 +209,31 @@ instantiate (Scheme (tvrefs, dvrefs) t) = do
 -- Type inference! The cool stuff.
 -- Returns the principal type of the expression, and the substitution that must
 -- be applied to gamma to achieve this.
--- principalType :: Env -> Expr -> TI (Subst, Type)
--- principalType _ (ExprUnitLiteral) = (nullSubst, TypeUnit)
--- principalType _ (ExprRealLiteral _)
--- principalType _ (ExprBoolLiteral _)
--- principalType (ExprVar ident)
+principalType :: Env -> Expr -> TI (Subst, Type)
+principalType _ (ExprUnitLiteral) = return (nullSubst, TypeUnit)
+principalType _ (ExprRealLiteral _) = return (nullSubst, TypeReal)
+principalType _ (ExprBoolLiteral _) = return (nullSubst, TypeBool)
+principalType (Gamma env) (ExprVar ident) =
+  case Map.lookup ident env of
+    Just sigma -> do
+      t <- instantiate sigma
+      return (nullSubst, t)
+    Nothing -> throwError $ "unbound variable: " ++ ident
 -- principalType (ExprApp e1 e2)
 -- principalType (ExprArray es)
 -- principalType (ExprTuple es)
 -- principalType (ExprIf eb e1 e2)
--- principalType (ExprLet (PattVar ident) ebound ebody)
--- principalType (ExprLambda (PattVar ident) ebody)
+principalType gamma (ExprLet (PattVar ident) e1 e2) = do
+  (s1, t1) <- principalType gamma e1
+  -- we should remove any mapping for ident now, because we're going to shadow it,
+  -- and we don't want it to stop us from generalizing variables that only it binds
+  let gamma' = removeIdent ident gamma
+  let s1gamma' = applySubst s1 gamma'
+  let a = fv t1 `differenceVarRefs` fv s1gamma'
+  (s2, t2) <- principalType (insertIdent ident (Scheme a t1) s1gamma') e2
+  return (s2 `composeSubst` s1, t2)
+
+
 
 
 

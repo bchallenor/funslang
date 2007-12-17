@@ -6,6 +6,7 @@ import System.Environment
 import Pretty
 import Typing
 import Representation
+import qualified Data.Map as Map
 
 test :: IO ()
 test = withArgs ["test.vp"] main
@@ -33,6 +34,9 @@ unify tstr1 tstr2 = do
   let [t1, t2] = typesFromExTypes typeVarRefs dimVarRefs [xt1, xt2]
   runTI (mgu t1 t2) (typeVarRefs, dimVarRefs)
 
+ti :: Expr -> Either String (Subst, Type)
+ti e = runTI (principalType (Gamma Map.empty) e) (typeVarRefs, dimVarRefs)
+
 main :: IO ()
 main = do
   a:_ <- getArgs
@@ -41,5 +45,5 @@ main = do
   putStrLn (show e)
   putStrLn ""
   putStrLn (prettyExpr e)
---  putStrLn ""
---  putStrLn (case inferType e of Typeable e -> prettyType (typeOf e); Untypeable s -> s)
+  putStrLn ""
+  putStrLn (show $ ti e)
