@@ -258,7 +258,7 @@ principalType gamma (ExprIf e1 e2 e3) = do
 principalType gamma (ExprLet (PattVar ident) e1 e2) = do
   (s1, t1) <- principalType gamma e1
   -- we should remove any mapping for ident now, because we're going to shadow it,
-  -- and we don't want it to stop us from generalizing variables that only it binds
+  -- and we don't want it to stop us from generalizing variables that are free in it
   let gamma' = removeIdent ident gamma
   let s1gamma' = applySubst s1 gamma'
   let a = fv t1 `differenceVarRefs` fv s1gamma'
