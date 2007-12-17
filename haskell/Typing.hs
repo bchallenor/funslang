@@ -231,8 +231,15 @@ principalType gamma (ExprApp e1 e2) = do
   alpha <- freshTypeVar
   s3 <- mgu (applySubst s2 t1) (TypeFun t2 alpha)
   return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubst s3 alpha)
--- principalType gamma (ExprArray es) = do
---   alpha <- freshTypeVar -- the type of the array
+principalType gamma (ExprArray es) = do
+  alpha <- freshTypeVar -- the type of the array
+  (s1, s1gamma) <- Foldable.foldrM (
+    \ e (s1, s1gamma) -> do
+      (s2, t2) <- principalType s1gamma e
+      s3 <- mgu t2 (applySubst s1 alpha)
+      return (s3 `composeSubst` (s2 `composeSubst` s1), applySubst s3 (applySubst s2 s1gamma))
+    ) (nullSubst, gamma) es
+  return (s1, TypeArray (applySubst s1 alpha) (DimFix $ toInteger $ length es))
 principalType gamma (ExprTuple es) = do
   (s1, s1gamma, ts1) <- Foldable.foldrM (
     \ e (s1, s1gamma, ts1) -> do
@@ -262,7 +269,3 @@ principalType gamma (ExprLambda (PattVar ident) e) = do
   alpha <- freshTypeVar
   (s, t) <- principalType (insertIdent ident (Scheme emptyVarRefs alpha) gamma) e
   return (s, TypeFun (applySubst s alpha) t)
-
-
-
-
