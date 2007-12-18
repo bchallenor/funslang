@@ -1,6 +1,6 @@
 -- Particularly useful in writing the inference system was "Algorithm W Step by Step"
 -- by Martin Grabmuller <http://uebb.cs.tu-berlin.de/~magr/pub/AlgorithmW.pdf>.
--- The principal type algorithm, however, is based on that in the Types course
+-- The principal type function, however, is based on that in the Types course
 -- by Prof. Andrew M. Pitts.
 
 module Typing where
