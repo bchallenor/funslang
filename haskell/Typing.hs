@@ -319,10 +319,18 @@ inferPattType (PattArray ps Nothing) = do
   t <- freshTypeVar
   inferPattType $ PattArray ps (Just t)
 
-
-
-
-
--- inferPattType p@(PattTuple ps (Just t))
--- inferPattType p@(PattTuple ps Nothing)
-
+inferPattType a@(PattTuple ps (Just t)) = do
+  (acc_ts, acc_m) <- Foldable.foldrM (
+    \ p (acc_ts, acc_m) -> do
+      (this_t, this_m) <- inferPattType p
+      if Map.null $ acc_m `Map.intersection` this_m
+        then do
+          let next_acc_m = acc_m `Map.union` this_m
+          return (this_t:acc_ts, next_acc_m)
+        else throwError $ "names not unique in pattern: " ++ prettyPatt a
+    ) ([], Map.empty) ps
+  s <- mgu t (TypeTuple acc_ts)
+  return (applySubst s t, Map.map (applySubst s) acc_m)
+inferPattType p@(PattTuple ps Nothing) = do
+  t <- freshTypeVar
+  inferPattType $ PattTuple ps (Just t)
