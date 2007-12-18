@@ -303,18 +303,18 @@ inferPattType (PattVar ident Nothing) = do
 inferPattType a@(PattArray ps (Just t)) = do
   telem <- freshTypeVar -- the element type
   s1 <- mgu t (TypeArray telem (DimFix $ toInteger $ length ps))
-  let t'@(TypeArray telem' _) = applySubst s1 t
-  (acct, accm) <- Foldable.foldrM (
-    \ p (acct, accm) -> do
-      (next_telem, m) <- inferPattType p
-      s2 <- mgu telem' next_telem
-      if Map.null $ accm `Map.intersection` m
+  let TypeArray telem' d' = applySubst s1 t
+  (acc_telem, acc_m) <- Foldable.foldrM (
+    \ p (acc_telem, acc_m) -> do
+      (this_telem, this_m) <- inferPattType p
+      s2 <- mgu acc_telem this_telem
+      if Map.null $ acc_m `Map.intersection` this_m
         then do
-          let accm' = accm `Map.union` m
-          return (applySubst s2 acct, Map.map (applySubst s2) accm')
+          let next_acc_m = acc_m `Map.union` this_m
+          return (applySubst s2 acc_telem, Map.map (applySubst s2) next_acc_m)
         else throwError $ "names not unique in pattern: " ++ prettyPatt a
-    ) (t', Map.empty) ps
-  return (acct, accm)
+    ) (telem', Map.empty) ps
+  return (TypeArray acc_telem d', acc_m)
 inferPattType (PattArray ps Nothing) = do
   t <- freshTypeVar
   inferPattType $ PattArray ps (Just t)
