@@ -225,14 +225,15 @@ principalType (Env m) (ExprVar ident) =
       t <- instantiate sigma
       return (nullSubst, t)
     Nothing -> throwError $ "unbound variable: " ++ ident
-principalType gamma (ExprApp e1 e2) = do
+principalType gamma a@(ExprApp e1 e2) = do
   (s1, t1) <- principalType gamma e1
   let s1gamma = applySubst s1 gamma
   (s2, t2) <- principalType s1gamma e2
   alpha <- freshTypeVar
   s3 <- mgu (applySubst s2 t1) (TypeFun t2 alpha)
   return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubst s3 alpha)
-principalType gamma (ExprArray es) = do
+  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
+principalType gamma a@(ExprArray es) = do
   alpha <- freshTypeVar -- the type of elements of the array
   (s1, s1gamma) <- Foldable.foldrM (
     \ e (s1, s1gamma) -> do
@@ -241,14 +242,16 @@ principalType gamma (ExprArray es) = do
       return (s3 `composeSubst` (s2 `composeSubst` s1), applySubst s3 (applySubst s2 s1gamma))
     ) (nullSubst, gamma) es
   return (s1, TypeArray (applySubst s1 alpha) (DimFix $ toInteger $ length es))
-principalType gamma (ExprTuple es) = do
+  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
+principalType gamma a@(ExprTuple es) = do
   (s1, s1gamma, ts1) <- Foldable.foldrM (
     \ e (s1, s1gamma, ts1) -> do
       (s2, t2) <- principalType s1gamma e
       return (s2 `composeSubst` s1, applySubst s2 s1gamma, t2:ts1)
     ) (nullSubst, gamma, []) es -- the empty tuple is invalid, but es has valid length
   return (s1, TypeTuple ts1)
-principalType gamma (ExprIf e1 e2 e3) = do
+  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
+principalType gamma a@(ExprIf e1 e2 e3) = do
   (s1, t1) <- principalType gamma e1
   s2 <- mgu t1 TypeBool
   let s2s1gamma = applySubst s2 (applySubst s1 gamma)
@@ -257,21 +260,24 @@ principalType gamma (ExprIf e1 e2 e3) = do
   (s4, t4) <- principalType s3s2s1gamma e3
   s5 <- mgu (applySubst s4 t3) t4
   return ((s5 `composeSubst` (s4 `composeSubst` (s3 `composeSubst` (s2 `composeSubst` s1)))), applySubst s5 t4)
-principalType gamma (ExprLet (PattVar ident _) e1 e2) = do
+  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
+principalType gamma a@(ExprLet (PattVar ident _) e1 e2) = do
   (s1, t1) <- principalType gamma e1
   -- we should remove any mapping for ident now, because we're going to shadow it,
   -- and we don't want it to stop us from generalizing variables that are free in it
   let gamma' = removeIdent ident gamma
   let s1gamma' = applySubst s1 gamma'
-  let a = fv t1 `differenceVarRefs` fv s1gamma'
-  (s2, t2) <- principalType (insertIdent ident (Scheme a t1) s1gamma') e2
+  let free = fv t1 `differenceVarRefs` fv s1gamma'
+  (s2, t2) <- principalType (insertIdent ident (Scheme free t1) s1gamma') e2
   return (s2 `composeSubst` s1, t2)
-principalType gamma (ExprLambda p e) = do
+  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
+principalType gamma a@(ExprLambda p e) = do
   (t1, m) <- inferPattType p
   -- generalize over nothing when converting to type schemes
   let params = Env $ Map.map (Scheme emptyVarRefs) m
   (s, t2) <- principalType (gamma `envUnion` params) e
   return (s, TypeFun (applySubst s t1) t2)
+  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
 
 -- Find a type for this pattern, and a mapping from identifiers to types.
