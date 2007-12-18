@@ -65,6 +65,8 @@ data Token
   | TOK_RARROW
   | TOK_LAMBDA
   | TOK_LAMBDA_DOT
+  --
+  | TOK_EOF
   
   deriving (Eq, Show)
 

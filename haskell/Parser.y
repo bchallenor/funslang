@@ -1,8 +1,12 @@
 {
 {-# OPTIONS -w #-} -- suppress millions of Happy warnings
-module Parser(parseExType,parseExpr) where
-import Representation
+module Parser(parseType, parseExpr, PState(..), PResult(..)) where
+
+import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.List(foldl')
+
+import Representation
+import Lexer
 }
 
 --------------------------------------------------------------------------------
@@ -77,10 +81,13 @@ import Data.List(foldl')
 %nonassoc OP_NOT
 %nonassoc OP_TRANSPOSE
 
-%name parseExpr expr
-%name parseExType ex_type
+%monad { P }
+%lexer { lexer } { TOK_EOF } -- lexer :: (Token -> P a) -> P a
 
-%error { parseError }
+%name parseExprInner expr -- parseExprInner :: P Expr
+%name parseTypeInner type -- parseTypeInner :: P Type --todo: sort the type non-terminal and rename all the inner stuff with ex_
+
+%error { parseError } -- parseError :: Token -> P a
 
 %%
 
@@ -96,12 +103,12 @@ import Data.List(foldl')
 -- Types
 --
 
-tuple_type_inner :: { [ExType] }
+tuple_ex_type_inner :: { [ExType] }
   : ex_type COMMA ex_type { $3:$1:[] }
-  | tuple_type_inner COMMA ex_type { $3:$1 }
+  | tuple_ex_type_inner COMMA ex_type { $3:$1 }
   ;
 
-primary_type :: { ExType }
+primary_ex_type :: { ExType }
   : LPAREN RPAREN { ExTypeUnit }
   | REAL { ExTypeReal }
   | BOOL { ExTypeBool }
@@ -109,20 +116,20 @@ primary_type :: { ExType }
   | TEXTURE2D { ExTypeTexture2D }
   | TEXTURE3D { ExTypeTexture3D }
   | TEXTURECUBE { ExTypeTextureCube }
-  | primary_type LITERAL_INT { ExTypeArray $1 (ExDimFix $2) } -- todo: error on zero
-  | LPAREN tuple_type_inner RPAREN { ExTypeTuple (reverse $2) }
+  | primary_ex_type LITERAL_INT { ExTypeArray $1 (ExDimFix $2) } -- todo: error on zero
+  | LPAREN tuple_ex_type_inner RPAREN { ExTypeTuple (reverse $2) }
   | TYPE_VAR { ExTypeVar $1 }
-  | primary_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
+  | primary_ex_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
   | LPAREN ex_type RPAREN { $2 }
   ;
 
 ex_type :: { ExType } -- right recursion for right associativity
-  : primary_type RARROW ex_type { ExTypeFun $1 $3 }
-  | primary_type { $1 }
+  : primary_ex_type RARROW ex_type { ExTypeFun $1 $3 }
+  | primary_ex_type { $1 }
   ;
 
 type :: { Type }
-  : ex_type { let (t, _) = typeFromExType initFreshVarRefs $1 in t } -- todo: start at appropriate refs for this parser
+  : ex_type {% do { vrefs <- getFreshVarRefsP; let {(t, vrefs') = typeFromExType vrefs $1}; putFreshVarRefsP vrefs'; return t; } }
   ;
 
 
@@ -291,8 +298,7 @@ patts :: { [Patt] }
 --------------------------------------------------------------------------------
 
 {
-parseError :: [Token] -> a
-parseError ts = error ("Parse error at: " ++ show ts)
+-- Helper functions to simplify the grammar actions.
 
 prefixExpr :: Operator -> Expr -> Expr
 prefixExpr op a = ExprApp (ExprVar (show op)) a
@@ -302,4 +308,20 @@ infixExpr op a b = ExprApp (ExprApp (ExprVar (show op)) a) b
 
 postfixExpr :: Operator -> Expr -> Expr
 postfixExpr op a = ExprApp (ExprVar (show op)) a
+
+
+-- Exported entry points.
+
+parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> PResult Type
+parseType fresh_vrefs src =
+  unP parseTypeInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = fresh_vrefs }
+
+parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> PResult Expr
+parseExpr fresh_vrefs src =
+  unP parseExprInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = fresh_vrefs }
+
+
+-- Parser error function.
+parseError :: Token -> P a
+parseError t = fail $ "parse error at <" ++ show t ++ ">"
 }

@@ -1,10 +1,10 @@
 module Library(initLibrary, queryLibrary) where
 
+import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.List as List
 import qualified Data.Map as Map
 
 import Typing
-import Lexer
 import Parser
 import Representation
 
@@ -26,10 +26,12 @@ data Fixity
 initLibrary :: (Map.Map String Scheme, ([TypeVarRef], [DimVarRef]))
 initLibrary =
     List.foldl' (
-      \ (env, fresh_vrefs) (_, ident, tstr, _, _, _) ->
-        let (t, fresh_vrefs') = typeFromExType fresh_vrefs $ parseExType $ lexer tstr in
-        let sigma = Scheme (fv t) t in
-          (Map.insert ident sigma env, fresh_vrefs')
+      \ (env, vrefs) (_, ident, tstr, _, _, _) ->
+        case parseType vrefs (ByteString.pack tstr) of
+          POk PState{fresh_vrefs=vrefs'} t ->
+            let sigma = Scheme (fv t) t in
+              (Map.insert ident sigma env, vrefs')
+          PFailed s msg -> error $ "library function type does not parse: " ++ msg
     ) (Map.empty, initFreshVarRefs) library
 
 

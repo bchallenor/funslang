@@ -1,6 +1,7 @@
 module Main where
 
-import Lexer
+import qualified Data.ByteString.Lazy.Char8 as ByteString
+
 import Parser
 import System.Environment
 import Pretty
@@ -10,11 +11,6 @@ import Library
 
 test :: IO ()
 test = withArgs ["test.vp"] main
-
-ioe :: IO Expr
-ioe = do
-  s <- readFile "test.vp"
-  return ((parseExpr . lexer) s)
 
 -- ioe' :: IO TypedExpr
 -- ioe' = do
@@ -44,8 +40,9 @@ ti e =
 main :: IO ()
 main = do
   a:_ <- getArgs
-  s <- readFile a
-  let e = (parseExpr . lexer) s
+  s <- ByteString.readFile a
+  let (_, freshVarRefs) = initLibrary
+  let POk _ e = parseExpr freshVarRefs s
   putStrLn (show e)
   putStrLn ""
   putStrLn (prettyExpr e)
