@@ -30,21 +30,21 @@ test = withArgs ["test.vp"] main
 --   let ([t1, t2], _) = typesFromExTypes initFreshVarRefs [xt1, xt2]
 --   runTI (mgu t1 t2) ([], [])
 
-ti :: Expr -> String
-ti e =
-  let (m, freshVarRefs) = initLibrary in
-    case runTI (principalType (Env m) e) freshVarRefs of
-      Right (s, t) -> show s ++ "\n\n" ++ show t ++ "\n\n" ++ prettyType t
-      Left s -> s
+ti :: Expr -> ([TypeVarRef], [DimVarRef]) -> String
+ti e vrefs =
+  let (m, _) = initLibrary in
+  case runTI (principalType (Env m) e) vrefs of
+    Right (s, t) -> show s ++ "\n\n" ++ show t ++ "\n\n" ++ prettyType t
+    Left s -> s
 
 main :: IO ()
 main = do
   a:_ <- getArgs
   s <- ByteString.readFile a
   let (_, freshVarRefs) = initLibrary
-  let POk _ e = parseExpr freshVarRefs s
+  let POk PState{ fresh_vrefs = vrefs } e = parseExpr freshVarRefs s
   putStrLn (show e)
   putStrLn ""
   putStrLn (prettyExpr e)
   putStrLn ""
-  putStrLn $ ti e
+  putStrLn $ ti e vrefs
