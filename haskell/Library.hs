@@ -26,11 +26,11 @@ data Fixity
 initLibrary :: (Map.Map String Scheme, ([TypeVarRef], [DimVarRef]))
 initLibrary =
     List.foldl' (
-      \ (env, vrefs) (_, ident, tstr, _, _, _) ->
+      \ (gamma, vrefs) (_, ident, tstr, _, _, _) ->
         case parseType vrefs (ByteString.pack tstr) of
           POk PState{fresh_vrefs=vrefs'} t ->
-            let sigma = Scheme (fv t) t in
-              (Map.insert ident sigma env, vrefs')
+            let sigma = Scheme (fvType t) t in
+              (Map.insert ident sigma gamma, vrefs')
           PFailed s msg -> error $ "library function type does not parse: " ++ msg
     ) (Map.empty, initFreshVarRefs) library
 

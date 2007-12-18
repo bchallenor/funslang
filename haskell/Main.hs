@@ -32,8 +32,8 @@ test = withArgs ["test.vp"] main
 
 ti :: Expr -> ([TypeVarRef], [DimVarRef]) -> String
 ti e vrefs =
-  let (m, _) = initLibrary in
-  case runTI (principalType (Env m) e) vrefs of
+  let (gamma, _) = initLibrary in
+  case runTI (principalType gamma e) vrefs of
     Right (s, t) -> show s ++ "\n\n" ++ show t ++ "\n\n" ++ prettyType t
     Left s -> s
 

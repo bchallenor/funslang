@@ -55,11 +55,6 @@ unionVarRefs (l1, r1) (l2, r2) = (Set.union l1 l2, Set.union r1 r2)
 differenceVarRefs :: VarRefs -> VarRefs -> VarRefs
 differenceVarRefs (l1, r1) (l2, r2) = (Set.difference l1 l2, Set.difference r1 r2)
 
--- We'll want to overload these functions for Type, Scheme, and Env.
-class ContainsTypeDimVars a where
-  fv :: a -> VarRefs
-  applySubst :: Subst -> a -> a
-
 -- Null substitutions.
 nullTypeVarSubst :: TypeVarSubst
 nullTypeVarSubst = Map.empty
@@ -76,24 +71,23 @@ applyDimVarSubst dsub d@(DimVar dvref) =
     Nothing -> d
 applyDimVarSubst _ d = d -- all other dims are atoms, and map to themselves
 
--- We can now provide the ContainsTypeDimVars functions for Type.
-instance ContainsTypeDimVars Type where
+fvType :: Type -> (Set.Set TypeVarRef, Set.Set DimVarRef)
+fvType (TypeArray t (DimVar dvref)) = fvType t `unionVarRefs` (Set.empty, Set.singleton dvref)
+fvType (TypeArray t (DimFix _)) = fvType t
+fvType (TypeTuple ts) = List.foldl1' unionVarRefs (map fvType ts)
+fvType (TypeFun t1 t2) = fvType t1 `unionVarRefs` fvType t2
+fvType (TypeVar tvref) = (Set.singleton tvref, Set.empty)
+fvType _ = (Set.empty, Set.empty) -- nothing else can contain a var
 
-  fv (TypeArray t (DimVar dvref)) = fv t `unionVarRefs` (Set.empty, Set.singleton dvref)
-  fv (TypeArray t (DimFix _)) = fv t
-  fv (TypeTuple ts) = List.foldl1' unionVarRefs (map fv ts)
-  fv (TypeFun t1 t2) = fv t1 `unionVarRefs` fv t2
-  fv (TypeVar tvref) = (Set.singleton tvref, Set.empty)
-  fv _ = (Set.empty, Set.empty) -- nothing else can contain a var
-  
-  applySubst (tsub, dsub) (TypeArray t d) = TypeArray (applySubst (tsub, dsub) t) (applyDimVarSubst dsub d)
-  applySubst (tsub, dsub) (TypeTuple ts) = TypeTuple (map (applySubst (tsub, dsub)) ts)
-  applySubst (tsub, dsub) (TypeFun t1 t2) = TypeFun (applySubst (tsub, dsub) t1) (applySubst (tsub, dsub) t2)
-  applySubst (tsub, _) t@(TypeVar tvref) =
-    case Map.lookup tvref tsub of
-      Just t' -> t'
-      Nothing -> t
-  applySubst (_, _) t = t -- all other types are atoms, and map to themselves
+applySubstType :: Subst -> Type -> Type
+applySubstType (tsub, dsub) (TypeArray t d) = TypeArray (applySubstType (tsub, dsub) t) (applyDimVarSubst dsub d)
+applySubstType (tsub, dsub) (TypeTuple ts) = TypeTuple (map (applySubstType (tsub, dsub)) ts)
+applySubstType (tsub, dsub) (TypeFun t1 t2) = TypeFun (applySubstType (tsub, dsub) t1) (applySubstType (tsub, dsub) t2)
+applySubstType (tsub, _) t@(TypeVar tvref) =
+  case Map.lookup tvref tsub of
+    Just t' -> t'
+    Nothing -> t
+applySubstType (_, _) t = t -- all other types are atoms, and map to themselves
 
 -- Substitution composition, finding s3 such that s3 t = s2(s1(t))
 -- s3 contains:
@@ -102,13 +96,13 @@ instance ContainsTypeDimVars Type where
 -- Note that Map.union prefers its first argument when duplicate keys are encountered.
 composeSubst :: Subst -> Subst -> Subst
 (tsub2, dsub2) `composeSubst` (tsub1, dsub1) =
-  ((Map.map (applySubst (tsub2, dsub2)) tsub1) `Map.union` tsub2, (Map.map (applyDimVarSubst dsub2) dsub1) `Map.union` dsub2)
+  ((Map.map (applySubstType (tsub2, dsub2)) tsub1) `Map.union` tsub2, (Map.map (applyDimVarSubst dsub2) dsub1) `Map.union` dsub2)
 
 -- Returns the substitution that binds a type variable to a type.
 bindTypeVarRef :: TypeVarRef -> Type -> TI TypeVarSubst
 bindTypeVarRef tvref t
   | TypeVar tvref == t = return nullTypeVarSubst -- identity substitutions should not fail occurs check
-  | let (ftv, _) = fv t in tvref `Set.member` ftv =
+  | let (ftv, _) = fvType t in tvref `Set.member` ftv =
     let [tv, pt] = prettyTypes [TypeVar tvref, t] in
       throwError $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
   | otherwise = return (Map.singleton tvref t) -- finally, we can do the bind
@@ -131,7 +125,7 @@ mgu (TypeTextureCube) (TypeTextureCube) = return nullSubst
 mgu (TypeArray t (DimVar dvref)) (TypeArray t' d') = do
   dsub1 <- bindDimVarRef dvref d'
   let sub1 = (nullTypeVarSubst, dsub1)
-  sub2 <- mgu (applySubst sub1 t) (applySubst sub1 t')
+  sub2 <- mgu (applySubstType sub1 t) (applySubstType sub1 t')
   return $ sub2 `composeSubst` sub1
 mgu (TypeArray t d) (TypeArray t' (DimVar dvref')) =
   mgu (TypeArray t' (DimVar dvref')) (TypeArray t d) -- swap
@@ -143,13 +137,13 @@ mgu (TypeTuple ts) (TypeTuple ts') =
   if length ts == length ts'
     then Foldable.foldlM (
       \ sub1 (t, t') -> do
-        sub2 <- mgu (applySubst sub1 t) (applySubst sub1 t')
+        sub2 <- mgu (applySubstType sub1 t) (applySubstType sub1 t')
         return $ sub2 `composeSubst` sub1
       ) nullSubst (zip ts ts')
     else throwError "tuple lengths do not match"
 mgu (TypeFun t1 t2) (TypeFun t1' t2') = do
   sub1 <- mgu t1 t1'
-  sub2 <- mgu (applySubst sub1 t2) (applySubst sub1 t2')
+  sub2 <- mgu (applySubstType sub1 t2) (applySubstType sub1 t2')
   return $ sub2 `composeSubst` sub1
 mgu (TypeVar tvref) t' = do
   tsub <- bindTypeVarRef tvref t'
@@ -165,17 +159,14 @@ mgu t1 t2 =
 -- A type scheme generalizes a type over the bound type vars and dim vars.
 data Scheme = Scheme !VarRefs !Type deriving (Show, Eq)
 
-instance ContainsTypeDimVars Scheme where
+fvScheme :: Scheme -> (Set.Set TypeVarRef, Set.Set DimVarRef)
+fvScheme (Scheme vrefs t) = fvType t `differenceVarRefs` vrefs
 
-  fv (Scheme vrefs t) = fv t `differenceVarRefs` vrefs
-
-  applySubst (tsub, dsub) (Scheme (tvrefs, dvrefs) t) =
-    let captureErrorMsg = "captured variable applying substitution to type scheme! var refs should be unique!" in
-    if 0 /= (Set.size $ Map.keysSet tsub `Set.intersection` tvrefs)
-      then error captureErrorMsg
-      else if 0 /= (Set.size $ Map.keysSet dsub `Set.intersection` dvrefs)
-        then error captureErrorMsg
-        else Scheme (tvrefs, dvrefs) (applySubst (tsub, dsub) t)
+applySubstScheme :: Subst -> Scheme -> Scheme
+applySubstScheme (tsub, dsub) (Scheme (tvrefs, dvrefs) t) =
+  if (Set.null $ Map.keysSet tsub `Set.intersection` tvrefs) && (Set.null $ Map.keysSet dsub `Set.intersection` dvrefs)
+    then Scheme (tvrefs, dvrefs) (applySubstType (tsub, dsub) t)
+    else error "captured variable applying substitution to type scheme! var refs should be unique!"
 
 -- Instantiate a type scheme to give a type.
 instantiate :: Scheme -> TI Type
@@ -190,26 +181,17 @@ instantiate (Scheme (tvrefs, dvrefs) t) = do
       dv <- freshDimVar
       return $ Map.insert dvref dv dsub
     ) nullDimVarSubst dvrefs
-  return $ applySubst (tsub, dsub) t
+  return $ applySubstType (tsub, dsub) t
 
 
 -- A type environment maps identifiers to type schemes.
-newtype Env = Env (Map.Map String Scheme) deriving (Show, Eq)
+type Env = Map.Map String Scheme
 
-instance ContainsTypeDimVars Env where
-  
-  fv (Env m) = Map.fold (\t vrefs -> vrefs `unionVarRefs` fv t) (Set.empty, Set.empty) m
+fvEnv :: Env -> (Set.Set TypeVarRef, Set.Set DimVarRef)
+fvEnv gamma = Map.fold (\sigma vrefs -> vrefs `unionVarRefs` fvScheme sigma) (Set.empty, Set.empty) gamma
 
-  applySubst sub (Env m) = Env (Map.map (applySubst sub) m)
-
-envUnion :: Env -> Env -> Env
-envUnion (Env m1) (Env m2) = Env (m1 `Map.union` m2)
-
-removeIdent :: String -> Env -> Env
-removeIdent ident (Env m) = Env (Map.delete ident m)
-
-insertIdent :: String -> Scheme -> Env -> Env
-insertIdent ident sigma (Env m) = Env (Map.insert ident sigma m)
+applySubstEnv :: Subst -> Env -> Env
+applySubstEnv sub gamma = Map.map (applySubstScheme sub) gamma
 
 
 -- Type inference! The cool stuff.
@@ -219,64 +201,104 @@ principalType :: Env -> Expr -> TI (Subst, Type)
 principalType _ (ExprUnitLiteral) = return (nullSubst, TypeUnit)
 principalType _ (ExprRealLiteral _) = return (nullSubst, TypeReal)
 principalType _ (ExprBoolLiteral _) = return (nullSubst, TypeBool)
-principalType (Env m) (ExprVar ident) =
-  case Map.lookup ident m of
+principalType gamma (ExprVar ident) =
+  case Map.lookup ident gamma of
     Just sigma -> do
       t <- instantiate sigma
       return (nullSubst, t)
     Nothing -> throwError $ "unbound variable: " ++ ident
 principalType gamma a@(ExprApp e1 e2) = do
   (s1, t1) <- principalType gamma e1
-  let s1gamma = applySubst s1 gamma
+  let s1gamma = applySubstEnv s1 gamma
   (s2, t2) <- principalType s1gamma e2
   alpha <- freshTypeVar
-  s3 <- mgu (applySubst s2 t1) (TypeFun t2 alpha)
-  return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubst s3 alpha)
+  s3 <- mgu (applySubstType s2 t1) (TypeFun t2 alpha)
+  return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubstType s3 alpha)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 principalType gamma a@(ExprArray es) = do
   alpha <- freshTypeVar -- the type of elements of the array
   (s1, s1gamma) <- Foldable.foldrM (
     \ e (s1, s1gamma) -> do
       (s2, t2) <- principalType s1gamma e
-      s3 <- mgu t2 (applySubst s1 alpha)
-      return (s3 `composeSubst` (s2 `composeSubst` s1), applySubst s3 (applySubst s2 s1gamma))
+      s3 <- mgu t2 (applySubstType s1 alpha)
+      return (s3 `composeSubst` (s2 `composeSubst` s1), applySubstEnv s3 (applySubstEnv s2 s1gamma))
     ) (nullSubst, gamma) es
-  return (s1, TypeArray (applySubst s1 alpha) (DimFix $ toInteger $ length es))
+  return (s1, TypeArray (applySubstType s1 alpha) (DimFix $ toInteger $ length es))
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 principalType gamma a@(ExprTuple es) = do
   (s1, s1gamma, ts1) <- Foldable.foldrM (
     \ e (s1, s1gamma, ts1) -> do
       (s2, t2) <- principalType s1gamma e
-      return (s2 `composeSubst` s1, applySubst s2 s1gamma, t2:ts1)
+      return (s2 `composeSubst` s1, applySubstEnv s2 s1gamma, t2:ts1)
     ) (nullSubst, gamma, []) es -- the empty tuple is invalid, but es has valid length
   return (s1, TypeTuple ts1)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 principalType gamma a@(ExprIf e1 e2 e3) = do
   (s1, t1) <- principalType gamma e1
   s2 <- mgu t1 TypeBool
-  let s2s1gamma = applySubst s2 (applySubst s1 gamma)
+  let s2s1gamma = applySubstEnv s2 (applySubstEnv s1 gamma)
   (s3, t3) <- principalType s2s1gamma e2
-  let s3s2s1gamma = applySubst s3 s2s1gamma
+  let s3s2s1gamma = applySubstEnv s3 s2s1gamma
   (s4, t4) <- principalType s3s2s1gamma e3
-  s5 <- mgu (applySubst s4 t3) t4
-  return ((s5 `composeSubst` (s4 `composeSubst` (s3 `composeSubst` (s2 `composeSubst` s1)))), applySubst s5 t4)
+  s5 <- mgu (applySubstType s4 t3) t4
+  return ((s5 `composeSubst` (s4 `composeSubst` (s3 `composeSubst` (s2 `composeSubst` s1)))), applySubstType s5 t4)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
-principalType gamma a@(ExprLet (PattVar ident _) e1 e2) = do
-  (s1, t1) <- principalType gamma e1
-  -- we should remove any mapping for ident now, because we're going to shadow it,
-  -- and we don't want it to stop us from generalizing variables that are free in it
-  let gamma' = removeIdent ident gamma
-  let s1gamma' = applySubst s1 gamma'
-  let free = fv t1 `differenceVarRefs` fv s1gamma'
-  (s2, t2) <- principalType (insertIdent ident (Scheme free t1) s1gamma') e2
-  return (s2 `composeSubst` s1, t2)
-  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
+-- principalType gamma@(Gamma m) a@(ExprLet (PattVar ident _) e1 e2) = do
+--   (s1, t1) <- principalType gamma e1
+--   (t1', m) <- inferPattType p
+--   let gamma_reduced = List.foldl' Map.delete
+
+
+
+
+
+
+
+
+--   
+--   
+--   
+--   s2 <- mgu t1 (applySubstType s1 t1')
+--   let s2s1gamma = applySubstType s2 (applySubstType s1 gamma)
+--   
+--   
+--   
+--   let bindings = Env $ Map.map (\t. Scheme $ fv t `differenceVarRefs` fvgamma) m
+--   
+--   
+--   
+--   -- we should remove any mapping for ident now, because we're going to shadow it,
+--   -- and we don't want it to stop us from generalizing variables that are free in it
+--   let gamma' = Map.delete ident gamma
+--   let s1gamma' = applySubstType s1 gamma'
+--   let a = fv t1 `differenceVarRefs` fv s1gamma'
+--   (s2, t2) <- principalType (Map.insert ident (Scheme a t1) s1gamma') e2
+--   return (s2 `composeSubst` s1, t2)
+
+
+
+
+
+
+
+
+
+
+--   (s1, t1) <- principalType gamma e1
+--   -- we should remove any mapping for ident now, because we're going to shadow it,
+--   -- and we don't want it to stop us from generalizing variables that are free in it
+--   let gamma' = Map.delete ident gamma
+--   let s1gamma' = applySubstType s1 gamma'
+--   let free = fv t1 `differenceVarRefs` fv s1gamma'
+--   (s2, t2) <- principalType (Map.insert ident (Scheme free t1) s1gamma') e2
+--   return (s2 `composeSubst` s1, t2)
+--   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 principalType gamma a@(ExprLambda p e) = do
   (t1, m) <- inferPattType p
   -- generalize over nothing when converting to type schemes
-  let params = Env $ Map.map (Scheme emptyVarRefs) m
-  (s, t2) <- principalType (gamma `envUnion` params) e
-  return (s, TypeFun (applySubst s t1) t2)
+  let params = Map.map (Scheme emptyVarRefs) m
+  (s, t2) <- principalType (gamma `Map.union` params) e
+  return (s, TypeFun (applySubstType s t1) t2)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
 
@@ -309,7 +331,7 @@ inferPattType (PattVar ident Nothing) = do
 inferPattType a@(PattArray ps (Just t)) = do
   telem <- freshTypeVar -- the element type
   s1 <- mgu t (TypeArray telem (DimFix $ toInteger $ length ps))
-  let TypeArray telem' d' = applySubst s1 t
+  let TypeArray telem' d' = applySubstType s1 t
   (acc_telem, acc_m) <- Foldable.foldrM (
     \ p (acc_telem, acc_m) -> do
       (this_telem, this_m) <- inferPattType p
@@ -317,7 +339,7 @@ inferPattType a@(PattArray ps (Just t)) = do
       if Map.null $ acc_m `Map.intersection` this_m
         then do
           let next_acc_m = acc_m `Map.union` this_m
-          return (applySubst s2 acc_telem, Map.map (applySubst s2) next_acc_m)
+          return (applySubstType s2 acc_telem, Map.map (applySubstType s2) next_acc_m)
         else throwError $ "names not unique in pattern: " ++ prettyPatt a
     ) (telem', Map.empty) ps
   return (TypeArray acc_telem d', acc_m)
@@ -336,7 +358,7 @@ inferPattType a@(PattTuple ps (Just t)) = do
         else throwError $ "names not unique in pattern: " ++ prettyPatt a
     ) ([], Map.empty) ps
   s <- mgu t (TypeTuple acc_ts)
-  return (applySubst s t, Map.map (applySubst s) acc_m)
+  return (applySubstType s t, Map.map (applySubstType s) acc_m)
 inferPattType p@(PattTuple ps Nothing) = do
   t <- freshTypeVar
   inferPattType $ PattTuple ps (Just t)
