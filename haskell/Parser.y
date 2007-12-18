@@ -26,7 +26,7 @@ import Lexer
   LITERAL_INT { TOK_LITERAL_INT $$ }
   LITERAL_FLOAT { TOK_LITERAL_FLOAT $$ }
   IDENTIFIER { TOK_IDENTIFIER $$ }
-  TYPE_VAR { TOK_TYPE_VAR $$ }
+  TYPE_VAR_DIM_VAR { TOK_TYPE_VAR_DIM_VAR $$ }
   COMMA { TOK_COMMA }
   RANGE_DOTS { TOK_RANGE_DOTS }
   LBRACKET { TOK_LBRACKET }
@@ -118,8 +118,8 @@ primary_ex_type :: { ExType }
   | TEXTURECUBE { ExTypeTextureCube }
   | primary_ex_type LITERAL_INT { ExTypeArray $1 (ExDimFix $2) } -- todo: error on zero
   | LPAREN tuple_ex_type_inner RPAREN { ExTypeTuple (reverse $2) }
-  | TYPE_VAR { ExTypeVar $1 }
-  | primary_ex_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
+  | TYPE_VAR_DIM_VAR { ExTypeVar $1 }
+  | primary_ex_type TYPE_VAR_DIM_VAR { ExTypeArray $1 (ExDimVar $2) }
   | LPAREN ex_type RPAREN { $2 }
   ;
 
@@ -130,6 +130,11 @@ ex_type :: { ExType } -- right recursion for right associativity
 
 type :: { Type }
   : ex_type {% do { vrefs <- getFreshVarRefsP; let {(t, vrefs') = typeFromExType vrefs $1}; putFreshVarRefsP vrefs'; return t; } }
+  ;
+
+opt_type :: { Maybe Type }
+  : {- empty -} { Nothing }
+  | TYPESPECIFIER type { Just $2 }
   ;
 
 
@@ -251,7 +256,7 @@ expr :: { Expr }
   : LAMBDA patts LAMBDA_DOT expr { foldl' (flip ExprLambda) $4 $2 }
   | IF expr THEN expr ELSE expr { ExprIf $2 $4 $6 }
   | LET patt EQUALS expr IN expr { ExprLet $2 $4 $6 }
-  | LET IDENTIFIER patts EQUALS expr IN expr { ExprLet (PattVar $2) (foldl' (flip ExprLambda) $5 $3) $7 }
+  | LET IDENTIFIER opt_type patts EQUALS expr IN expr { ExprLet (PattVar $2 $3) (foldl' (flip ExprLambda) $6 $4) $8 }
   | operator_expr { $1 }
   ;
 
@@ -266,7 +271,7 @@ tuple_patt_inner :: { [Patt] }
   ;
 
 tuple_patt :: { Patt }
-  : LPAREN tuple_patt_inner RPAREN { PattTuple (reverse $2) }
+  : LPAREN tuple_patt_inner RPAREN opt_type { PattTuple (reverse $2) $4 }
   ;
 
 array_patt_inner :: { [Patt] }
@@ -275,13 +280,13 @@ array_patt_inner :: { [Patt] }
   ;
 
 array_patt :: { Patt }
-  : LBRACKET array_patt_inner RBRACKET { PattArray (reverse $2) }
+  : LBRACKET array_patt_inner RBRACKET opt_type { PattArray (reverse $2) $4 }
   ;
 
 patt :: { Patt }
-  : WILDCARD { PattWild }
-  | LPAREN RPAREN { PattUnit }
-  | IDENTIFIER { PattVar $1 }
+  : WILDCARD opt_type { PattWild $2 }
+  | LPAREN RPAREN opt_type { PattUnit $3 }
+  | IDENTIFIER opt_type { PattVar $1 $2 }
   | tuple_patt { $1 }
   | array_patt { $1 }
   | LPAREN patt RPAREN { $2 }

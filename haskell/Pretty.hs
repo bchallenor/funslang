@@ -31,6 +31,11 @@ prettyType = prettyExType . exTypeFromType
 prettyTypes :: [Type] -> [String]
 prettyTypes = map prettyExType . exTypesFromTypes
 
+-- Optionally prints a type specifier.
+prettyTypeSpecifier :: Maybe Type -> String
+prettyTypeSpecifier (Just t) = " :: " ++ prettyType t
+prettyTypeSpecifier (Nothing) = ""
+
 prettyExType :: ExType -> String
 prettyExType (ExTypeUnit) = "()"
 prettyExType (ExTypeReal) = "Real"
@@ -51,11 +56,11 @@ isExTypeFun (ExTypeFun _ _) = True
 isExTypeFun _ = False
 
 prettyPatt :: Patt -> String
-prettyPatt (PattWild) = "_"
-prettyPatt (PattUnit) = "()"
-prettyPatt (PattVar s) = s
-prettyPatt (PattArray ps) = array (map prettyPatt ps)
-prettyPatt (PattTuple ps) = tuple (map prettyPatt ps)
+prettyPatt (PattWild tspec) = "_" ++ prettyTypeSpecifier tspec
+prettyPatt (PattUnit tspec) = "()" ++ prettyTypeSpecifier tspec
+prettyPatt (PattVar s tspec) = s ++ prettyTypeSpecifier tspec
+prettyPatt (PattArray ps tspec) = array (map prettyPatt ps) ++ prettyTypeSpecifier tspec
+prettyPatt (PattTuple ps tspec) = tuple (map prettyPatt ps) ++ prettyTypeSpecifier tspec
 
 prettyExpr :: Expr -> String
 prettyExpr (ExprUnitLiteral) = "()"

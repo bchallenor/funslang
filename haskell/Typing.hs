@@ -255,7 +255,7 @@ principalType gamma (ExprIf e1 e2 e3) = do
   (s4, t4) <- principalType s3s2s1gamma e3
   s5 <- mgu (applySubst s4 t3) t4
   return ((s5 `composeSubst` (s4 `composeSubst` (s3 `composeSubst` (s2 `composeSubst` s1)))), applySubst s5 t4)
-principalType gamma (ExprLet (PattVar ident) e1 e2) = do
+principalType gamma (ExprLet (PattVar ident _) e1 e2) = do
   (s1, t1) <- principalType gamma e1
   -- we should remove any mapping for ident now, because we're going to shadow it,
   -- and we don't want it to stop us from generalizing variables that are free in it
@@ -264,7 +264,7 @@ principalType gamma (ExprLet (PattVar ident) e1 e2) = do
   let a = fv t1 `differenceVarRefs` fv s1gamma'
   (s2, t2) <- principalType (insertIdent ident (Scheme a t1) s1gamma') e2
   return (s2 `composeSubst` s1, t2)
-principalType gamma (ExprLambda (PattVar ident) e) = do
+principalType gamma (ExprLambda (PattVar ident _) e) = do
   alpha <- freshTypeVar
   (s, t) <- principalType (insertIdent ident (Scheme emptyVarRefs alpha) gamma) e
   return (s, TypeFun (applySubst s alpha) t)
