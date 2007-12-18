@@ -91,8 +91,9 @@ initFreshVarRefs = (map TypeVarRef [0..], map DimVarRef [0..])
 
 -- These variables are only used in converting an internal type to an external type,
 -- so they can be reused as often as you like.
+-- Thanks to oerjan on #haskell for this trick.
 initFreshVars :: ([String], [String])
-initFreshVars = (map (\x->['\'',x]) ['a'..'l'], map (\x->[x]) ['m'..'z'])
+initFreshVars = (map ('\'':) $ [1..] >>= flip replicateM ['a'..'g'], [1..] >>= flip replicateM ['m'..'z'])
 
 
 -- as dims appear externally (in source or pretty-printed form)
