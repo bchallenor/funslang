@@ -177,23 +177,6 @@ instance ContainsTypeDimVars Scheme where
         then error captureErrorMsg
         else Scheme (tvrefs, dvrefs) (applySubst (tsub, dsub) t)
 
-
--- A type environment maps identifiers to type schemes.
-data Env = Gamma !(Map.Map String Scheme) deriving (Show, Eq)
-
-instance ContainsTypeDimVars Env where
-  
-  fv (Gamma m) = List.foldl' unionVarRefs (Set.empty, Set.empty) (map fv (Map.elems m))
-
-  applySubst sub (Gamma m) = Gamma (Map.map (applySubst sub) m)
-
-removeIdent :: String -> Env -> Env
-removeIdent ident (Gamma m) = Gamma (Map.delete ident m)
-
-insertIdent :: String -> Scheme -> Env -> Env
-insertIdent ident sigma (Gamma m) = Gamma (Map.insert ident sigma m)
-
-
 -- Instantiate a type scheme to give a type.
 instantiate :: Scheme -> TI Type
 instantiate (Scheme (tvrefs, dvrefs) t) = do
@@ -210,6 +193,25 @@ instantiate (Scheme (tvrefs, dvrefs) t) = do
   return $ applySubst (tsub, dsub) t
 
 
+-- A type environment maps identifiers to type schemes.
+newtype Env = Env (Map.Map String Scheme) deriving (Show, Eq)
+
+instance ContainsTypeDimVars Env where
+  
+  fv (Env m) = Map.fold (\t vrefs -> vrefs `unionVarRefs` fv t) (Set.empty, Set.empty) m
+
+  applySubst sub (Env m) = Env (Map.map (applySubst sub) m)
+
+envUnion :: Env -> Env -> Env
+envUnion (Env m1) (Env m2) = Env (m1 `Map.union` m2)
+
+removeIdent :: String -> Env -> Env
+removeIdent ident (Env m) = Env (Map.delete ident m)
+
+insertIdent :: String -> Scheme -> Env -> Env
+insertIdent ident sigma (Env m) = Env (Map.insert ident sigma m)
+
+
 -- Type inference! The cool stuff.
 -- Returns the principal type of the expression, and the substitution that must
 -- be applied to gamma to achieve this.
@@ -217,7 +219,7 @@ principalType :: Env -> Expr -> TI (Subst, Type)
 principalType _ (ExprUnitLiteral) = return (nullSubst, TypeUnit)
 principalType _ (ExprRealLiteral _) = return (nullSubst, TypeReal)
 principalType _ (ExprBoolLiteral _) = return (nullSubst, TypeBool)
-principalType (Gamma m) (ExprVar ident) =
+principalType (Env m) (ExprVar ident) =
   case Map.lookup ident m of
     Just sigma -> do
       t <- instantiate sigma
@@ -231,7 +233,7 @@ principalType gamma (ExprApp e1 e2) = do
   s3 <- mgu (applySubst s2 t1) (TypeFun t2 alpha)
   return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubst s3 alpha)
 principalType gamma (ExprArray es) = do
-  alpha <- freshTypeVar -- the type of the array
+  alpha <- freshTypeVar -- the type of elements of the array
   (s1, s1gamma) <- Foldable.foldrM (
     \ e (s1, s1gamma) -> do
       (s2, t2) <- principalType s1gamma e
@@ -264,7 +266,63 @@ principalType gamma (ExprLet (PattVar ident _) e1 e2) = do
   let a = fv t1 `differenceVarRefs` fv s1gamma'
   (s2, t2) <- principalType (insertIdent ident (Scheme a t1) s1gamma') e2
   return (s2 `composeSubst` s1, t2)
-principalType gamma (ExprLambda (PattVar ident _) e) = do
-  alpha <- freshTypeVar
-  (s, t) <- principalType (insertIdent ident (Scheme emptyVarRefs alpha) gamma) e
-  return (s, TypeFun (applySubst s alpha) t)
+principalType gamma (ExprLambda p e) = do
+  (t1, m) <- inferPattType p
+  -- generalize over nothing when converting to type schemes
+  let params = Env $ Map.map (Scheme emptyVarRefs) m
+  (s, t2) <- principalType (gamma `envUnion` params) e
+  return (s, TypeFun (applySubst s t1) t2)
+
+
+-- Find a type for this pattern, and a mapping from identifiers to types.
+
+inferPattTypeErrorMsg :: Patt -> String
+inferPattTypeErrorMsg p = "bad type annotation in pattern: " ++ prettyPatt p
+
+inferPattType :: Patt -> TI (Type, Map.Map String Type)
+
+inferPattType (PattWild (Just t)) =
+  return (t, Map.empty)
+inferPattType (PattWild Nothing) = do
+  t <- freshTypeVar
+  return (t, Map.empty)
+  
+inferPattType (PattUnit (Just TypeUnit)) =
+  return (TypeUnit, Map.empty)
+inferPattType (PattUnit Nothing) =
+  return (TypeUnit, Map.empty)
+inferPattType a@(PattUnit _) =
+  throwError $ inferPattTypeErrorMsg a -- todo: change this
+
+inferPattType (PattVar ident (Just t)) =
+  return (t, Map.singleton ident t)
+inferPattType (PattVar ident Nothing) = do
+  t <- freshTypeVar
+  return (t, Map.singleton ident t)
+
+inferPattType a@(PattArray ps (Just t)) = do
+  telem <- freshTypeVar -- the element type
+  s1 <- mgu t (TypeArray telem (DimFix $ toInteger $ length ps))
+  let t'@(TypeArray telem' _) = applySubst s1 t
+  (acct, accm) <- Foldable.foldrM (
+    \ p (acct, accm) -> do
+      (next_telem, m) <- inferPattType p
+      s2 <- mgu telem' next_telem
+      if Map.null $ accm `Map.intersection` m
+        then do
+          let accm' = accm `Map.union` m
+          return (applySubst s2 acct, Map.map (applySubst s2) accm')
+        else throwError $ "names not unique in pattern: " ++ prettyPatt a
+    ) (t', Map.empty) ps
+  return (acct, accm)
+inferPattType (PattArray ps Nothing) = do
+  t <- freshTypeVar
+  inferPattType $ PattArray ps (Just t)
+
+
+
+
+
+-- inferPattType p@(PattTuple ps (Just t))
+-- inferPattType p@(PattTuple ps Nothing)
+

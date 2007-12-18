@@ -73,10 +73,10 @@ data Token
 
 -- Rather than store identifiers for type/dim vars, we assign them numeric references.
 -- These numbers are then converted back to a,b,c / m,n,o etc in the pretty print.
-data TypeVarRef = TypeVarRef !Int
+newtype TypeVarRef = TypeVarRef Int
   deriving (Eq, Show, Ord)
 
-data DimVarRef = DimVarRef !Int
+newtype DimVarRef = DimVarRef Int
   deriving (Eq, Show, Ord)
 
 -- pools of fresh type/dim var refs, maps from identifiers to refs
