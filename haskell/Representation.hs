@@ -335,9 +335,9 @@ instance Show Operator where
 
 data DFReal
   = DFRealLiteral !Double
-  | DFRealVarying !String !Int -- the source code identifier, and the global scalar index among the varyings
-  | DFRealUniform !String !Int -- the source code identifier, and the global scalar index among the uniforms
-  | DFRealUniformOffset !String !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
+  | DFRealVarying !Int -- the global scalar index among the varyings
+  | DFRealUniform !Int -- the global scalar index among the uniforms
+  | DFRealUniformOffset !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
   --
   | DFRealCond !DFBool !DFReal !DFReal
   --
@@ -379,9 +379,9 @@ data DFReal
 
 data DFBool
   = DFBoolLiteral !Bool
-  | DFBoolVarying !String !Int -- the source code identifier, and the global scalar index among the varyings
-  | DFBoolUniform !String !Int -- the source code identifier, and the global scalar index among the uniforms
-  | DFBoolUniformOffset !String !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
+  | DFBoolVarying !Int -- the global scalar index among the varyings
+  | DFBoolUniform !Int -- the global scalar index among the uniforms
+  | DFBoolUniformOffset !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
   --
   | DFBoolCond !DFBool !DFBool !DFBool
   --
