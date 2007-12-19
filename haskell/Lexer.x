@@ -140,8 +140,8 @@ data PState
 
 -- The parser return type.
 data PResult a
-  = POk PState a
-  | PFailed PState String
+  = POk !PState !a
+  | PFailed !PState !String
   deriving Show
 
 -- The parser monad.
