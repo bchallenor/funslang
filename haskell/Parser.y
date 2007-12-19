@@ -316,14 +316,19 @@ postfixExpr op a = ExprApp (ExprVar (show op)) a
 
 
 -- Exported entry points.
+-- Either return an error string and source position, or the result and final state.
 
-parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> PResult Type
-parseType fresh_vrefs src =
-  unP parseTypeInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = fresh_vrefs }
+parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either (String, Int, Int) (Type, ([TypeVarRef], [DimVarRef]))
+parseType vrefs src =
+  case unP parseTypeInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
+    POk PState{ fresh_vrefs = vrefs' } result -> Right (result, vrefs')
+    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left (msg, l, c)
 
-parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> PResult Expr
-parseExpr fresh_vrefs src =
-  unP parseExprInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = fresh_vrefs }
+parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either (String, Int, Int) (Expr, ([TypeVarRef], [DimVarRef]))
+parseExpr vrefs src =
+  case unP parseExprInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
+    POk PState{ fresh_vrefs = vrefs' } result -> Right (result, vrefs')
+    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left (msg, l, c)
 
 
 -- Parser error function.

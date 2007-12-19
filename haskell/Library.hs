@@ -28,10 +28,10 @@ initLibrary =
     List.foldl' (
       \ (gamma, vrefs) (_, ident, tstr, _, _, _) ->
         case parseType vrefs (ByteString.pack tstr) of
-          POk PState{fresh_vrefs=vrefs'} t ->
+          Right (t, vrefs') ->
             let sigma = Scheme (fvType t) t in
               (Map.insert ident sigma gamma, vrefs')
-          PFailed s msg -> error $ "library function type does not parse: " ++ msg
+          Left (msg, _, _) -> error $ "library function type does not parse: " ++ msg
     ) (Map.empty, initFreshVarRefs) library
 
 
@@ -117,6 +117,7 @@ library = [
   (Prefix, "faceforward", "Real 'n -> Real 'n -> Real 'n", "returns N facing forward", True, ["Nref", "I", "N"]),
   (Prefix, "reflect", "Real 'n -> Real 'n -> Real 'n", "reflect I given Nref (normalized)", True, ["Nref", "I"]),
   (Prefix, "refract", "Real 'n -> Real 'n -> Real 'n", "refract I given Nref (normalized) and index eta", True, ["Nref", "eta", "I"]),
+  (Prefix, "pad", "Real 3 -> Real 4", "pads fourth component with 1.0", False, ["x"]),
   (Prefix, "sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"]),
   (Prefix, "sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"]),
   (Prefix, "sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"]),

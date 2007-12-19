@@ -42,9 +42,11 @@ main = do
   a:_ <- getArgs
   s <- ByteString.readFile a
   let (_, freshVarRefs) = initLibrary
-  let POk PState{ fresh_vrefs = vrefs } e = parseExpr freshVarRefs s
-  putStrLn (show e)
-  putStrLn ""
-  putStrLn (prettyExpr e)
-  putStrLn ""
-  putStrLn $ ti e vrefs
+  case parseExpr freshVarRefs s of
+    Right (e, vrefs) -> do
+      putStrLn (show e)
+      putStrLn ""
+      putStrLn (prettyExpr e)
+      putStrLn ""
+      putStrLn $ ti e vrefs
+    Left (msg, l,c) -> putStrLn $ show l ++ ":" ++ show c ++ " " ++ msg
