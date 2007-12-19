@@ -397,7 +397,7 @@ data DFBool
   --
   | DFBoolAnd !DFBool !DFBool
   | DFBoolOr !DFBool !DFBool
-  | DFBoolNot !DFBool !DFBool
+  | DFBoolNot !DFBool
 
   deriving (Show, Eq)
 
@@ -423,6 +423,13 @@ data Value -- can't derive Show or Eq due to those pesky closures
   | ValueTuple ![Value]
   | ValueFun !(Value -> Either String Value) -- might raise exception
 
+unValueDFReal :: Value -> DFReal
+unValueDFReal (ValueDFReal df) = df
+unValueDFReal _ = undefined
+
+unValueDFBool :: Value -> DFBool
+unValueDFBool (ValueDFBool df) = df
+unValueDFBool _ = undefined
 
 instance Show Value where
 
