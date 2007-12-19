@@ -278,10 +278,6 @@ principalType gamma a@(ExprLambda p e) = do
 
 
 -- Find a type for this pattern, and a mapping from identifiers to types.
-
-inferPattTypeErrorMsg :: Patt -> String
-inferPattTypeErrorMsg p = "bad type annotation in pattern: " ++ prettyPatt p
-
 inferPattType :: Patt -> TI (Type, Map.Map String Type)
 
 inferPattType (PattWild (Just t)) =
@@ -290,12 +286,11 @@ inferPattType (PattWild Nothing) = do
   t <- freshTypeVar
   return (t, Map.empty)
   
-inferPattType (PattUnit (Just TypeUnit)) =
+inferPattType (PattUnit (Just t)) = do
+  _ <- mgu t TypeUnit
   return (TypeUnit, Map.empty)
 inferPattType (PattUnit Nothing) =
   return (TypeUnit, Map.empty)
-inferPattType a@(PattUnit _) =
-  throwError $ inferPattTypeErrorMsg a -- todo: change this
 
 inferPattType (PattVar ident (Just t)) =
   return (t, Map.singleton ident t)
