@@ -331,102 +331,107 @@ instance Show Operator where
   show OpTranspose = "'"
 
 
-data DFReal
-  = DFRealLiteral !Double
-  | DFRealVarying !String !Int -- the source code identifier, and the global scalar index among the varyings
-  | DFRealUniform !String !Int -- the source code identifier, and the global scalar index among the uniforms
-  | DFRealUniformOffset !String !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
-  | DFRealAdd !DFReal !DFReal
-  | DFRealSub !DFReal !DFReal
-  | DFRealMul !DFReal !DFReal
-  | DFRealDiv !DFReal !DFReal
-  | DFRealNeg !DFReal
-  | DFRealRcp !DFReal
-  | DFRealRsq !DFReal
-  | DFRealCond !DFBool !DFReal !DFReal
-  | DFRealAbs !DFReal
-  | DFRealMin !DFReal !DFReal
-  | DFRealMax !DFReal !DFReal
-  | DFRealLrp !DFReal !DFReal !DFReal
-  | DFRealFloor !DFReal
-  | DFRealCeiling !DFReal
-  | DFRealRound !DFReal
-  | DFRealTruncate !DFReal
-  | DFRealFract !DFReal
-  | DFRealExp !DFReal
-  | DFRealExp2 !DFReal
-  | DFRealLog !DFReal
-  | DFRealLog2 !DFReal
-  | DFRealPow !DFReal !DFReal
-  | DFRealSin !DFReal
-  | DFRealCos !DFReal
-  | DFRealTan !DFReal
-  | DFRealASin !DFReal
-  | DFRealACos !DFReal
-  | DFRealATan !DFReal !DFReal
-  | DFRealGetTexR !DFTexLookup
-  | DFRealGetTexG !DFTexLookup
-  | DFRealGetTexB !DFTexLookup
-  | DFRealGetTexA !DFTexLookup
+-- Dataflow graph node types.
+data DFType
+  = DFReal
+  | DFBool
+  | DFSample -- internal to a texture sampling gadget
   
   deriving (Show, Eq)
 
-
-data DFBool
-  = DFBoolLiteral !Bool
-  | DFBoolLessThan !DFReal !DFReal
-  | DFBoolLessThanEqual !DFReal !DFReal
-  | DFBoolGreaterThan !DFReal !DFReal
-  | DFBoolGreaterThanEqual !DFReal !DFReal
-  | DFBoolAnd !DFBool !DFBool
-  | DFBoolOr !DFBool !DFBool
-  | DFBoolNot !DFBool !DFBool
-  | DFBoolEqualBool !DFBool !DFBool
-  | DFBoolNotEqualBool !DFBool !DFBool
-  | DFBoolEqualReal !DFReal !DFReal
-  | DFBoolNotEqualReal !DFReal !DFReal
-  | DFBoolCond !DFBool !DFBool !DFBool
+-- Dataflow graph.
+data DF
+  -- DFReal or DFBool
+  = DFVarying !DFType !String !Int -- the source code identifier, and the global scalar index among the varyings
+  | DFUniform !DFType !String !Int -- the source code identifier, and the global scalar index among the uniforms
+  | DFUniformOffset !DFType !String !Int !DF -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
+  | DFCond !DFType !DF !DF !DF
+  -- DFReal
+  | DFRealLiteral !Double
+  | DFAdd !DF !DF
+  | DFSub !DF !DF
+  | DFMul !DF !DF
+  | DFDiv !DF !DF
+  | DFNeg !DF
+  | DFRcp !DF
+  | DFRsq !DF
+  | DFAbs !DF
+  | DFMin !DF !DF
+  | DFMax !DF !DF
+  | DFLrp !DF !DF !DF
+  | DFFloor !DF
+  | DFCeiling !DF
+  | DFRound !DF
+  | DFTruncate !DF
+  | DFFract !DF
+  | DFExp !DF
+  | DFExp2 !DF
+  | DFLog !DF
+  | DFLog2 !DF
+  | DFPow !DF !DF
+  | DFSin !DF
+  | DFCos !DF
+  | DFTan !DF
+  | DFASin !DF
+  | DFACos !DF
+  | DFATan !DF !DF
+  | DFGetTexR !DF -- a DFSample
+  | DFGetTexG !DF -- a DFSample
+  | DFGetTexB !DF -- a DFSample
+  | DFGetTexA !DF -- a DFSample
+  -- DFBool
+  | DFBoolLiteral !Bool
+  | DFLessThan !DF !DF
+  | DFLessThanEqual !DF !DF
+  | DFGreaterThan !DF !DF
+  | DFGreaterThanEqual !DF !DF
+  | DFEqual !DF !DF
+  | DFNotEqual !DF !DF
+  | DFAnd !DF !DF
+  | DFOr !DF !DF
+  | DFNot !DF !DF
+  -- DFSample
+  | DFSample1D !Int !DF -- texture image unit, coords
+  | DFSample2D !Int !DF !DF
+  | DFSample3D !Int !DF !DF !DF
+  | DFSampleCube !Int !DF !DF !DF
   
   deriving (Show, Eq)
   
-
-data DFTexLookup
-  = DFTexSubmitTex1D !Int !DFReal -- texture image unit, coords
-  | DFTexSubmitTex2D !Int !DFReal !DFReal
-  | DFTexSubmitTex3D !Int !DFReal !DFReal !DFReal
-  | DFTexSubmitTexCube !Int !DFReal !DFReal !DFReal
-  
-  deriving (Show, Eq)
-
-
-data DFKill
-  = DFUnitKillFragment !DFBool -- kill condition
-  
-  deriving (Show, Eq)
-
 
 data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit
-  | ValueReal !DFReal
-  | ValueBool !DFBool
+  | ValueDF !DF
   | ValueTexture1D !Int -- texture image unit
   | ValueTexture2D !Int
   | ValueTexture3D !Int
   | ValueTextureCube !Int
   | ValueArray ![Value]
   | ValueTuple ![Value]
-  | ValueFun !(Value -> Value)
+  | ValueFun !(Value -> Either String Value) -- might raise exception
 
 
 instance Show Value where
 
-  show(ValueUnit) = "()"
-  show(ValueReal dfr) = show dfr 
-  show(ValueBool dfb) = show dfb
-  show(ValueTexture1D i) = "texture[" ++ show i ++ ", 1D]"
-  show(ValueTexture2D i) = "texture[" ++ show i ++ ", 2D]"
-  show(ValueTexture3D i) = "texture[" ++ show i ++ ", 3D]"
-  show(ValueTextureCube i) = "texture[" ++ show i ++ ", Cube]"
-  show(ValueArray vs) = "[" ++ (concat $ List.intersperse ", " $ map show vs) ++ "]"
-  show(ValueTuple vs) = "(" ++ (concat $ List.intersperse ", " $ map show vs) ++ ")"
-  show(ValueFun f) = "<function>"
+  show (ValueUnit) = "()"
+  show (ValueDF df) = show df
+  show (ValueTexture1D i) = "texture[" ++ show i ++ ", 1D]"
+  show (ValueTexture2D i) = "texture[" ++ show i ++ ", 2D]"
+  show (ValueTexture3D i) = "texture[" ++ show i ++ ", 3D]"
+  show (ValueTextureCube i) = "texture[" ++ show i ++ ", Cube]"
+  show (ValueArray vs) = "[" ++ (concat $ List.intersperse ", " $ map show vs) ++ "]"
+  show (ValueTuple vs) = "(" ++ (concat $ List.intersperse ", " $ map show vs) ++ ")"
+  show (ValueFun _) = "<function>"
+
+instance Eq Value where
+
+  (ValueUnit) == (ValueUnit) = True
+  (ValueDF df) == (ValueDF df') = df == df'
+  (ValueTexture1D i) == (ValueTexture1D i') = i == i'
+  (ValueTexture2D i) == (ValueTexture2D i') = i == i'
+  (ValueTexture3D i) == (ValueTexture3D i') = i == i'
+  (ValueTextureCube i) == (ValueTextureCube i') = i == i'
+  (ValueArray vs) == (ValueArray vs') = vs == vs'
+  (ValueTuple vs) == (ValueTuple vs') = vs == vs'
+  (ValueFun _) == (ValueFun _) = False
+  _ == _ = False
