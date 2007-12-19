@@ -69,7 +69,7 @@ conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
 conditionalize dfb (ValueTuple vs1) (ValueTuple vs2) = do
   vs <- zipWithM (conditionalize dfb) vs1 vs2
   return $ ValueTuple vs
-conditionalize _ _ _ = throwError $ "values in if expression cannot be compared at run time"
+conditionalize _ _ _ = throwError $ "if expression would violate run time model"
 
 
 -- Match the pattern against the value to give a value environment.
