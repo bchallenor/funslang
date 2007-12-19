@@ -215,14 +215,30 @@ valueSampleCube =
       ]
 
 
+-- Subscript.
+
+valueSubscript :: Value
+valueSubscript =
+  ValueFun $ \ a@(ValueArray vs) -> Right $
+    ValueFun $ \ (ValueDFReal sub) -> do
+      let len = length vs
+      case sub of
+        DFRealLiteral d -> do
+          let idx = floor d
+          if 0 <= idx && idx < len
+            then return $ vs!!idx
+            else throwError $ "array index (" ++ show idx ++ ") out of bounds:\n\n" ++ show a
+        _ -> throwError $ "array index is not statically determinable" -- todo: support dynamic indexing
+
+
 -- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
 library :: [(Fixity, String, String, String, Bool, [String], Value)]
 library = [
   (Prefix, show OpScalarNeg, "Real -> Real", "scalar negate (as desugared from \"-\")", False, ["x"], makeValueFun1 unValueDFReal DFRealNeg ValueDFReal),
   (Prefix, show OpVectorNeg, "Real 'n -> Real 'n", "vector negate (component-wise) (as desugared from \"--\")", False, ["x"], undefined),
   (Prefix, show OpNot, "Bool -> Bool", "logical not", False, ["x"], makeValueFun1 unValueDFBool DFBoolNot ValueDFBool),
-  (InfixL, show OpSubscript, "'a 'n -> Real -> 'a", "subscript (if n is statically determinable, bounds checking occurs; if n is not statically determinable, there is no bounds check, and the left argument must be a uniform)", False, ["as", "n"], undefined),
-  (InfixL, show OpSwizzle, "'a 'n -> Real 'm -> 'a 'm", "swizzle, return vector of all subscripts supplied (all ns must be statically determinable; bounds checking occurs)", False, ["as", "ns"], undefined),
+  (InfixL, show OpSubscript, "'a 'n -> Real -> 'a", "subscript", False, ["as", "n"], valueSubscript),
+  (InfixL, show OpSwizzle, "'a 'n -> Real 'm -> 'a 'm", "swizzle", False, ["as", "ns"], undefined),
   (InfixL, show OpScalarAdd, "Real -> Real -> Real", "scalar add", False, ["x", "y"], makeValueFun2 unValueDFReal DFRealAdd ValueDFReal),
   (InfixL, show OpScalarSub, "Real -> Real -> Real", "scalar sub", False, ["x", "y"], makeValueFun2 unValueDFReal DFRealSub ValueDFReal),
   (InfixL, show OpScalarMul, "Real -> Real -> Real", "scalar mul", False, ["x", "y"], makeValueFun2 unValueDFReal DFRealMul ValueDFReal),
