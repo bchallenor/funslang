@@ -185,19 +185,19 @@ instantiate (Scheme (tvrefs, dvrefs) t) = do
 
 
 -- A type environment maps identifiers to type schemes.
-type Env = Map.Map String Scheme
+type SchemeEnv = Map.Map String Scheme
 
-fvEnv :: Env -> (Set.Set TypeVarRef, Set.Set DimVarRef)
-fvEnv gamma = Map.fold (\sigma vrefs -> vrefs `unionVarRefs` fvScheme sigma) (Set.empty, Set.empty) gamma
+fvSchemeEnv :: SchemeEnv -> (Set.Set TypeVarRef, Set.Set DimVarRef)
+fvSchemeEnv gamma = Map.fold (\sigma vrefs -> vrefs `unionVarRefs` fvScheme sigma) (Set.empty, Set.empty) gamma
 
-applySubstEnv :: Subst -> Env -> Env
-applySubstEnv sub gamma = Map.map (applySubstScheme sub) gamma
+applySubstSchemeEnv :: Subst -> SchemeEnv -> SchemeEnv
+applySubstSchemeEnv sub gamma = Map.map (applySubstScheme sub) gamma
 
 
 -- Type inference! The cool stuff.
 -- Returns the principal type of the expression, and the substitution that must
 -- be applied to gamma to achieve this.
-principalType :: Env -> Expr -> TI (Subst, Type)
+principalType :: SchemeEnv -> Expr -> TI (Subst, Type)
 
 principalType _ (ExprUnitLiteral) = return (nullSubst, TypeUnit)
 
@@ -214,7 +214,7 @@ principalType gamma (ExprVar ident) =
 
 principalType gamma a@(ExprApp e1 e2) = do
   (s1, t1) <- principalType gamma e1
-  let s1gamma = applySubstEnv s1 gamma
+  let s1gamma = applySubstSchemeEnv s1 gamma
   (s2, t2) <- principalType s1gamma e2
   alpha <- freshTypeVar
   s3 <- mgu (applySubstType s2 t1) (TypeFun t2 alpha)
@@ -227,7 +227,7 @@ principalType gamma a@(ExprArray es) = do
     \ e (s1, s1gamma) -> do
       (s2, t2) <- principalType s1gamma e
       s3 <- mgu t2 (applySubstType s1 alpha)
-      return (s3 `composeSubst` (s2 `composeSubst` s1), applySubstEnv s3 (applySubstEnv s2 s1gamma))
+      return (s3 `composeSubst` (s2 `composeSubst` s1), applySubstSchemeEnv s3 (applySubstSchemeEnv s2 s1gamma))
     ) (nullSubst, gamma) es
   return (s1, TypeArray (applySubstType s1 alpha) (DimFix $ toInteger $ length es))
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
@@ -236,7 +236,7 @@ principalType gamma a@(ExprTuple es) = do
   (s1, s1gamma, ts1) <- Foldable.foldrM (
     \ e (s1, s1gamma, ts1) -> do
       (s2, t2) <- principalType s1gamma e
-      return (s2 `composeSubst` s1, applySubstEnv s2 s1gamma, t2:ts1)
+      return (s2 `composeSubst` s1, applySubstSchemeEnv s2 s1gamma, t2:ts1)
     ) (nullSubst, gamma, []) es -- the empty tuple is invalid, but es has valid length
   return (s1, TypeTuple ts1)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
@@ -244,9 +244,9 @@ principalType gamma a@(ExprTuple es) = do
 principalType gamma a@(ExprIf e1 e2 e3) = do
   (s1, t1) <- principalType gamma e1
   s2 <- mgu t1 TypeBool
-  let s2s1gamma = applySubstEnv s2 (applySubstEnv s1 gamma)
+  let s2s1gamma = applySubstSchemeEnv s2 (applySubstSchemeEnv s1 gamma)
   (s3, t3) <- principalType s2s1gamma e2
-  let s3s2s1gamma = applySubstEnv s3 s2s1gamma
+  let s3s2s1gamma = applySubstSchemeEnv s3 s2s1gamma
   (s4, t4) <- principalType s3s2s1gamma e3
   s5 <- mgu (applySubstType s4 t3) t4
   return (s5 `composeSubst` (s4 `composeSubst` (s3 `composeSubst` (s2 `composeSubst` s1))), applySubstType s5 t4)
@@ -258,10 +258,10 @@ principalType gamma a@(ExprLet p e1 e2) = do
   -- we should remove any mapping for the identifiers in p, because we're going to shadow them,
   -- and we don't want existing defs to stop us from generalizing their free variables
   let gamma_shadowed = Map.differenceWithKey (\ident _ _ -> Nothing) gamma bindings
-  let s1gamma_shadowed = applySubstEnv s1 gamma_shadowed
+  let s1gamma_shadowed = applySubstSchemeEnv s1 gamma_shadowed
   s2 <- mgu t1 t1'
-  let s2s1gamma_shadowed = applySubstEnv s2 s1gamma_shadowed
-  let generalize t = Scheme (fvType t `differenceVarRefs` fvEnv s2s1gamma_shadowed) t
+  let s2s1gamma_shadowed = applySubstSchemeEnv s2 s1gamma_shadowed
+  let generalize t = Scheme (fvType t `differenceVarRefs` fvSchemeEnv s2s1gamma_shadowed) t
   let s2bindingspoly = Map.map (generalize . applySubstType s2) bindings
   let gamma' = s2s1gamma_shadowed `Map.union` s2bindingspoly
   (s3, t3) <- principalType gamma' e2
