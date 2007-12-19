@@ -327,3 +327,94 @@ instance Show Operator where
   show OpOr = "||"
   --
   show OpTranspose = "'"
+
+
+data DFReal
+  = DFRealLiteral !Double
+  | DFRealVarying !String !Int -- the source code identifier, and the global scalar index among the varyings
+  | DFRealUniform !String !Int -- the source code identifier, and the global scalar index among the uniforms
+  | DFRealUniformOffset !String !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
+  | DFRealAdd !DFReal !DFReal
+  | DFRealSub !DFReal !DFReal
+  | DFRealMul !DFReal !DFReal
+  | DFRealDiv !DFReal !DFReal
+  | DFRealNeg !DFReal
+  | DFRealRcp !DFReal
+  | DFRealRsq !DFReal
+  | DFRealCond !DFBool !DFReal !DFReal
+  | DFRealAbs !DFReal
+  | DFRealMin !DFReal !DFReal
+  | DFRealMax !DFReal !DFReal
+  | DFRealLrp !DFReal !DFReal !DFReal
+  | DFRealFloor !DFReal
+  | DFRealCeiling !DFReal
+  | DFRealRound !DFReal
+  | DFRealTruncate !DFReal
+  | DFRealFract !DFReal
+  | DFRealExp !DFReal
+  | DFRealExp2 !DFReal
+  | DFRealLog !DFReal
+  | DFRealLog2 !DFReal
+  | DFRealPow !DFReal !DFReal
+  | DFRealSin !DFReal
+  | DFRealCos !DFReal
+  | DFRealTan !DFReal
+  | DFRealASin !DFReal
+  | DFRealACos !DFReal
+  | DFRealATan !DFReal !DFReal
+  | DFRealGetTexR !DFTexLookup
+  | DFRealGetTexG !DFTexLookup
+  | DFRealGetTexB !DFTexLookup
+  | DFRealGetTexA !DFTexLookup
+  
+  deriving (Show, Eq)
+
+
+data DFBool
+  = DFBoolLiteral !Bool
+  | DFBoolLessThan !DFReal !DFReal
+  | DFBoolLessThanEqual !DFReal !DFReal
+  | DFBoolGreaterThan !DFReal !DFReal
+  | DFBoolGreaterThanEqual !DFReal !DFReal
+  | DFBoolAnd !DFBool !DFBool
+  | DFBoolOr !DFBool !DFBool
+  | DFBoolNot !DFBool !DFBool
+  | DFBoolEqualBool !DFBool !DFBool
+  | DFBoolNotEqualBool !DFBool !DFBool
+  | DFBoolEqualReal !DFReal !DFReal
+  | DFBoolNotEqualReal !DFReal !DFReal
+  | DFBoolCond !DFBool !DFBool !DFBool
+  
+  deriving (Show, Eq)
+  
+
+data DFTexLookup
+  = DFTexSubmitTex1D !Int !DFReal -- texture image unit, coords
+  | DFTexSubmitTex2D !Int !DFReal !DFReal
+  | DFTexSubmitTex3D !Int !DFReal !DFReal !DFReal
+  | DFTexSubmitTexCube !Int !DFReal !DFReal !DFReal
+  
+  deriving (Show, Eq)
+
+
+data DFKill
+  = DFUnitKillFragment !DFBool -- kill condition
+  
+  deriving (Show, Eq)
+
+
+data Value
+  = ValueUnit
+  | ValueReal !DFReal
+  | ValueBool !DFBool
+  | ValueTexture1D !Int -- texture image unit
+  | ValueTexture2D !Int
+  | ValueTexture3D !Int
+  | ValueTextureCube !Int
+  | ValueArray ![Value]
+  | ValueTuple ![Value]
+  | ValueFun !(Value -> Value)
+  
+  deriving (Show, Eq)
+
+
