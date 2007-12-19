@@ -164,6 +164,56 @@ valueFun_zipWith3' z (a:as) (b:bs) (c:cs) = do
 valueFun_zipWith3' _ _ _ _= return []
 
 
+-- Texture functions.
+
+valueSample1D :: Value
+valueSample1D =
+  ValueFun $ \ (ValueTexture1D i) -> Right $
+    ValueFun $ \ (ValueArray [ValueDFReal x]) -> do
+    let submit = DFSample1D i x
+    return $ ValueArray [
+      ValueDFReal $ DFRealGetTexR submit,
+      ValueDFReal $ DFRealGetTexG submit,
+      ValueDFReal $ DFRealGetTexB submit,
+      ValueDFReal $ DFRealGetTexA submit
+      ]
+
+valueSample2D :: Value
+valueSample2D =
+  ValueFun $ \ (ValueTexture2D i) -> Right $
+    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y]) -> do
+    let submit = DFSample2D i x y
+    return $ ValueArray [
+      ValueDFReal $ DFRealGetTexR submit,
+      ValueDFReal $ DFRealGetTexG submit,
+      ValueDFReal $ DFRealGetTexB submit,
+      ValueDFReal $ DFRealGetTexA submit
+      ]
+
+valueSample3D :: Value
+valueSample3D =
+  ValueFun $ \ (ValueTexture3D i) -> Right $
+    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
+    let submit = DFSample3D i x y z
+    return $ ValueArray [
+      ValueDFReal $ DFRealGetTexR submit,
+      ValueDFReal $ DFRealGetTexG submit,
+      ValueDFReal $ DFRealGetTexB submit,
+      ValueDFReal $ DFRealGetTexA submit
+      ]
+
+valueSampleCube :: Value
+valueSampleCube =
+  ValueFun $ \ (ValueTextureCube i) -> Right $
+    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
+    let submit = DFSampleCube i x y z
+    return $ ValueArray [
+      ValueDFReal $ DFRealGetTexR submit,
+      ValueDFReal $ DFRealGetTexG submit,
+      ValueDFReal $ DFRealGetTexB submit,
+      ValueDFReal $ DFRealGetTexA submit
+      ]
+
 
 -- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
 library :: [(Fixity, String, String, String, Bool, [String], Value)]
@@ -239,8 +289,8 @@ library = [
   (Prefix, "reflect", "Real 'n -> Real 'n -> Real 'n", "reflect I given Nref (normalized)", True, ["Nref", "I"], undefined),
   (Prefix, "refract", "Real 'n -> Real 'n -> Real 'n", "refract I given Nref (normalized) and index eta", True, ["Nref", "eta", "I"], undefined),
   (Prefix, "pad", "Real 3 -> Real 4", "pads fourth component with 1.0", False, ["x"], undefined),
-  (Prefix, "sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], undefined),
-  (Prefix, "sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], undefined),
-  (Prefix, "sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], undefined),
-  (Prefix, "sampleCube", "TextureCube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], undefined)
+  (Prefix, "sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueSample1D),
+  (Prefix, "sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], valueSample2D),
+  (Prefix, "sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], valueSample3D),
+  (Prefix, "sampleCube", "TextureCube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], valueSampleCube)
   ]
