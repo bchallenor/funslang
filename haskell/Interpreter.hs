@@ -1,4 +1,4 @@
-module Interpreter(interpretExpr) where
+module Interpreter(interpretExpr, ValueEnv) where
 
 import qualified Data.Map as Map
 import qualified Data.List as List

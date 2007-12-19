@@ -17,10 +17,10 @@ test = withArgs ["test.vp"] main
 
 compile :: ByteString.ByteString -> Either String (Expr, Type, Value)
 compile bs = do
-  let (gamma, vrefs) = initLibrary
+  let (gamma, vrefs) = libraryTypeSchemes
   (e, vrefs') <- parseExpr vrefs bs
   t <- inferExprType gamma e vrefs'
-  v <- interpretExpr (Map.empty) e
+  v <- interpretExpr libraryValues e
   return (e, t, v)
 
 main :: IO ()
