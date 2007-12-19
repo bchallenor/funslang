@@ -1,6 +1,7 @@
 module Representation where
 
 import qualified Data.Map as Map
+import qualified Data.List as List
 import Control.Monad.State
 
 
@@ -298,6 +299,7 @@ data Operator
 
 
 instance Show Operator where
+
   show OpScalarNeg = "negate"
   show OpVectorNeg = "negates"
   show OpNot = "~"
@@ -415,3 +417,16 @@ data Value -- can't derive Show or Eq due to those pesky closures
   | ValueTuple ![Value]
   | ValueFun !(Value -> Value)
 
+
+instance Show Value where
+
+  show(ValueUnit) = "()"
+  show(ValueReal dfr) = show dfr 
+  show(ValueBool dfb) = show dfb
+  show(ValueTexture1D i) = "texture[" ++ show i ++ ", 1D]"
+  show(ValueTexture2D i) = "texture[" ++ show i ++ ", 2D]"
+  show(ValueTexture3D i) = "texture[" ++ show i ++ ", 3D]"
+  show(ValueTextureCube i) = "texture[" ++ show i ++ ", Cube]"
+  show(ValueArray vs) = "[" ++ (concat $ List.intersperse ", " $ map show vs) ++ "]"
+  show(ValueTuple vs) = "(" ++ (concat $ List.intersperse ", " $ map show vs) ++ ")"
+  show(ValueFun f) = "<function>"
