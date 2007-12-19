@@ -1,16 +1,12 @@
-let mix x y a =
-  x **. (1.0 - a) ++ y **. a in
-
-
 % Fragment shader for drawing Julia sets
 % Author: Ben Challenor
 % Based on Julia.frag (GLSL) by 3Dlabs
 
 let MAX_ITERATIONS = 50 in
 
-\ (Zoom, Xcenter, Ycenter, InnerColor, OuterColor1, OuterColor2, Creal, Cimag) .
+\ (Zoom, Xcenter, Ycenter, InnerColor :: Real 3, OuterColor1, OuterColor2, Creal, Cimag) .
 
-\ (Position, LightIntensity) .
+\ (Position :: Real 2, LightIntensity) .
 
 % iteration function
 let f (r, i, iter) =
@@ -32,8 +28,8 @@ let l2 = r * r + i * i in
 let basecolor =
   if (l2 < 4)
     then InnerColor
-    else mix OuterColor1 OuterColor2 (fract (iter * 0.05)) in
+    else zipWith (mix (fract (iter * 0.05))) OuterColor1 OuterColor2  in
 
 let litcolor = basecolor **. LightIntensity in
 
-  litcolor
+  pad litcolor
