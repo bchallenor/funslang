@@ -1,7 +1,6 @@
 module Main where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
-import qualified Data.Map as Map
 import Control.Monad.Error
 
 import Parser

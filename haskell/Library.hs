@@ -3,6 +3,7 @@ module Library(libraryTypeSchemes, libraryValues, queryTypeScheme) where
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.List as List
 import qualified Data.Map as Map
+import Control.Monad.Error
 
 import Typing
 import Parser
@@ -76,6 +77,94 @@ makeValueFun3 unbox op box =
       box $ op (unbox v1) (unbox v2) (unbox v3)
 
 
+-- Higher order functions.
+
+valueFun_map :: Value
+valueFun_map =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ (ValueArray as) -> do
+      vs <- mapM f as
+      return $ ValueArray vs
+
+valueFun_foldl :: Value
+valueFun_foldl =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ va -> Right $
+      ValueFun $ \ (ValueArray vbs) ->
+        valueFun_foldl' f va vbs
+
+valueFun_foldl' :: (Value -> Either String Value) -> Value -> [Value] -> Either String Value
+valueFun_foldl' _ z [] = return z
+valueFun_foldl' f z (x:xs) = do
+  ValueFun fz <- f z
+  fzx <- fz x
+  valueFun_foldl' f fzx xs
+
+valueFun_foldr :: Value
+valueFun_foldr =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ vb -> Right $
+      ValueFun $ \ (ValueArray vas) ->
+        valueFun_foldr' f vb vas
+
+valueFun_foldr' :: (Value -> Either String Value) -> Value -> [Value] -> Either String Value
+valueFun_foldr' _ z [] = return z
+valueFun_foldr' f z (x:xs) = do
+  z' <- valueFun_foldr' f z xs
+  ValueFun fx <- f x
+  fx z'
+
+valueFun_unroll :: Value
+valueFun_unroll =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ (ValueDFReal dfn) -> Right $
+      ValueFun $ \ z ->
+        case dfn of
+          DFRealLiteral n -> valueFun_unroll' f (floor n) z
+          _ -> throwError $ "in function 'unroll', n must be statically determinable"
+
+valueFun_unroll' :: (Value -> Either String Value) -> Int -> Value -> Either String Value
+valueFun_unroll' _ 0 z = return z
+valueFun_unroll' f n z = do
+  fz <- f z
+  valueFun_unroll' f (n-1) fz
+
+valueFun_zipWith :: Value
+valueFun_zipWith =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ (ValueArray as) -> Right $
+      ValueFun $ \ (ValueArray bs) -> do
+        vs <- valueFun_zipWith' f as bs
+        return $ ValueArray vs
+
+valueFun_zipWith' :: (Value -> Either String Value) -> [Value] -> [Value] -> Either String [Value]
+valueFun_zipWith' z (a:as) (b:bs) = do
+  ValueFun za <- z a
+  zab <- za b
+  zabs <- valueFun_zipWith' z as bs
+  return $ zab:zabs
+valueFun_zipWith' _ _ _ = return []
+
+valueFun_zipWith3 :: Value
+valueFun_zipWith3 =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ (ValueArray as) -> Right $
+      ValueFun $ \ (ValueArray bs) -> Right $
+        ValueFun $ \ (ValueArray cs) -> do
+          vs <- valueFun_zipWith3' f as bs cs
+          return $ ValueArray vs
+
+valueFun_zipWith3' :: (Value -> Either String Value) -> [Value] -> [Value] -> [Value] -> Either String [Value]
+valueFun_zipWith3' z (a:as) (b:bs) (c:cs) = do
+  ValueFun za <- z a
+  ValueFun zab <- za b
+  zabc <- zab c
+  zabcs <- valueFun_zipWith3' z as bs cs
+  return $ zabc:zabcs
+valueFun_zipWith3' _ _ _ _= return []
+
+
+
 -- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
 library :: [(Fixity, String, String, String, Bool, [String], Value)]
 library = [
@@ -106,12 +195,12 @@ library = [
   (InfixL, show OpAnd, "Bool -> Bool -> Bool", "logical and", False, ["x", "y"], makeValueFun2 unValueDFBool DFBoolAnd ValueDFBool),
   (InfixL, show OpOr, "Bool -> Bool -> Bool", "logical or", False, ["x", "y"], makeValueFun2 unValueDFBool DFBoolOr ValueDFBool),
   (Postfix, show OpTranspose, "'a 'q 'p -> 'a 'p 'q", "transpose", False, ["x"], undefined),
-  (Prefix, "map", "('a -> 'b) -> 'a 'n -> 'b 'n", "map function onto array", False, ["f", "as"], undefined),
-  (Prefix, "foldl", "('a -> 'a -> 'b) -> 'a -> 'b 'n -> 'a", "left fold", False, ["f", "z", "bs"], undefined),
-  (Prefix, "foldr", "('a -> 'b -> 'b) -> 'b -> 'a 'n -> 'b", "right fold", False, ["f", "z", "as"], undefined),
-  (Prefix, "unroll", "('a -> 'a) -> Real -> 'a -> 'a", "apply f n times to z (n must be statically determinable)", False, ["f", "n", "z"], undefined),
-  (Prefix, "zipWith", "('a -> 'b -> 'c) -> 'a 'n -> 'b 'n -> 'c 'n", "general zip over 2 arrays", False, ["f", "as", "bs"], undefined),
-  (Prefix, "zipWith3", "('a -> 'b -> 'c -> 'd) -> 'a 'n -> 'b 'n -> 'c 'n -> 'd 'n", "general zip over 3 arrays", False, ["f", "as", "bs", "cs"], undefined),
+  (Prefix, "map", "('a -> 'b) -> 'a 'n -> 'b 'n", "map function onto array", False, ["f", "as"], valueFun_map),
+  (Prefix, "foldl", "('a -> 'a -> 'b) -> 'a -> 'b 'n -> 'a", "left fold", False, ["f", "z", "bs"], valueFun_foldl),
+  (Prefix, "foldr", "('a -> 'b -> 'b) -> 'b -> 'a 'n -> 'b", "right fold", False, ["f", "z", "as"], valueFun_foldr),
+  (Prefix, "unroll", "('a -> 'a) -> Real -> 'a -> 'a", "apply f n times to z (n must be statically determinable)", False, ["f", "n", "z"], valueFun_unroll),
+  (Prefix, "zipWith", "('a -> 'b -> 'c) -> 'a 'n -> 'b 'n -> 'c 'n", "general zip over 2 arrays", False, ["f", "as", "bs"], valueFun_zipWith),
+  (Prefix, "zipWith3", "('a -> 'b -> 'c -> 'd) -> 'a 'n -> 'b 'n -> 'c 'n -> 'd 'n", "general zip over 3 arrays", False, ["f", "as", "bs", "cs"], valueFun_zipWith3),
   (Prefix, "sum", "Real 'p -> Real", "sum of components", False, ["x"], undefined),
   (Prefix, "product", "Real 'p -> Real", "product of components", False, ["x"], undefined),
   (Prefix, "any", "Bool 'p -> Bool", "logical or of components", False, ["x"], undefined),
