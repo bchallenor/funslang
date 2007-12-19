@@ -20,7 +20,7 @@ compile bs = do
   let (gamma, vrefs) = initLibrary
   (e, vrefs') <- parseExpr vrefs bs
   t <- inferExprType gamma e vrefs'
-  v <- interpret' (Map.empty) e
+  v <- interpretExpr (Map.empty) e
   return (e, t, v)
 
 main :: IO ()

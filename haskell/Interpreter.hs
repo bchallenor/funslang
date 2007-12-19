@@ -1,6 +1,7 @@
-module Interpreter where
+module Interpreter(interpretExpr) where
 
 import qualified Data.Map as Map
+import qualified Data.List as List
 import Control.Monad.Error
 
 import Representation
@@ -8,6 +9,54 @@ import Representation
 
 -- The environment of values as being interpreted.
 type ValueEnv = Map.Map String Value
+
+
+-- The inner interpreter function.
+-- Returns the value, or on error, a message explaining the error and the expression that triggered it.
+interpretExpr :: ValueEnv -> Expr -> Either String Value
+
+interpretExpr _ (ExprUnitLiteral) = return ValueUnit
+
+interpretExpr _ (ExprRealLiteral b) = return $ ValueDF $ DFRealLiteral b
+
+interpretExpr _ (ExprBoolLiteral b) = return $ ValueDF $ DFBoolLiteral b
+
+interpretExpr env (ExprVar ident) =
+  case Map.lookup ident env of
+    Just v -> return v
+    Nothing -> throwError $ "variable <" ++ ident ++ "> undefined"
+
+interpretExpr env (ExprApp e1 e2) = do
+  ValueFun f <- interpretExpr env e1
+  v <- interpretExpr env e2
+  f v
+
+interpretExpr env (ExprArray es) = do
+  vs <- mapM (interpretExpr env) es
+  return $ ValueArray vs
+
+interpretExpr env (ExprTuple es) = do
+  vs <- mapM (interpretExpr env) es
+  return $ ValueTuple vs
+
+interpretExpr env (ExprIf eb e1 e2) = do
+  ValueDF dfb <- interpretExpr env eb
+  v1 <- interpretExpr env e1
+  v2 <- interpretExpr env e2
+  if v1 == v2
+    then return v1 -- optimize out if both branches are the same
+    else case dfb of
+      DFBoolLiteral b -> return $ if b then v1 else v2 -- optimize out if condition statically known
+      _ -> conditionalize dfb v1 v2 -- runtime condition and runtime values
+
+interpretExpr env (ExprLet p e1 e2) = do
+  v1 <- interpretExpr env e1
+  let env' = env `Map.union` matchPattern p v1
+  v2 <- interpretExpr env' e2
+  return v2
+
+interpretExpr env (ExprLambda p e) =
+  return $ ValueFun (\v -> let env' = env `Map.union` matchPattern p v in interpretExpr env' e)
 
 
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
@@ -23,55 +72,12 @@ conditionalize dfb (ValueTuple vs1) (ValueTuple vs2) = do
 conditionalize _ _ _ = throwError $ "values in if expression cannot be compared at run time"
 
 
--- The inner interpreter function.
--- Returns the value, or on error, a message explaining the error and the expression that triggered it.
-interpret' :: ValueEnv -> Expr -> Either String Value
-
-interpret' env (ExprUnitLiteral) = return ValueUnit
-
-interpret' env (ExprRealLiteral b) = return $ ValueDF $ DFRealLiteral b
-
-interpret' env (ExprBoolLiteral b) = return $ ValueDF $ DFBoolLiteral b
-
-interpret' env (ExprVar ident) =
-  case Map.lookup ident env of
-    Just v -> return v
-    Nothing -> throwError $ "variable <" ++ ident ++ "> undefined"
-
-interpret' env (ExprApp e1 e2) = do
-  ValueFun f <- interpret' env e1
-  v <- interpret' env e2
-  f v
-
-interpret' env (ExprArray es) = do
-  vs <- mapM (interpret' env) es
-  return $ ValueArray vs
-
-interpret' env (ExprTuple es) = do
-  vs <- mapM (interpret' env) es
-  return $ ValueTuple vs
-
-interpret' env (ExprIf eb e1 e2) = do
-  ValueDF dfb <- interpret' env eb
-  v1 <- interpret' env e1
-  v2 <- interpret' env e2
-  if v1 == v2
-    then return v1 -- optimize out if both branches are the same
-    else case dfb of
-      DFBoolLiteral b -> return $ if b then v1 else v2 -- optimize out if condition statically known
-      _ -> conditionalize dfb v1 v2 -- runtime condition and runtime values
-
-
-
-
--- interpret' env (ExprLet p e1 e2)
--- interpret' env (ExprLambda p e)
-
-
-
-
-
--- a = ValueFun (\(ValueReal dfr1) -> ValueFun (\(ValueReal dfr2) -> ValueReal (DFRealAdd dfr1 dfr2)))
--- app (ValueFun f) v = f v
-
--- b = app (app a (ValueReal (DFRealLiteral 1))) (ValueReal (DFRealLiteral 2))
+-- Match the pattern against the value to give a value environment.
+matchPattern :: Patt -> Value -> ValueEnv
+matchPattern (PattWild _) _ = Map.empty
+matchPattern (PattUnit _) _ = Map.empty
+matchPattern (PattVar ident _) v = Map.singleton ident v
+matchPattern (PattArray ps _) (ValueArray vs) = List.foldl1' Map.union (zipWith matchPattern ps vs)
+matchPattern (PattArray _ _) _ = undefined
+matchPattern (PattTuple ps _) (ValueTuple vs) = List.foldl1' Map.union (zipWith matchPattern ps vs)
+matchPattern (PattTuple _ _) _ = undefined
