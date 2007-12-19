@@ -31,7 +31,7 @@ initLibrary =
           Right (t, vrefs') ->
             let sigma = Scheme (fvType t) t in
               (Map.insert ident sigma gamma, vrefs')
-          Left (msg, _, _) -> error $ "library function type does not parse: " ++ msg
+          Left msg -> error $ "library function type does not parse: " ++ msg
     ) (Map.empty, initFreshVarRefs) library
 
 

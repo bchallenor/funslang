@@ -3,7 +3,7 @@
 -- The principal type function, however, is based on that in the Types course
 -- by Prof. Andrew M. Pitts.
 
-module Typing where
+module Typing(inferExprType, Scheme(..), fvType) where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -13,6 +13,13 @@ import Control.Monad.State
 import Control.Monad.Error
 import Pretty
 import Representation
+
+
+-- The type inference function. This is the main function for this module.
+inferExprType :: SchemeEnv -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either String Type
+inferExprType gamma e vrefs = do
+  (s,t) <- runTI (principalType gamma e) vrefs
+  return t
 
 
 -- The type inference monad holds the fresh var ref state (use put/get),

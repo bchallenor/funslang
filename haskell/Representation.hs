@@ -339,6 +339,7 @@ data DFType
   
   deriving (Show, Eq)
 
+
 -- Dataflow graph.
 data DF
   -- DFReal or DFBool
@@ -397,7 +398,64 @@ data DF
   | DFSampleCube !Int !DF !DF !DF
   
   deriving (Show, Eq)
-  
+
+
+dfType :: DF -> DFType
+-- DFReal or DFBool
+dfType (DFVarying t _ _) = t
+dfType (DFUniform t _ _) = t
+dfType (DFUniformOffset t _ _ _) = t
+dfType (DFCond t _ _ _) = t
+-- DFReal
+dfType (DFRealLiteral _) = DFReal
+dfType (DFAdd _ _) = DFReal
+dfType (DFSub _ _) = DFReal
+dfType (DFMul _ _) = DFReal
+dfType (DFDiv _ _) = DFReal
+dfType (DFNeg _) = DFReal
+dfType (DFRcp _) = DFReal
+dfType (DFRsq _) = DFReal
+dfType (DFAbs _) = DFReal
+dfType (DFMin _ _) = DFReal
+dfType (DFMax _ _) = DFReal
+dfType (DFLrp _ _ _) = DFReal
+dfType (DFFloor _) = DFReal
+dfType (DFCeiling _) = DFReal
+dfType (DFRound _) = DFReal
+dfType (DFTruncate _) = DFReal
+dfType (DFFract _) = DFReal
+dfType (DFExp _) = DFReal
+dfType (DFExp2 _) = DFReal
+dfType (DFLog _) = DFReal
+dfType (DFLog2 _) = DFReal
+dfType (DFPow _ _) = DFReal
+dfType (DFSin _) = DFReal
+dfType (DFCos _) = DFReal
+dfType (DFTan _) = DFReal
+dfType (DFASin _) = DFReal
+dfType (DFACos _) = DFReal
+dfType (DFATan _ _) = DFReal
+dfType (DFGetTexR _) = DFReal
+dfType (DFGetTexG _) = DFReal
+dfType (DFGetTexB _) = DFReal
+dfType (DFGetTexA _) = DFReal
+-- DFBool
+dfType (DFBoolLiteral _) = DFBool
+dfType (DFLessThan _ _) = DFBool
+dfType (DFLessThanEqual _ _) = DFBool
+dfType (DFGreaterThan _ _) = DFBool
+dfType (DFGreaterThanEqual _ _) = DFBool
+dfType (DFEqual _ _) = DFBool
+dfType (DFNotEqual _ _) = DFBool
+dfType (DFAnd _ _) = DFBool
+dfType (DFOr _ _) = DFBool
+dfType (DFNot _ _) = DFBool
+-- DFSample
+dfType (DFSample1D _ _) = DFSample
+dfType (DFSample2D _ _ _) = DFSample
+dfType (DFSample3D _ _ _ _) = DFSample
+dfType (DFSampleCube _ _ _ _) = DFSample
+
 
 data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit

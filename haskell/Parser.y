@@ -1,6 +1,6 @@
 {
 {-# OPTIONS -w #-} -- suppress millions of Happy warnings
-module Parser(parseType, parseExpr, PState(..), PResult(..)) where
+module Parser(parseType, parseExpr) where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.List(foldl')
@@ -318,17 +318,17 @@ postfixExpr op a = ExprApp (ExprVar (show op)) a
 -- Exported entry points.
 -- Either return an error string and source position, or the result and final state.
 
-parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either (String, Int, Int) (Type, ([TypeVarRef], [DimVarRef]))
+parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Type, ([TypeVarRef], [DimVarRef]))
 parseType vrefs src =
   case unP parseTypeInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
     POk PState{ fresh_vrefs = vrefs' } result -> Right (result, vrefs')
-    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left (msg, l, c)
+    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left $ show l ++ ":" ++ show c ++ " " ++ msg
 
-parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either (String, Int, Int) (Expr, ([TypeVarRef], [DimVarRef]))
+parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Expr, ([TypeVarRef], [DimVarRef]))
 parseExpr vrefs src =
   case unP parseExprInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
     POk PState{ fresh_vrefs = vrefs' } result -> Right (result, vrefs')
-    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left (msg, l, c)
+    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left $ show l ++ ":" ++ show c ++ " " ++ msg
 
 
 -- Parser error function.
