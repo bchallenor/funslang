@@ -227,7 +227,7 @@ valueSubscript =
           let idx = floor d
           if 0 <= idx && idx < len
             then return $ vs!!idx
-            else throwError $ "array index (" ++ show idx ++ ") out of bounds:\n\n" ++ show a
+            else throwError $ "array index (" ++ show idx ++ ") out of bounds"
         _ -> throwError $ "array index is not statically determinable" -- todo: support dynamic indexing
 
 
