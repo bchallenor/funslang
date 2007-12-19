@@ -96,6 +96,7 @@ matchPattern (PattTuple _ _) _ = undefined
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
 interpretExprAsShader :: ValueEnv -> Expr -> Type -> Either String Value
 interpretExprAsShader env e t =
+  flip catchError (\s -> throwError $ s ++ "\nin expression with type: " ++ prettyType t) $ do
   case t of
     TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type _)) -> do
       ValueFun f1 <- interpretExpr env e

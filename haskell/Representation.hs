@@ -337,7 +337,6 @@ data DFReal
   = DFRealLiteral !Double
   | DFRealVarying !Int -- the global scalar index among the varyings
   | DFRealUniform !Int -- the global scalar index among the uniforms
-  | DFRealUniformOffset !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
   --
   | DFRealCond !DFBool !DFReal !DFReal
   --
@@ -381,7 +380,6 @@ data DFBool
   = DFBoolLiteral !Bool
   | DFBoolVarying !Int -- the global scalar index among the varyings
   | DFBoolUniform !Int -- the global scalar index among the uniforms
-  | DFBoolUniformOffset !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
   --
   | DFBoolCond !DFBool !DFBool !DFBool
   --
@@ -392,8 +390,8 @@ data DFBool
   --
   | DFBoolEqualReal !DFReal !DFReal
   | DFBoolNotEqualReal !DFReal !DFReal
-  | DFBoolEqualBool !DFReal !DFReal
-  | DFBoolNotEqualBool !DFReal !DFReal
+  | DFBoolEqualBool !DFBool !DFBool
+  | DFBoolNotEqualBool !DFBool !DFBool
   --
   | DFBoolAnd !DFBool !DFBool
   | DFBoolOr !DFBool !DFBool
