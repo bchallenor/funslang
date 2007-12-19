@@ -331,135 +331,90 @@ instance Show Operator where
   show OpTranspose = "'"
 
 
--- Dataflow graph node types.
-data DFType
-  = DFReal
-  | DFBool
-  | DFSample -- internal to a texture sampling gadget
-  
-  deriving (Show, Eq)
-
-
 -- Dataflow graph.
-data DF
-  -- DFReal or DFBool
-  = DFVarying !DFType !String !Int -- the source code identifier, and the global scalar index among the varyings
-  | DFUniform !DFType !String !Int -- the source code identifier, and the global scalar index among the uniforms
-  | DFUniformOffset !DFType !String !Int !DF -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
-  | DFCond !DFType !DF !DF !DF
-  -- DFReal
-  | DFRealLiteral !Double
-  | DFAdd !DF !DF
-  | DFSub !DF !DF
-  | DFMul !DF !DF
-  | DFDiv !DF !DF
-  | DFNeg !DF
-  | DFRcp !DF
-  | DFRsq !DF
-  | DFAbs !DF
-  | DFMin !DF !DF
-  | DFMax !DF !DF
-  | DFLrp !DF !DF !DF
-  | DFFloor !DF
-  | DFCeiling !DF
-  | DFRound !DF
-  | DFTruncate !DF
-  | DFFract !DF
-  | DFExp !DF
-  | DFExp2 !DF
-  | DFLog !DF
-  | DFLog2 !DF
-  | DFPow !DF !DF
-  | DFSin !DF
-  | DFCos !DF
-  | DFTan !DF
-  | DFASin !DF
-  | DFACos !DF
-  | DFATan !DF !DF
-  | DFGetTexR !DF -- a DFSample
-  | DFGetTexG !DF -- a DFSample
-  | DFGetTexB !DF -- a DFSample
-  | DFGetTexA !DF -- a DFSample
-  -- DFBool
-  | DFBoolLiteral !Bool
-  | DFLessThan !DF !DF
-  | DFLessThanEqual !DF !DF
-  | DFGreaterThan !DF !DF
-  | DFGreaterThanEqual !DF !DF
-  | DFEqual !DF !DF
-  | DFNotEqual !DF !DF
-  | DFAnd !DF !DF
-  | DFOr !DF !DF
-  | DFNot !DF !DF
-  -- DFSample
-  | DFSample1D !Int !DF -- texture image unit, coords
-  | DFSample2D !Int !DF !DF
-  | DFSample3D !Int !DF !DF !DF
-  | DFSampleCube !Int !DF !DF !DF
-  
+
+data DFReal
+  = DFRealLiteral !Double
+  | DFRealVarying !String !Int -- the source code identifier, and the global scalar index among the varyings
+  | DFRealUniform !String !Int -- the source code identifier, and the global scalar index among the uniforms
+  | DFRealUniformOffset !String !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
+  --
+  | DFRealCond !DFBool !DFReal !DFReal
+  --
+  | DFRealAdd !DFReal !DFReal
+  | DFRealSub !DFReal !DFReal
+  | DFRealMul !DFReal !DFReal
+  | DFRealDiv !DFReal !DFReal
+  | DFRealNeg !DFReal
+  | DFRealRcp !DFReal
+  | DFRealRsq !DFReal
+  | DFRealAbs !DFReal
+  | DFRealMin !DFReal !DFReal
+  | DFRealMax !DFReal !DFReal
+  | DFRealLrp !DFReal !DFReal !DFReal
+  | DFRealFloor !DFReal
+  | DFRealCeiling !DFReal
+  | DFRealRound !DFReal
+  | DFRealTruncate !DFReal
+  | DFRealFract !DFReal
+  | DFRealExp !DFReal
+  | DFRealExp2 !DFReal
+  | DFRealLog !DFReal
+  | DFRealLog2 !DFReal
+  | DFRealPow !DFReal !DFReal
+  | DFRealSin !DFReal
+  | DFRealCos !DFReal
+  | DFRealTan !DFReal
+  | DFRealASin !DFReal
+  | DFRealACos !DFReal
+  | DFRealATan !DFReal !DFReal
+  --
+  | DFRealGetTexR !DFSample
+  | DFRealGetTexG !DFSample
+  | DFRealGetTexB !DFSample
+  | DFRealGetTexA !DFSample
+
   deriving (Show, Eq)
 
 
-dfType :: DF -> DFType
--- DFReal or DFBool
-dfType (DFVarying t _ _) = t
-dfType (DFUniform t _ _) = t
-dfType (DFUniformOffset t _ _ _) = t
-dfType (DFCond t _ _ _) = t
--- DFReal
-dfType (DFRealLiteral _) = DFReal
-dfType (DFAdd _ _) = DFReal
-dfType (DFSub _ _) = DFReal
-dfType (DFMul _ _) = DFReal
-dfType (DFDiv _ _) = DFReal
-dfType (DFNeg _) = DFReal
-dfType (DFRcp _) = DFReal
-dfType (DFRsq _) = DFReal
-dfType (DFAbs _) = DFReal
-dfType (DFMin _ _) = DFReal
-dfType (DFMax _ _) = DFReal
-dfType (DFLrp _ _ _) = DFReal
-dfType (DFFloor _) = DFReal
-dfType (DFCeiling _) = DFReal
-dfType (DFRound _) = DFReal
-dfType (DFTruncate _) = DFReal
-dfType (DFFract _) = DFReal
-dfType (DFExp _) = DFReal
-dfType (DFExp2 _) = DFReal
-dfType (DFLog _) = DFReal
-dfType (DFLog2 _) = DFReal
-dfType (DFPow _ _) = DFReal
-dfType (DFSin _) = DFReal
-dfType (DFCos _) = DFReal
-dfType (DFTan _) = DFReal
-dfType (DFASin _) = DFReal
-dfType (DFACos _) = DFReal
-dfType (DFATan _ _) = DFReal
-dfType (DFGetTexR _) = DFReal
-dfType (DFGetTexG _) = DFReal
-dfType (DFGetTexB _) = DFReal
-dfType (DFGetTexA _) = DFReal
--- DFBool
-dfType (DFBoolLiteral _) = DFBool
-dfType (DFLessThan _ _) = DFBool
-dfType (DFLessThanEqual _ _) = DFBool
-dfType (DFGreaterThan _ _) = DFBool
-dfType (DFGreaterThanEqual _ _) = DFBool
-dfType (DFEqual _ _) = DFBool
-dfType (DFNotEqual _ _) = DFBool
-dfType (DFAnd _ _) = DFBool
-dfType (DFOr _ _) = DFBool
-dfType (DFNot _ _) = DFBool
--- DFSample
-dfType (DFSample1D _ _) = DFSample
-dfType (DFSample2D _ _ _) = DFSample
-dfType (DFSample3D _ _ _ _) = DFSample
-dfType (DFSampleCube _ _ _ _) = DFSample
+data DFBool
+  = DFBoolLiteral !Bool
+  | DFBoolVarying !String !Int -- the source code identifier, and the global scalar index among the varyings
+  | DFBoolUniform !String !Int -- the source code identifier, and the global scalar index among the uniforms
+  | DFBoolUniformOffset !String !Int !DFReal -- a dynamic array access: the first scalar in the uniform array, and the dynamic offset
+  --
+  | DFBoolCond !DFBool !DFBool !DFBool
+  --
+  | DFBoolLessThan !DFReal !DFReal
+  | DFBoolLessThanEqual !DFReal !DFReal
+  | DFBoolGreaterThan !DFReal !DFReal
+  | DFBoolGreaterThanEqual !DFReal !DFReal
+  --
+  | DFBoolEqualReal !DFReal !DFReal
+  | DFBoolNotEqualReal !DFReal !DFReal
+  | DFBoolEqualBool !DFReal !DFReal
+  | DFBoolNotEqualBool !DFReal !DFReal
+  --
+  | DFBoolAnd !DFBool !DFBool
+  | DFBoolOr !DFBool !DFBool
+  | DFBoolNot !DFBool !DFBool
+
+  deriving (Show, Eq)
+
+
+data DFSample -- these are internal to a texture sampling gadget
+  = DFSample1D !Int !DFReal -- texture image unit, coords
+  | DFSample2D !Int !DFReal !DFReal
+  | DFSample3D !Int !DFReal !DFReal !DFReal
+  | DFSampleCube !Int !DFReal !DFReal !DFReal
+
+  deriving (Show, Eq)
 
 
 data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit
-  | ValueDF !DF
+  | ValueDFReal !DFReal
+  | ValueDFBool !DFBool
   | ValueTexture1D !Int -- texture image unit
   | ValueTexture2D !Int
   | ValueTexture3D !Int
@@ -472,7 +427,8 @@ data Value -- can't derive Show or Eq due to those pesky closures
 instance Show Value where
 
   show (ValueUnit) = "()"
-  show (ValueDF df) = show df
+  show (ValueDFReal df) = show df
+  show (ValueDFBool df) = show df
   show (ValueTexture1D i) = "texture[" ++ show i ++ ", 1D]"
   show (ValueTexture2D i) = "texture[" ++ show i ++ ", 2D]"
   show (ValueTexture3D i) = "texture[" ++ show i ++ ", 3D]"
@@ -484,7 +440,8 @@ instance Show Value where
 instance Eq Value where
 
   (ValueUnit) == (ValueUnit) = True
-  (ValueDF df) == (ValueDF df') = df == df'
+  (ValueDFReal df) == (ValueDFReal df') = df == df'
+  (ValueDFBool df) == (ValueDFBool df') = df == df'
   (ValueTexture1D i) == (ValueTexture1D i') = i == i'
   (ValueTexture2D i) == (ValueTexture2D i') = i == i'
   (ValueTexture3D i) == (ValueTexture3D i') = i == i'
