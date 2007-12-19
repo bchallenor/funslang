@@ -23,25 +23,30 @@ interpretExpr _ (ExprRealLiteral b) = return $ ValueDFReal $ DFRealLiteral b
 
 interpretExpr _ (ExprBoolLiteral b) = return $ ValueDFBool $ DFBoolLiteral b
 
-interpretExpr env (ExprVar ident) =
+interpretExpr env a@(ExprVar ident) =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   case Map.lookup ident env of
     Just v -> return v
     Nothing -> throwError $ "variable <" ++ ident ++ "> undefined"
 
-interpretExpr env (ExprApp e1 e2) = do
+interpretExpr env a@(ExprApp e1 e2) =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   ValueFun f <- interpretExpr env e1
   v <- interpretExpr env e2
   f v
 
-interpretExpr env (ExprArray es) = do
+interpretExpr env a@(ExprArray es) =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   vs <- mapM (interpretExpr env) es
   return $ ValueArray vs
 
-interpretExpr env (ExprTuple es) = do
+interpretExpr env a@(ExprTuple es) =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   vs <- mapM (interpretExpr env) es
   return $ ValueTuple vs
 
-interpretExpr env (ExprIf eb e1 e2) = do
+interpretExpr env a@(ExprIf eb e1 e2) =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   ValueDFBool dfb <- interpretExpr env eb
   v1 <- interpretExpr env e1
   v2 <- interpretExpr env e2
@@ -51,13 +56,15 @@ interpretExpr env (ExprIf eb e1 e2) = do
       DFBoolLiteral b -> return $ if b then v1 else v2 -- optimize out if condition statically known
       _ -> conditionalize dfb v1 v2 -- runtime condition and runtime values
 
-interpretExpr env (ExprLet p e1 e2) = do
+interpretExpr env a@(ExprLet p e1 e2) =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   v1 <- interpretExpr env e1
   let env' = env `Map.union` matchPattern p v1
   v2 <- interpretExpr env' e2
   return v2
 
-interpretExpr env (ExprLambda p e) =
+interpretExpr env a@(ExprLambda p e) =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   return $ ValueFun (\v -> let env' = env `Map.union` matchPattern p v in interpretExpr env' e)
 
 
