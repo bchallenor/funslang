@@ -403,7 +403,7 @@ data DFKill
   deriving (Show, Eq)
 
 
-data Value
+data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit
   | ValueReal !DFReal
   | ValueBool !DFBool
@@ -414,7 +414,4 @@ data Value
   | ValueArray ![Value]
   | ValueTuple ![Value]
   | ValueFun !(Value -> Value)
-  
-  deriving (Show, Eq)
-
 
