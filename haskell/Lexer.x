@@ -192,7 +192,7 @@ lexToken = do
   inp <- getInputP
   case alexScan inp alexStartCode of
     AlexEOF -> return TOK_EOF
-    AlexError (_,c,_) -> lexError c
+    AlexError (_,_,bs) -> lexError $ ByteString.index bs 0
     AlexSkip  inp' len -> do
       setInputP inp'
       lexToken
