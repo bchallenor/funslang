@@ -67,6 +67,7 @@ tokens :-
   "&&"                      { \ (_, _, bs) len -> return $ TOK_OP_AND }
   "||"                      { \ (_, _, bs) len -> return $ TOK_OP_OR }
   "'"                       { \ (_, _, bs) len -> return $ TOK_OP_TRANSPOSE }
+  "$"                       { \ (_, _, bs) len -> return $ TOK_OP_APPLY }
   
   "if"                      { \ (_, _, bs) len -> return $ TOK_IF }
   "then"                    { \ (_, _, bs) len -> return $ TOK_THEN }

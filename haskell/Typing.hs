@@ -16,18 +16,19 @@ import Representation
 
 
 -- The type inference function. This is the main function for this module.
-inferExprType :: SchemeEnv -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either String Type
+inferExprType :: SchemeEnv -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either String (Type, ([TypeVarRef], [DimVarRef]))
 inferExprType gamma e vrefs = do
-  (s,t) <- runTI (principalType gamma e) vrefs
-  return t
+  let (a,vrefs') = runState (runErrorT $ principalType gamma e) vrefs
+  (s,t) <- a
+  return (t, vrefs')
 
 
 -- The type inference monad holds the fresh var ref state (use put/get),
 -- and can return errors (use throwError).
 type TI a = ErrorT String (State ([TypeVarRef], [DimVarRef])) a
 
-runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> Either String a
-runTI ti state = evalState (runErrorT ti) state
+--runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> (Either String a, ([TypeVarRef], [DimVarRef]))
+--runTI ti state = runState (runErrorT ti) state
 
 
 -- Take a fresh type variable.

@@ -16,11 +16,11 @@ test = withArgs ["test.vp"] main
 
 compile :: ByteString.ByteString -> Either String (Expr, Type, Value, Value)
 compile bs = do
-  let (gamma, vrefs) = libraryTypeSchemes
+  let (gamma, env, vrefs) = library
   (e, vrefs') <- parseExpr vrefs bs
-  t <- inferExprType gamma e vrefs'
-  v1 <- interpretExpr libraryValues e
-  v2 <- interpretExprAsShader libraryValues e t
+  (t, vrefs'') <- inferExprType gamma e vrefs'
+  v1 <- interpretExpr env e
+  v2 <- interpretExprAsShader env e t
   return (e, t, v1, v2)
 
 main :: IO ()

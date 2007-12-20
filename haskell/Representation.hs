@@ -54,6 +54,7 @@ data Token
   | TOK_OP_AND
   | TOK_OP_OR
   | TOK_OP_TRANSPOSE
+  | TOK_OP_APPLY
   --
   | TOK_IF
   | TOK_THEN
@@ -292,6 +293,7 @@ data Operator
   | OpNotEqual
   | OpAnd
   | OpOr
+  | OpApply
   --
   | OpTranspose
   
@@ -327,6 +329,7 @@ instance Show Operator where
   show OpNotEqual = "/="
   show OpAnd = "&&"
   show OpOr = "||"
+  show OpApply = "$"
   --
   show OpTranspose = "'"
 

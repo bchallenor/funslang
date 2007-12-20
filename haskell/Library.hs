@@ -1,4 +1,4 @@
-module Library(libraryTypeSchemes, libraryValues, queryTypeScheme) where
+module Library(library, queryTypeScheme) where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.List as List
@@ -23,33 +23,39 @@ data Fixity
 
 -- A tuple of:
 -- - a map from library identifiers to type schemes;
+-- - a map from library identifiers to values;
 -- - the subsequent list of fresh variable references, given that some were used
 --   in constructing the type schemes of the library functions.
-libraryTypeSchemes :: (SchemeEnv, ([TypeVarRef], [DimVarRef]))
-libraryTypeSchemes =
-  List.foldl' (
-    \ (gamma, vrefs) (_, ident, tstr, _, _, _, _) ->
+library :: (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]))
+library =
+  let { base = List.foldl' (
+    \ (gamma, env, vrefs) (_, ident, tstr, _, _, _, v) ->
       case parseType vrefs (ByteString.pack tstr) of
         Right (t, vrefs') ->
           let sigma = Scheme (fvType t) t in
-            (Map.insert ident sigma gamma, vrefs')
-        Left msg -> error $ "library function type does not parse: " ++ msg
-  ) (Map.empty, initFreshVarRefs) libraryBase
-
-
--- The values that the library provides.
-libraryValues :: ValueEnv
-libraryValues =
+            (Map.insert ident sigma gamma, Map.insert ident v env, vrefs')
+        Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
+  ) (Map.empty, Map.empty, initFreshVarRefs) libraryBase } in
   List.foldl' (
-      \ env (_, ident, _, _, _, _, v) ->
-        Map.insert ident v env
-    ) Map.empty libraryBase
+    \ (gamma, env, vrefs) (_, ident, _, _, estr) ->
+      case parseExpr vrefs (ByteString.pack estr) of
+        Right (e, vrefs') ->
+          case inferExprType gamma e vrefs' of
+            Right (t, vrefs'') ->
+              case interpretExpr env e of
+                Right v ->
+                  let sigma = Scheme (fvType t) t in
+                  (Map.insert ident sigma gamma, Map.insert ident v env, vrefs'')
+                Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
+            Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
+        Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
+  ) base libraryDerived
 
 
 -- Queries the library, for debugging purposes.
 queryTypeScheme :: String -> String
 queryTypeScheme ident =
-  let (gamma, _) = libraryTypeSchemes in
+  let (gamma, _, _) = library in
     case Map.lookup ident gamma of
       Just sigma -> show sigma
       Nothing -> "not in library"
@@ -93,6 +99,12 @@ valueFun_foldl =
       ValueFun $ \ (ValueArray vbs) ->
         valueFun_foldl' f va vbs
 
+valueFun_foldl1 :: Value
+valueFun_foldl1 =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ (ValueArray (vb:vbs)) ->
+      valueFun_foldl' f vb vbs
+
 valueFun_foldl' :: (Value -> Either String Value) -> Value -> [Value] -> Either String Value
 valueFun_foldl' _ z [] = return z
 valueFun_foldl' f z (x:xs) = do
@@ -106,6 +118,12 @@ valueFun_foldr =
     ValueFun $ \ vb -> Right $
       ValueFun $ \ (ValueArray vas) ->
         valueFun_foldr' f vb vas
+
+valueFun_foldr1 :: Value
+valueFun_foldr1 =
+  ValueFun $ \ (ValueFun f) -> Right $
+    ValueFun $ \ (ValueArray (va:vas)) ->
+      valueFun_foldr' f va vas
 
 valueFun_foldr' :: (Value -> Either String Value) -> Value -> [Value] -> Either String Value
 valueFun_foldr' _ z [] = return z
@@ -306,7 +324,9 @@ libraryBase = [
   (Postfix, show OpTranspose, "'a 'p 'q -> 'a 'q 'p", "transpose", False, ["x"], valueTranspose),
   (Prefix, "map", "('a -> 'b) -> 'a 'n -> 'b 'n", "map function onto array", False, ["f", "as"], valueFun_map),
   (Prefix, "foldl", "('a -> 'a -> 'b) -> 'a -> 'b 'n -> 'a", "left fold", False, ["f", "z", "bs"], valueFun_foldl),
+  (Prefix, "foldl1", "('a -> 'a -> 'a) -> 'a 'n -> 'a", "left fold without initial accumulator", False, ["f", "as"], valueFun_foldl1),
   (Prefix, "foldr", "('a -> 'b -> 'b) -> 'b -> 'a 'n -> 'b", "right fold", False, ["f", "z", "as"], valueFun_foldr),
+  (Prefix, "foldr1", "('a -> 'a -> 'a) -> 'a 'n -> 'a", "right fold without initial accumulator", False, ["f", "as"], valueFun_foldr1),
   (Prefix, "unroll", "('a -> 'a) -> Real -> 'a -> 'a", "apply f n times to z (n must be statically determinable)", False, ["f", "n", "z"], valueFun_unroll),
   (Prefix, "zipWith", "('a -> 'b -> 'c) -> 'a 'n -> 'b 'n -> 'c 'n", "general zip over 2 arrays", False, ["f", "as", "bs"], valueFun_zipWith),
   (Prefix, "zipWith3", "('a -> 'b -> 'c -> 'd) -> 'a 'n -> 'b 'n -> 'c 'n -> 'd 'n", "general zip over 3 arrays", False, ["f", "as", "bs", "cs"], valueFun_zipWith3),
@@ -340,30 +360,31 @@ libraryBase = [
 -- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
 libraryDerived :: [(Fixity, String, String, Bool, String)]
 libraryDerived = [
+  (InfixR, show OpApply, "function application operator", False, "\\f x. f x"),
   (Prefix, show OpVectorNeg, "vector negate (component-wise) (as desugared from \"--\")", False, "map negate"),
-  (InfixL, show OpSwizzle, "swizzle", False, "\as ns. map ((!) as)"),
+  (InfixL, show OpSwizzle, "swizzle", False, "\\as ns. map ((!) as)"),
   (InfixL, show OpVectorAdd, "vector add (component-wise)", False, "zipWith (+)"),
   (InfixL, show OpVectorSub, "vector sub (component-wise)", False, "zipWith (-)"),
   (InfixL, show OpVectorMul, "vector mul (component-wise)", False, "zipWith (*)"),
   (InfixL, show OpVectorDiv, "vector div (component-wise)", False, "zipWith (/)"),
   (InfixL, show OpVectorScalarMul, "vector-scalar mul", False, "\\x y. map ((*) y) x"),
   (InfixL, show OpVectorScalarDiv, "vector-scalar div", False, "\\x y. map ((/) y) x"),
-  (InfixL, show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, undefined),
-  (InfixR, show OpMatrixVectorLinearMul, "matrix-vector linear algebraic mul", False, undefined),
-  (InfixL, show OpVectorMatrixLinearMul, "vector-matrix linear algebraic mul", False, undefined),
   (Prefix, "sum", "sum of components", False, "foldl1 (+)"),
   (Prefix, "product", "product of components", False, "foldl1 (*)"),
   (Prefix, "any", "logical or of components", False, "foldl1 (||)"),
   (Prefix, "all", "logical and of components", False, "foldl1 (&&)"),
   (Prefix, "sqrt", "square root", False, "\\x. 1 / rsqrt x"),
   (Prefix, "mod", "modulus", False, "\\x y. x - y * floor (x/y)"),
-  (Prefix, "clamp", "clamp value to given range", True, "\\low high x. min (max x low) high"),
-  (Prefix, "step", "unit step", False, "\\edge x. if x < edge then 0 else 1"),
-  (Prefix, "smoothstep", "hermite interpolation", False, "\\edge0 edge1 x. let t = clamp 0 1 ((x - edge0) / (edge1 - edge0)) in t * t * (3 - 2 * t)"),
   (Prefix, "dot", "dot product", False, "\\x y. sum $ x ** y"),
   (Prefix, "cross", "cross product", False, "\\[x1, x2, x3] [y1, y2, y3]. [x2 * y3 - x3 * y2, x3 * y1 - x1 * y3, x1 * y2 - x2 * y1]"),
   (Prefix, "length", "vector length (Pythagorean)", False, "\\x. sqrt $ dot x x"),
-  (Prefix, "normalize", "normalize", False, "\\x. x **. rsqrt $ dot x x"),
+  (Prefix, "normalize", "normalize", False, "\\x. x **. (rsqrt $ dot x x)"),
+  (InfixR, show OpMatrixVectorLinearMul, "matrix-vector linear algebraic mul", False, "\\m v. map (dot v) m"),
+  (InfixL, show OpVectorMatrixLinearMul, "vector-matrix linear algebraic mul", False, "\\v m. m' #. v"),
+  (InfixL, show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, "\\ma mb. (map ((#.) ma) (mb'))'"),
+  (Prefix, "clamp", "clamp value to given range", True, "\\low high x. min (max x low) high"),
+  (Prefix, "step", "unit step", False, "\\edge x. if x < edge then 0 else 1"),
+  (Prefix, "smoothstep", "hermite interpolation", False, "\\edge0 edge1 x. let t = clamp 0 1 ((x - edge0) / (edge1 - edge0)) in t * t * (3 - 2 * t)"),
   (Prefix, "faceforward", "returns N facing forward", True, "\\Nref I N. if dot Nref I < 0 then N else --N"),
   (Prefix, "reflect", "reflect I given Nref (normalized)", True, "\\Nref I. I -- Nref **. (2 * dot Nref I)"),
   (Prefix, "refract", "refract I given Nref (normalized) and index eta", True, "\\Nref eta I. let d = dot Nref I in let eta2 = eta * eta in let k = 1 - eta2 + eta2 * d * d in if k < 0 then map (\\_. 0) Nref else I **. eta -- Nref **. (eta * d + sqrt k)"),

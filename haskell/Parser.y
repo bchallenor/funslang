@@ -59,6 +59,7 @@ import Lexer
   OP_AND { TOK_OP_AND }
   OP_OR { TOK_OP_OR }
   OP_TRANSPOSE { TOK_OP_TRANSPOSE }
+  OP_APPLY { TOK_OP_APPLY }
   IF { TOK_IF }
   THEN { TOK_THEN }
   ELSE { TOK_ELSE }
@@ -70,6 +71,7 @@ import Lexer
   LAMBDA { TOK_LAMBDA }
   LAMBDA_DOT { TOK_LAMBDA_DOT }
 
+%right OP_APPLY
 %left OP_OR
 %left OP_AND
 %nonassoc OP_EQ OP_NEQ
@@ -170,6 +172,7 @@ operator :: { Operator }
   | OP_NEQ { OpNotEqual }
   | OP_AND { OpAnd }
   | OP_OR { OpOr }
+  | OP_APPLY { OpApply }
   --
   | OP_TRANSPOSE { OpTranspose }
   ;
@@ -247,6 +250,7 @@ operator_expr :: { Expr }
   | operator_expr OP_NEQ operator_expr { infixExpr OpNotEqual $1 $3 }
   | operator_expr OP_AND operator_expr { infixExpr OpAnd $1 $3 }
   | operator_expr OP_OR operator_expr { infixExpr OpOr $1 $3 }
+  | operator_expr OP_APPLY operator_expr { infixExpr OpApply $1 $3 }
   --
   | operator_expr OP_TRANSPOSE { postfixExpr OpTranspose $1 }
   | app_expr { $1 }
