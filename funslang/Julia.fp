@@ -2,10 +2,10 @@
 % Author: Ben Challenor
 % Based on Julia.frag (GLSL) by 3Dlabs
 
-let MAX_ITERATIONS = 50 in
+let MAX_ITERATIONS = 1 in
 
 \ (Zoom, Xcenter, Ycenter, InnerColor :: Real 3, OuterColor1, OuterColor2, Creal, Cimag) .
-
+\ () .
 \ (Position :: Real 2, LightIntensity) .
 
 % iteration function
