@@ -420,5 +420,6 @@ libraryDerived = [
   (Prefix, "faceforward", "returns N facing forward", True, "\\Nref I N. if dot Nref I < 0 then N else --N"),
   (Prefix, "reflect", "reflect I given Nref (normalized)", True, "\\Nref I. I -- Nref **. (2 * dot Nref I)"),
   (Prefix, "refract", "refract I given Nref (normalized) and index eta", True, "\\Nref eta I. let d = dot Nref I in let eta2 = eta * eta in let k = 1 - eta2 + eta2 * d * d in if k < 0 then map (\\_. 0) Nref else I **. eta -- Nref **. (eta * d + sqrt k)"),
-  (Prefix, "pad", "pads fourth component with 1.0", False, "\\[x1, x2, x3]. [x1, x2, x3, 1.0]")
+  (Prefix, "pad", "pads fourth component with 1.0", False, "\\[x1, x2, x3]. [x1, x2, x3, 1.0]"),
+  (Prefix, "strip", "strips fourth component", False, "\\[x1, x2, x3, x4]. [x1, x2, x3]")
   ]
