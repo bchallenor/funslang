@@ -268,7 +268,7 @@ valueSampleCube =
 
 valueSubscript :: Value
 valueSubscript =
-  ValueFun $ \ a@(ValueArray vs) -> Right $
+  ValueFun $ \ (ValueArray vs) -> Right $
     ValueFun $ \ (ValueDFReal sub) -> do
       let len = length vs
       case sub of
@@ -375,11 +375,11 @@ libraryBase = [
   (Prefix, "log2", "Real -> Real", "logarithm (base 2)", False, ["x"], liftRR (logBase 2) DFRealLog2),
   (Prefix, "rsqrt", "Real -> Real", "reciprocal square root", False, ["x"], liftRR (\x -> 1 / sqrt x) DFRealRsq),
   (Prefix, "abs", "Real -> Real", "absolute value", False, ["x"], liftRR abs DFRealAbs),
-  (Prefix, "floor", "Real -> Real", "round to negative infinity", False, ["x"], liftRR (fromIntegral . floor) DFRealFloor),
-  (Prefix, "ceiling", "Real -> Real", "round to positive infinity", False, ["x"], liftRR (fromIntegral . ceiling) DFRealCeiling),
-  (Prefix, "round", "Real -> Real", "round to nearest integer", False, ["x"], liftRR (fromIntegral . round) DFRealRound),
-  (Prefix, "truncate", "Real -> Real", "round to zero", False, ["x"], liftRR (fromIntegral . truncate) DFRealTruncate),
-  (Prefix, "fract", "Real -> Real", "fractional part", False, ["x"], liftRR (snd . properFraction) DFRealFract),
+  (Prefix, "floor", "Real -> Real", "round to negative infinity", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . floor) DFRealFloor),
+  (Prefix, "ceiling", "Real -> Real", "round to positive infinity", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . ceiling) DFRealCeiling),
+  (Prefix, "round", "Real -> Real", "round to nearest integer", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . round) DFRealRound),
+  (Prefix, "truncate", "Real -> Real", "round to zero", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . truncate) DFRealTruncate),
+  (Prefix, "fract", "Real -> Real", "fractional part", False, ["x"], liftRR (snd . (properFraction :: Double -> (Integer, Double))) DFRealFract),
   (Prefix, "min", "Real -> Real -> Real", "minimum", False, ["x", "y"], liftRRR min DFRealMin),
   (Prefix, "max", "Real -> Real -> Real", "maximum", False, ["x", "y"], liftRRR max DFRealMax),
   (Prefix, "sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueSample1D),
