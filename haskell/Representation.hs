@@ -353,7 +353,6 @@ data DFReal
   | DFRealAbs !DFReal
   | DFRealMin !DFReal !DFReal
   | DFRealMax !DFReal !DFReal
-  | DFRealLrp !DFReal !DFReal !DFReal
   | DFRealFloor !DFReal
   | DFRealCeiling !DFReal
   | DFRealRound !DFReal
@@ -369,7 +368,7 @@ data DFReal
   | DFRealTan !DFReal
   | DFRealASin !DFReal
   | DFRealACos !DFReal
-  | DFRealATan !DFReal !DFReal
+  | DFRealATan !DFReal
   --
   | DFRealGetTexR !DFSample
   | DFRealGetTexG !DFSample
