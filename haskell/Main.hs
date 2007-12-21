@@ -10,23 +10,24 @@ import Typing
 import Representation
 import Library
 import Interpreter
+import Dataflow
 
 test :: IO ()
 test = withArgs ["test.vp"] main
 
-compile :: ByteString.ByteString -> Either String (Expr, Type, Value, Value)
+compile :: ByteString.ByteString -> Either String (Expr, Type, Value, Value, DFGraph)
 compile bs = do
   let (gamma, env, vrefs) = library
   (e, vrefs') <- parseExpr vrefs bs
   (t, vrefs'') <- inferExprType gamma e vrefs'
   v1 <- interpretExpr env e
   v2 <- interpretExprAsShader env e t
-  return (e, t, v1, v2)
+  return (e, t, v1, v2, dependencyGraph v2)
 
 main :: IO ()
 main = do
   a:_ <- getArgs
   bs <- ByteString.readFile a
   case compile bs of
-    Right (e, t, v1, v2) -> putStrLn $ prettyExpr e ++ "\n\n" ++ prettyType t ++ "\n\n" ++ show v1 ++ "\n\n" ++ show v2
+    Right (e, t, v1, v2, deps) -> putStrLn $ prettyExpr e ++ "\n\n" ++ prettyType t ++ "\n\n" ++ show v1 ++ "\n\n" ++ show v2 ++ "\n\n" ++ show deps
     Left msg -> putStrLn msg

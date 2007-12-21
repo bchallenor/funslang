@@ -1,4 +1,4 @@
-module Dataflow where
+module Dataflow(DFGraph, dependencyGraph) where
 
 import qualified Data.Map as Map
 import Data.Graph
@@ -6,28 +6,32 @@ import Data.Graph
 import Representation
 
 
--- Given a list of roots (i.e. the values we wish to calculate) of a DFNode graph,
--- makes a Graph representing its dependencies.
+-- Dependency graph.
 -- Each edge (a,b) in the Graph means that b depends on a, or equivalently
 -- that a must be calculated before b.
 -- This has the effect of (1) tranposing the DFNode graph (where the edges were
 -- in the other direction) and (2) removing any common subgraphs.
--- dependencyEdges :: [DFNode] -> (Graph, Map DFNode Vertex, Map Vertex DFNode)
-dependencyGraph :: [DFNode] -> (Graph, Map.Map DFNode Vertex, Map.Map Vertex DFNode)
-dependencyGraph ns =
-  let (v', es', mnv', mvn') = dependencyEdges (0, [], Map.empty, Map.empty) ns in
+type DFGraph = (Graph, Map.Map DFNode Vertex, Map.Map Vertex DFNode)
+
+
+-- Given a Value, makes its DFGraph.
+dependencyGraph :: Value -> DFGraph
+dependencyGraph value =
+  let (v', es', mnv', mvn') = dependencyEdges (0, [], Map.empty, Map.empty) (getRootDFNodes value) in
   (buildG (0, v'-1) es', mnv', mvn')
 
 -- (next Vertex available for use, edges so far, map so far, map so far)
 type DependencyEdgesAcc = (Vertex, [Edge], Map.Map DFNode Vertex, Map.Map Vertex DFNode)
 
+-- Process a list of DFNodes in the same context.
 dependencyEdges :: DependencyEdgesAcc -> [DFNode] -> DependencyEdgesAcc
 dependencyEdges acc [] = acc
 dependencyEdges (v, es, mnv, mvn) (n:ns) =
   -- process this node
   let (v', es', mnv', mvn') = dependencyEdges' (v, es, mnv, mvn) n (getDependencies n) in
-  dependencyEdges (v', es', mnv', mvn') ns
+    dependencyEdges (v', es', mnv', mvn') ns
 
+-- Processes the dependencies of a single DFNode.
 dependencyEdges' :: DependencyEdgesAcc -> DFNode -> [DFNode] -> DependencyEdgesAcc
 dependencyEdges' (v, es, mnv, mvn) n [] = (v+1, es, Map.insert n v mnv, Map.insert v n mvn)
 dependencyEdges' (v, es, mnv, mvn) n (depn:depns) =
@@ -35,9 +39,25 @@ dependencyEdges' (v, es, mnv, mvn) n (depn:depns) =
   case Map.lookup depn mnv of
     Just depv -> -- yes, so add this edges to the graph and recurse on the rest of the dependencies of n
       dependencyEdges' (v, (depv, v):es, mnv, mvn) n depns
-    Nothing -> -- no, so process depn first, then recurse again on n (and this time we'll succeed)
+    Nothing -> -- no, so process depn first, then try again
       let (v', es', mnv', mvn') = dependencyEdges (v, es, mnv, mvn) [depn] in
-      dependencyEdges' (v', es', mnv', mvn') n (depn:depns)
+        dependencyEdges' (v', es', mnv', mvn') n (depn:depns)
+
+
+-- Gets the root DFNodes which represent this Value.
+getRootDFNodes :: Value -> [DFNode]
+getRootDFNodes (ValueUnit) = error getRootDFNodesErrorMsg
+getRootDFNodes (ValueDFReal df) = [DFNodeReal df]
+getRootDFNodes (ValueDFBool df) = [DFNodeBool df]
+getRootDFNodes (ValueTexture1D _) = error getRootDFNodesErrorMsg
+getRootDFNodes (ValueTexture2D _) = error getRootDFNodesErrorMsg
+getRootDFNodes (ValueTexture3D _) = error getRootDFNodesErrorMsg
+getRootDFNodes (ValueTextureCube _) = error getRootDFNodesErrorMsg
+getRootDFNodes (ValueArray vs) = concat $ map getRootDFNodes vs
+getRootDFNodes (ValueTuple vs) = concat $ map getRootDFNodes vs
+getRootDFNodes (ValueFun _) = error getRootDFNodesErrorMsg
+getRootDFNodesErrorMsg :: String
+getRootDFNodesErrorMsg = "this value cannot be represented by a dataflow graph"
 
 
 -- Given a node, returns the list of nodes that it depends on.
