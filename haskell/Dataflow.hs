@@ -1,11 +1,13 @@
 module Dataflow(DFGraph, dependencyGraph, graphvizCompile) where
 
 import qualified Data.Map as Map
+import qualified Data.List as List
 import Data.Array
 import Data.Graph
 import System.IO
 import System.Process
 import System.Exit
+import Control.Exception(assert)
 
 import Representation
 
@@ -13,8 +15,6 @@ import Representation
 -- Dependency graph.
 -- Each edge (a,b) in the Graph means that b depends on a, or equivalently
 -- that a must be calculated before b.
--- This has the effect of (1) tranposing the DFNode graph (where the edges were
--- in the other direction) and (2) removing any common subgraphs.
 type DFGraph = (Graph, Map.Map DFNode Vertex, Map.Map Vertex DFNode)
 
 
@@ -46,6 +46,8 @@ graphviz (adjs, _, mvn) =
 
 
 -- Given a Value, makes its DFGraph.
+-- This has the effect of (1) transposing the DFNode graph (where the edges were
+-- in the other direction) and (2) removing any common subgraphs.
 dependencyGraph :: Value -> DFGraph
 dependencyGraph value =
   let (v', es', mnv', mvn') = dependencyEdges (0, [], Map.empty, Map.empty) (getRootDFNodes value) in
@@ -57,22 +59,28 @@ type DependencyEdgesAcc = (Vertex, [Edge], Map.Map DFNode Vertex, Map.Map Vertex
 -- Process a list of DFNodes in the same context.
 dependencyEdges :: DependencyEdgesAcc -> [DFNode] -> DependencyEdgesAcc
 dependencyEdges acc [] = acc
-dependencyEdges (v, es, mnv, mvn) (n:ns) =
-  -- process this node
-  let (v', es', mnv', mvn') = dependencyEdges' (v, es, mnv, mvn) n (nodeDependencies n) in
-    dependencyEdges (v', es', mnv', mvn') ns
-
--- Processes the dependencies of a single DFNode.
-dependencyEdges' :: DependencyEdgesAcc -> DFNode -> [DFNode] -> DependencyEdgesAcc
-dependencyEdges' (v, es, mnv, mvn) n [] = (v+1, es, Map.insert n v mnv, Map.insert v n mvn)
-dependencyEdges' (v, es, mnv, mvn) n (depn:depns) =
-  -- is depn already in the graph?
-  case Map.lookup depn mnv of
-    Just depv -> -- yes, so add this edges to the graph and recurse on the rest of the dependencies of n
-      dependencyEdges' (v, (depv, v):es, mnv, mvn) n depns
-    Nothing -> -- no, so process depn first, then try again
-      let (v', es', mnv', mvn') = dependencyEdges (v, es, mnv, mvn) [depn] in
-        dependencyEdges' (v', es', mnv', mvn') n (depn:depns)
+dependencyEdges acc@(_, _, mnv1, _) (n:ns) =
+  -- Check whether this node has been done before.
+  case Map.lookup n mnv1 of
+    Just _ -> dependencyEdges acc ns
+    Nothing ->
+      -- Find the list of dependencies.
+      let ndeps = nodeDependencies n in
+      -- Process them first.
+      let (v2, es2, mnv2, mvn2) = dependencyEdges acc ndeps in
+      -- Now we can claim v2 as the label for this node n.
+      -- Look up vdep for each dependency ndep and add an edge from the vdep to v2.
+      let {(v4, es4, mnv4, mvn4) = List.foldl' (
+          \(v3, es3, mnv3, mvn3) ndep ->
+            case Map.lookup ndep mnv3 of
+              Just vdep -> (v3, (vdep, v2):es3, mnv3, mvn3)
+              Nothing -> error $ "this node should have been added already: " ++ show ndep
+          ) (v2, es2, mnv2, mvn2) ndeps } in
+      assert (v2 == v4)
+      assert (mvn2 == mvn4)
+      assert (mnv2 == mnv4)
+      -- Finally, add this node to the accumulator and then recurse.
+      dependencyEdges (v2+1, es4, Map.insert n v2 mnv2, Map.insert v2 n mvn2) ns
 
 
 -- Gets the root DFNodes which represent this Value.
