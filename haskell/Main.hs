@@ -2,6 +2,7 @@ module Main where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Control.Monad.Error
+import System.IO
 
 import Parser
 import System.Environment
@@ -30,7 +31,10 @@ main = do
   bs <- ByteString.readFile a
   case compile bs of
     Right (e, t, v1, v2, g) -> do
-      putStrLn $ prettyExpr e ++ "\n\n" ++ prettyType t ++ "\n\n" ++ show v1 ++ "\n\n" ++ show v2 ++ "\n\n"
+      --putStrLn $ prettyExpr e ++ "\n\n" ++ prettyType t
+      putStrLn $ prettyType t
+      putStrLn "outputting graphviz..."
+      hFlush stdout
       success <- graphvizCompile g "graph" "png"
       putStrLn $ show success
     Left msg -> putStrLn msg

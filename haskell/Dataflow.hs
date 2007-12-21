@@ -38,7 +38,7 @@ graphviz (adjs, _, mvn) =
   let assoclist = assocs adjs in
     "digraph DF {"
     ++
-    (concat $ map (\(v,_) -> case Map.lookup v mvn of { Just n -> "\nn" ++ show v ++ " [label=\"" ++ (nodeLabel n) ++ "\"]"; Nothing -> error "" }) assoclist)
+    (concat $ map (\(v,_) -> case Map.lookup v mvn of { Just n -> "\nn" ++ show v ++ " [label=\"" ++ (nodeLabel n) ++ "\", color=\"#" ++ case n of { DFNodeReal _ -> "800000"; DFNodeBool _ -> "000080"; DFNodeSample _ -> "008000" } ++ "\"];"; Nothing -> error "" }) assoclist)
     ++
     (concat $ map (\(v,vs) -> concat $ map (\v' -> "\nn" ++ show v ++ " -> n" ++ show v' ++ ";") vs) $ assoclist)
     ++
