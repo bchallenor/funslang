@@ -29,5 +29,8 @@ main = do
   a:_ <- getArgs
   bs <- ByteString.readFile a
   case compile bs of
-    Right (e, t, v1, v2, deps) -> putStrLn $ prettyExpr e ++ "\n\n" ++ prettyType t ++ "\n\n" ++ show v1 ++ "\n\n" ++ show v2 ++ "\n\n" ++ show deps
+    Right (e, t, v1, v2, g) -> do
+      putStrLn $ prettyExpr e ++ "\n\n" ++ prettyType t ++ "\n\n" ++ show v1 ++ "\n\n" ++ show v2 ++ "\n\n" ++ show g ++ "\n\n"
+      success <- graphvizCompile g "graph" "png"
+      putStrLn $ show success
     Left msg -> putStrLn msg
