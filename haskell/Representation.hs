@@ -336,6 +336,14 @@ instance Show Operator where
 
 -- Dataflow graph.
 
+data DFNode
+  = DFNodeReal !DFReal
+  | DFNodeBool !DFBool
+  | DFNodeSample !DFSample
+  
+  deriving (Show, Eq, Ord)
+
+
 data DFReal
   = DFRealLiteral !Double
   | DFRealVarying !Int -- the global scalar index among the varyings
@@ -375,7 +383,7 @@ data DFReal
   | DFRealGetTexB !DFSample
   | DFRealGetTexA !DFSample
 
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 
 data DFBool
@@ -399,7 +407,7 @@ data DFBool
   | DFBoolOr !DFBool !DFBool
   | DFBoolNot !DFBool
 
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 
 data DFSample -- these are internal to a texture sampling gadget
@@ -408,7 +416,7 @@ data DFSample -- these are internal to a texture sampling gadget
   | DFSample3D !Int !DFReal !DFReal !DFReal
   | DFSampleCube !Int !DFReal !DFReal !DFReal
 
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 
 data Value -- can't derive Show or Eq due to those pesky closures
