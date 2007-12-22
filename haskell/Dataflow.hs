@@ -170,8 +170,8 @@ nodeDependencies (DFNodeSample (DFSampleCube _ dfr1 dfr2 dfr3)) = [DFNodeReal df
 nodeLabel :: DFNode -> String
 
 nodeLabel (DFNodeReal (DFRealLiteral d)) = show d
-nodeLabel (DFNodeReal (DFRealVarying i)) = "Varying[" ++ show i ++ "]"
-nodeLabel (DFNodeReal (DFRealUniform i)) = "Uniform[" ++ show i ++ "]"
+nodeLabel (DFNodeReal (DFRealVarying i)) = "RealVarying[" ++ show i ++ "]"
+nodeLabel (DFNodeReal (DFRealUniform i)) = "RealUniform[" ++ show i ++ "]"
 
 nodeLabel (DFNodeReal (DFRealCond _ _ _)) = "Cond"
 
@@ -208,8 +208,8 @@ nodeLabel (DFNodeReal (DFRealGetTexB _)) = "GetTexB"
 nodeLabel (DFNodeReal (DFRealGetTexA _)) = "GetTexA"
 
 nodeLabel (DFNodeBool (DFBoolLiteral b)) = show b
-nodeLabel (DFNodeBool (DFBoolVarying i)) = "Varying[" ++ show i ++ "]"
-nodeLabel (DFNodeBool (DFBoolUniform i)) = "Uniform[" ++ show i ++ "]"
+nodeLabel (DFNodeBool (DFBoolVarying i)) = "BoolVarying[" ++ show i ++ "]"
+nodeLabel (DFNodeBool (DFBoolUniform i)) = "BoolUniform[" ++ show i ++ "]"
 
 nodeLabel (DFNodeBool (DFBoolCond _ _ _)) = "BoolCond"
 
