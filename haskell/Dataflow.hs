@@ -85,7 +85,7 @@ dependencyEdges acc@(_, _, mnv1, _) (n:ns) =
 
 -- Gets the root DFNodes which represent this Value.
 getRootDFNodes :: Value -> [DFNode]
-getRootDFNodes (ValueUnit) = error getRootDFNodesErrorMsg
+getRootDFNodes (ValueUnit) = []
 getRootDFNodes (ValueDFReal df) = [DFNodeReal df]
 getRootDFNodes (ValueDFBool df) = [DFNodeBool df]
 getRootDFNodes (ValueTexture1D _) = error getRootDFNodesErrorMsg

@@ -71,6 +71,7 @@ interpretExpr env a@(ExprLambda p e) =
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
 -- so that the resulting value is either the first or second value according to the condition.
 conditionalize :: DFBool -> Value -> Value -> Either String Value
+conditionalize dfb (ValueUnit) (ValueUnit) = return ValueUnit
 conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = return $ ValueDFReal $ DFRealCond dfb df1 df2
 conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = return $ ValueDFBool $ DFBoolCond dfb df1 df2
 conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
