@@ -23,6 +23,37 @@ const char g_FragProgramCode[] =
 "!!ARBfp1.0\n"
 "PARAM color = {0.0,0.0,1.0,1.0};\n"
 "MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
+"MOV result.color, color;\n"
 "END";
 
 void render(void)
@@ -50,6 +81,14 @@ int main(int argc, char** argv)
 		//printf("GL_NV_gpu_program4 is required!");
 		return 1;
 	}
+
+	// Set up GLUT callbacks.
+	glutDisplayFunc(render);
+
+	// Set up shaders.
+	g_FragProgramId = compileARBShader(GL_FRAGMENT_PROGRAM_ARB, g_FragProgramCode, sizeof(g_FragProgramCode)-1);
+	if (!g_FragProgramId) return 1;
+
 	
 	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS_ARB, &param);
 	printf("GL_MAX_VERTEX_ATTRIBS_ARB: %d\n", param);
@@ -59,13 +98,14 @@ int main(int argc, char** argv)
 	printf("GL_MAX_TEXTURE_UNITS_ARB: %d\n", param);
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS_ARB, &param);
 	printf("GL_MAX_TEXTURE_IMAGE_UNITS_ARB: %d\n", param);
-
-	// Set up GLUT callbacks.
-	glutDisplayFunc(render);
-
-	// Set up shaders.
-	g_FragProgramId = compileARBShader(GL_FRAGMENT_PROGRAM_ARB, g_FragProgramCode, sizeof(g_FragProgramCode)-1);
-	if (!g_FragProgramId) return 1;
+	glGetProgramivARB(GL_FRAGMENT_PROGRAM_ARB, GL_PROGRAM_INSTRUCTIONS_ARB, &param);
+	printf("GL_PROGRAM_INSTRUCTIONS_ARB: %d\n", param);
+	glGetProgramivARB(GL_FRAGMENT_PROGRAM_ARB, GL_MAX_PROGRAM_INSTRUCTIONS_ARB, &param);
+	printf("GL_MAX_PROGRAM_INSTRUCTIONS_ARB: %d\n", param);
+	glGetProgramivARB(GL_FRAGMENT_PROGRAM_ARB, GL_PROGRAM_NATIVE_INSTRUCTIONS_ARB, &param);
+	printf("GL_PROGRAM_NATIVE_INSTRUCTIONS_ARB: %d\n", param);
+	glGetProgramivARB(GL_FRAGMENT_PROGRAM_ARB, GL_MAX_PROGRAM_NATIVE_INSTRUCTIONS_ARB, &param);
+	printf("GL_MAX_PROGRAM_NATIVE_INSTRUCTIONS_ARB: %d\n", param);
 
 	// Enable shader.
 	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 0, 1.0, 0.0, 0.0, 0.0);
