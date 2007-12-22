@@ -36,6 +36,8 @@ void render(void)
 
 int main(int argc, char** argv)
 {
+	GLint param;
+
 	// Create window.
 	glutInit(&argc,argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
@@ -49,6 +51,15 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	
+	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS_ARB, &param);
+	printf("GL_MAX_VERTEX_ATTRIBS_ARB: %d\n", param);
+	glGetIntegerv(GL_MAX_TEXTURE_COORDS_ARB, &param);
+	printf("GL_MAX_TEXTURE_COORDS_ARB: %d\n", param);
+	glGetIntegerv(GL_MAX_TEXTURE_UNITS_ARB, &param);
+	printf("GL_MAX_TEXTURE_UNITS_ARB: %d\n", param);
+	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS_ARB, &param);
+	printf("GL_MAX_TEXTURE_IMAGE_UNITS_ARB: %d\n", param);
+
 	// Set up GLUT callbacks.
 	glutDisplayFunc(render);
 
@@ -60,7 +71,6 @@ int main(int argc, char** argv)
 	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 0, 1.0, 0.0, 0.0, 0.0);
 	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 1, 0.0, 1.0, 0.0, 0.0);
 	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, 2, 0.0, 0.0, 1.0, 0.0);
-	glProgramLocalParameterI4iNV(GL_FRAGMENT_PROGRAM_ARB, 3, 2, 0, 0, 0);
 	glEnable(GL_FRAGMENT_PROGRAM_ARB);
 
 	// Enter main loop.
