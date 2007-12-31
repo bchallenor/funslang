@@ -31,8 +31,8 @@ tokens :-
   
   "True"                    { \ (_, _, bs) len -> return $ TOK_LITERAL_BOOL True }
   "False"                   { \ (_, _, bs) len -> return $ TOK_LITERAL_BOOL False }
-  $d+                       { \ (_, _, bs) len -> return $ TOK_LITERAL_INT (let Just (i, _) = ByteString.readInteger $ ByteString.take (fromIntegral len) bs in i) }
-  $d+ "." $d+               { \ (_, _, bs) len -> return $ TOK_LITERAL_FLOAT (read (ByteString.unpack $ ByteString.take (fromIntegral len) bs) :: Double) }
+  "-"? $d+                  { \ (_, _, bs) len -> return $ TOK_LITERAL_INT (let Just (i, _) = ByteString.readInteger $ ByteString.take (fromIntegral len) bs in i) }
+  "-"? $d+ "." $d+          { \ (_, _, bs) len -> return $ TOK_LITERAL_FLOAT (read (ByteString.unpack $ ByteString.take (fromIntegral len) bs) :: Double) }
   
   ","                       { \ (_, _, bs) len -> return $ TOK_COMMA }
   ".."                      { \ (_, _, bs) len -> return $ TOK_RANGE_DOTS }
