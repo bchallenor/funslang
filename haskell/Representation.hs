@@ -27,6 +27,7 @@ data Token
   | TOK_RBRACKET
   | TOK_LPAREN
   | TOK_RPAREN
+  | TOK_BACKTICK
   | TOK_WILDCARD
   --
   | TOK_OP_NOT

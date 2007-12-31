@@ -33,6 +33,7 @@ import Lexer
   RBRACKET { TOK_RBRACKET }
   LPAREN { TOK_LPAREN }
   RPAREN { TOK_RPAREN }
+  BACKTICK { TOK_BACKTICK }
   WILDCARD { TOK_WILDCARD }
   OP_NOT { TOK_OP_NOT }
   OP_SUBSCRIPT { TOK_OP_SUBSCRIPT }
@@ -87,7 +88,7 @@ import Lexer
 %lexer { lexer } { TOK_EOF } -- lexer :: (Token -> P a) -> P a
 
 %name parseExprInner expr -- parseExprInner :: P Expr
-%name parseTypeInner type -- parseTypeInner :: P Type --todo: sort the type non-terminal and rename all the inner stuff with ex_
+%name parseTypeInner type -- parseTypeInner :: P Type
 
 %error { parseError } -- parseError :: Token -> P a
 
@@ -222,38 +223,43 @@ app_expr :: { Expr }
   | primary_expr { $1 }
   ;
 
-operator_expr :: { Expr }
-  : OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { prefixExpr OpScalarNeg $2 }
-  | OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { prefixExpr OpVectorNeg $2 }
-  | OP_NOT operator_expr { prefixExpr OpNot $2 }
-  --
-  | operator_expr OP_SUBSCRIPT operator_expr { infixExpr OpSubscript $1 $3 }
-  | operator_expr OP_SWIZZLE operator_expr { infixExpr OpSwizzle $1 $3 }
-  | operator_expr OP_SCALAR_ADD operator_expr { infixExpr OpScalarAdd $1 $3 }
-  | operator_expr OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { infixExpr OpScalarSub $1 $3 }
-  | operator_expr OP_SCALAR_MUL operator_expr { infixExpr OpScalarMul $1 $3 }
-  | operator_expr OP_SCALAR_DIV operator_expr { infixExpr OpScalarDiv $1 $3 }
-  | operator_expr OP_VECTOR_ADD operator_expr { infixExpr OpVectorAdd $1 $3 }
-  | operator_expr OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { infixExpr OpVectorSub $1 $3 }
-  | operator_expr OP_VECTOR_MUL operator_expr { infixExpr OpVectorMul $1 $3 }
-  | operator_expr OP_VECTOR_DIV operator_expr { infixExpr OpVectorDiv $1 $3 }
-  | operator_expr OP_VECTOR_SCALAR_MUL operator_expr { infixExpr OpVectorScalarMul $1 $3 }
-  | operator_expr OP_VECTOR_SCALAR_DIV operator_expr { infixExpr OpVectorScalarDiv $1 $3 }
-  | operator_expr OP_MATRIX_MATRIX_LINEAR_MUL operator_expr { infixExpr OpMatrixMatrixLinearMul $1 $3 }
-  | operator_expr OP_MATRIX_VECTOR_LINEAR_MUL operator_expr { infixExpr OpMatrixVectorLinearMul $1 $3 }
-  | operator_expr OP_VECTOR_MATRIX_LINEAR_MUL operator_expr { infixExpr OpVectorMatrixLinearMul $1 $3 }
-  | operator_expr OP_LT operator_expr { infixExpr OpLessThan $1 $3 }
-  | operator_expr OP_GT operator_expr { infixExpr OpGreaterThan $1 $3 }
-  | operator_expr OP_LTE operator_expr { infixExpr OpLessThanEqual $1 $3 }
-  | operator_expr OP_GTE operator_expr { infixExpr OpGreaterThanEqual $1 $3 }
-  | operator_expr OP_EQ operator_expr { infixExpr OpEqual $1 $3 }
-  | operator_expr OP_NEQ operator_expr { infixExpr OpNotEqual $1 $3 }
-  | operator_expr OP_AND operator_expr { infixExpr OpAnd $1 $3 }
-  | operator_expr OP_OR operator_expr { infixExpr OpOr $1 $3 }
-  | operator_expr OP_APPLY operator_expr { infixExpr OpApply $1 $3 }
-  --
-  | operator_expr OP_TRANSPOSE { postfixExpr OpTranspose $1 }
+infix_expr :: { Expr }
+  : infix_expr BACKTICK IDENTIFIER BACKTICK app_expr { infixExpr $3 $1 $5 }
   | app_expr { $1 }
+  ;
+
+operator_expr :: { Expr }
+  : OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { prefixExpr (show OpScalarNeg) $2 }
+  | OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { prefixExpr (show OpVectorNeg) $2 }
+  | OP_NOT operator_expr { prefixExpr (show OpNot) $2 }
+  --
+  | operator_expr OP_SUBSCRIPT operator_expr { infixExpr (show OpSubscript) $1 $3 }
+  | operator_expr OP_SWIZZLE operator_expr { infixExpr (show OpSwizzle) $1 $3 }
+  | operator_expr OP_SCALAR_ADD operator_expr { infixExpr (show OpScalarAdd) $1 $3 }
+  | operator_expr OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { infixExpr (show OpScalarSub) $1 $3 }
+  | operator_expr OP_SCALAR_MUL operator_expr { infixExpr (show OpScalarMul) $1 $3 }
+  | operator_expr OP_SCALAR_DIV operator_expr { infixExpr (show OpScalarDiv) $1 $3 }
+  | operator_expr OP_VECTOR_ADD operator_expr { infixExpr (show OpVectorAdd) $1 $3 }
+  | operator_expr OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { infixExpr (show OpVectorSub) $1 $3 }
+  | operator_expr OP_VECTOR_MUL operator_expr { infixExpr (show OpVectorMul) $1 $3 }
+  | operator_expr OP_VECTOR_DIV operator_expr { infixExpr (show OpVectorDiv) $1 $3 }
+  | operator_expr OP_VECTOR_SCALAR_MUL operator_expr { infixExpr (show OpVectorScalarMul) $1 $3 }
+  | operator_expr OP_VECTOR_SCALAR_DIV operator_expr { infixExpr (show OpVectorScalarDiv) $1 $3 }
+  | operator_expr OP_MATRIX_MATRIX_LINEAR_MUL operator_expr { infixExpr (show OpMatrixMatrixLinearMul) $1 $3 }
+  | operator_expr OP_MATRIX_VECTOR_LINEAR_MUL operator_expr { infixExpr (show OpMatrixVectorLinearMul) $1 $3 }
+  | operator_expr OP_VECTOR_MATRIX_LINEAR_MUL operator_expr { infixExpr (show OpVectorMatrixLinearMul) $1 $3 }
+  | operator_expr OP_LT operator_expr { infixExpr (show OpLessThan) $1 $3 }
+  | operator_expr OP_GT operator_expr { infixExpr (show OpGreaterThan) $1 $3 }
+  | operator_expr OP_LTE operator_expr { infixExpr (show OpLessThanEqual) $1 $3 }
+  | operator_expr OP_GTE operator_expr { infixExpr (show OpGreaterThanEqual) $1 $3 }
+  | operator_expr OP_EQ operator_expr { infixExpr (show OpEqual) $1 $3 }
+  | operator_expr OP_NEQ operator_expr { infixExpr (show OpNotEqual) $1 $3 }
+  | operator_expr OP_AND operator_expr { infixExpr (show OpAnd) $1 $3 }
+  | operator_expr OP_OR operator_expr { infixExpr (show OpOr) $1 $3 }
+  | operator_expr OP_APPLY operator_expr { infixExpr (show OpApply) $1 $3 }
+  --
+  | operator_expr OP_TRANSPOSE { postfixExpr (show OpTranspose) $1 }
+  | infix_expr { $1 }
   ;
 
 expr :: { Expr }
@@ -309,14 +315,14 @@ patts :: { [Patt] }
 {
 -- Helper functions to simplify the grammar actions.
 
-prefixExpr :: Operator -> Expr -> Expr
-prefixExpr op a = ExprApp (ExprVar (show op)) a
+prefixExpr :: String -> Expr -> Expr
+prefixExpr op a = ExprApp (ExprVar op) a
 
-infixExpr :: Operator -> Expr -> Expr -> Expr
-infixExpr op a b = ExprApp (ExprApp (ExprVar (show op)) a) b
+infixExpr :: String -> Expr -> Expr -> Expr
+infixExpr op a b = ExprApp (ExprApp (ExprVar op) a) b
 
-postfixExpr :: Operator -> Expr -> Expr
-postfixExpr op a = ExprApp (ExprVar (show op)) a
+postfixExpr :: String -> Expr -> Expr
+postfixExpr op a = ExprApp (ExprVar op) a
 
 
 -- Exported entry points.

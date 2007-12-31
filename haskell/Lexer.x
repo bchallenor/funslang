@@ -40,6 +40,7 @@ tokens :-
   "]"                       { \ (_, _, bs) len -> return $ TOK_RBRACKET }
   "("                       { \ (_, _, bs) len -> return $ TOK_LPAREN }
   ")"                       { \ (_, _, bs) len -> return $ TOK_RPAREN }
+  "`"                       { \ (_, _, bs) len -> return $ TOK_BACKTICK }
   "_"                       { \ (_, _, bs) len -> return $ TOK_WILDCARD }
   
   "~"                       { \ (_, _, bs) len -> return $ TOK_OP_NOT }
