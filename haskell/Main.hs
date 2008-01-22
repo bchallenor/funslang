@@ -12,6 +12,7 @@ import Representation
 import Library
 import Interpreter
 import Dataflow
+import Emit
 
 test :: IO ()
 test = withArgs ["test.vp"] main
@@ -37,4 +38,5 @@ main = do
       hFlush stdout
       success <- graphvizCompile g "graph" "png"
       putStrLn $ show success
+      putStrLn $ emit g
     Left msg -> putStrLn msg
