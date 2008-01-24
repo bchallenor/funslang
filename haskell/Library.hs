@@ -65,53 +65,53 @@ queryTypeScheme ident =
 
 liftRRB :: (Double -> Double -> Bool) -> (DFReal -> DFReal -> DFBool) -> Value
 liftRRB sop dop =
-  ValueFun $ \ (ValueDFReal df1) -> Right $
-    ValueFun $ \ (ValueDFReal df2) -> Right $
+  ValueFun $ \ (ValueDF (DFReal df1)) -> Right $
+    ValueFun $ \ (ValueDF (DFReal df2)) -> Right $
       liftRRB' sop dop df1 df2
 
 liftRRB' :: (Double -> Double -> Bool) -> (DFReal -> DFReal -> DFBool) -> DFReal -> DFReal -> Value
 liftRRB' sop dop df1 df2 =
   case (df1, df2) of
-    (DFRealLiteral l1, DFRealLiteral l2) -> ValueDFBool $ DFBoolLiteral $ sop l1 l2
-    _ -> ValueDFBool $ dop df1 df2
+    (DFRealLiteral l1, DFRealLiteral l2) -> ValueDF $ DFBool $ DFBoolLiteral $ sop l1 l2
+    _ -> ValueDF $ DFBool $ dop df1 df2
 
 liftRRR :: (Double -> Double -> Double) -> (DFReal -> DFReal -> DFReal) -> Value
 liftRRR sop dop =
-  ValueFun $ \ (ValueDFReal df1) -> Right $
-    ValueFun $ \ (ValueDFReal df2) -> Right $
+  ValueFun $ \ (ValueDF (DFReal df1)) -> Right $
+    ValueFun $ \ (ValueDF (DFReal df2)) -> Right $
       liftRRR' sop dop df1 df2
 
 liftRRR' :: (Double -> Double -> Double) -> (DFReal -> DFReal -> DFReal) -> DFReal -> DFReal -> Value
 liftRRR' sop dop df1 df2 =
   case (df1, df2) of
-    (DFRealLiteral l1, DFRealLiteral l2) -> ValueDFReal $ DFRealLiteral $ sop l1 l2
-    _ -> ValueDFReal $ dop df1 df2
+    (DFRealLiteral l1, DFRealLiteral l2) -> ValueDF $ DFReal $ DFRealLiteral $ sop l1 l2
+    _ -> ValueDF $ DFReal $ dop df1 df2
 
 liftBBB :: (Bool -> Bool -> Bool) -> (DFBool -> DFBool -> DFBool) -> Value
 liftBBB sop dop =
-  ValueFun $ \ (ValueDFBool df1) -> Right $
-    ValueFun $ \ (ValueDFBool df2) -> Right $
+  ValueFun $ \ (ValueDF (DFBool df1)) -> Right $
+    ValueFun $ \ (ValueDF (DFBool df2)) -> Right $
       liftBBB' sop dop df1 df2
 
 liftBBB' :: (Bool -> Bool -> Bool) -> (DFBool -> DFBool -> DFBool) -> DFBool -> DFBool -> Value
 liftBBB' sop dop df1 df2 =
   case (df1, df2) of
-    (DFBoolLiteral l1, DFBoolLiteral l2) -> ValueDFBool $ DFBoolLiteral $ sop l1 l2
-    _ -> ValueDFBool $ dop df1 df2
+    (DFBoolLiteral l1, DFBoolLiteral l2) -> ValueDF $ DFBool $ DFBoolLiteral $ sop l1 l2
+    _ -> ValueDF $ DFBool $ dop df1 df2
 
 liftRR :: (Double -> Double) -> (DFReal -> DFReal) -> Value
 liftRR sop dop =
-  ValueFun $ \ (ValueDFReal df) -> Right $
+  ValueFun $ \ (ValueDF (DFReal df)) -> Right $
     case df of
-      DFRealLiteral l -> ValueDFReal $ DFRealLiteral $ sop l
-      _ -> ValueDFReal $ dop df
+      DFRealLiteral l -> ValueDF $ DFReal $ DFRealLiteral $ sop l
+      _ -> ValueDF $ DFReal $ dop df
 
 liftBB :: (Bool -> Bool) -> (DFBool -> DFBool) -> Value
 liftBB sop dop =
-  ValueFun $ \ (ValueDFBool df) -> Right $
+  ValueFun $ \ (ValueDF (DFBool df)) -> Right $
     case df of
-      DFBoolLiteral l -> ValueDFBool $ DFBoolLiteral $ sop l
-      _ -> ValueDFBool $ dop df
+      DFBoolLiteral l -> ValueDF $ DFBool $ DFBoolLiteral $ sop l
+      _ -> ValueDF $ DFBool $ dop df
 
 
 -- Higher order functions.
@@ -166,7 +166,7 @@ valueFun_foldr' f z (x:xs) = do
 valueFun_unroll :: Value
 valueFun_unroll =
   ValueFun $ \ (ValueFun f) -> Right $
-    ValueFun $ \ (ValueDFReal dfn) -> Right $
+    ValueFun $ \ (ValueDF (DFReal dfn)) -> Right $
       ValueFun $ \ z ->
         case dfn of
           DFRealLiteral n -> valueFun_unroll' f (floor n) z
@@ -218,49 +218,49 @@ valueFun_zipWith3' _ _ _ _= return []
 valueSample1D :: Value
 valueSample1D =
   ValueFun $ \ (ValueTexture1D i) -> Right $
-    ValueFun $ \ (ValueArray [ValueDFReal x]) -> do
+    ValueFun $ \ (ValueArray [ValueDF (DFReal x)]) -> do
     let submit = DFSample1D i x
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDF $ DFReal $ DFRealGetTexR submit,
+      ValueDF $ DFReal $ DFRealGetTexG submit,
+      ValueDF $ DFReal $ DFRealGetTexB submit,
+      ValueDF $ DFReal $ DFRealGetTexA submit
       ]
 
 valueSample2D :: Value
 valueSample2D =
   ValueFun $ \ (ValueTexture2D i) -> Right $
-    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y]) -> do
+    ValueFun $ \ (ValueArray [ValueDF (DFReal x), ValueDF (DFReal y)]) -> do
     let submit = DFSample2D i x y
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDF $ DFReal $ DFRealGetTexR submit,
+      ValueDF $ DFReal $ DFRealGetTexG submit,
+      ValueDF $ DFReal $ DFRealGetTexB submit,
+      ValueDF $ DFReal $ DFRealGetTexA submit
       ]
 
 valueSample3D :: Value
 valueSample3D =
   ValueFun $ \ (ValueTexture3D i) -> Right $
-    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
+    ValueFun $ \ (ValueArray [ValueDF (DFReal x), ValueDF (DFReal y), ValueDF (DFReal z)]) -> do
     let submit = DFSample3D i x y z
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDF $ DFReal $ DFRealGetTexR submit,
+      ValueDF $ DFReal $ DFRealGetTexG submit,
+      ValueDF $ DFReal $ DFRealGetTexB submit,
+      ValueDF $ DFReal $ DFRealGetTexA submit
       ]
 
 valueSampleCube :: Value
 valueSampleCube =
   ValueFun $ \ (ValueTextureCube i) -> Right $
-    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
+    ValueFun $ \ (ValueArray [ValueDF (DFReal x), ValueDF (DFReal y), ValueDF (DFReal z)]) -> do
     let submit = DFSampleCube i x y z
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDF $ DFReal $ DFRealGetTexR submit,
+      ValueDF $ DFReal $ DFRealGetTexG submit,
+      ValueDF $ DFReal $ DFRealGetTexB submit,
+      ValueDF $ DFReal $ DFRealGetTexA submit
       ]
 
 
@@ -269,7 +269,7 @@ valueSampleCube =
 valueSubscript :: Value
 valueSubscript =
   ValueFun $ \ (ValueArray vs) -> Right $
-    ValueFun $ \ (ValueDFReal sub) -> do
+    ValueFun $ \ (ValueDF (DFReal sub)) -> do
       let len = length vs
       case sub of
         DFRealLiteral d -> do
@@ -288,19 +288,19 @@ valueEqual =
     ValueFun $ \ v2 -> valueEqual' v1 v2
 
 valueEqual' :: Value -> Value -> Either String Value
-valueEqual' (ValueUnit) (ValueUnit) = return $ ValueDFBool $ DFBoolLiteral True
-valueEqual' (ValueDFReal df1) (ValueDFReal df2) = return $ liftRRB' (==) DFBoolEqualReal df1 df2
-valueEqual' (ValueDFBool df1) (ValueDFBool df2) = return $ liftBBB' (==) DFBoolEqualBool df1 df2
-valueEqual' (ValueTexture1D i) (ValueTexture1D i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
-valueEqual' (ValueTexture2D i) (ValueTexture2D i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
-valueEqual' (ValueTexture3D i) (ValueTexture3D i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
-valueEqual' (ValueTextureCube i) (ValueTextureCube i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
+valueEqual' (ValueUnit) (ValueUnit) = return $ ValueDF $ DFBool $ DFBoolLiteral True
+valueEqual' (ValueDF (DFReal df1)) (ValueDF (DFReal df2)) = return $ liftRRB' (==) DFBoolEqualReal df1 df2
+valueEqual' (ValueDF (DFBool df1)) (ValueDF (DFBool df2)) = return $ liftBBB' (==) DFBoolEqualBool df1 df2
+valueEqual' (ValueTexture1D i) (ValueTexture1D i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i == i'
+valueEqual' (ValueTexture2D i) (ValueTexture2D i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i == i'
+valueEqual' (ValueTexture3D i) (ValueTexture3D i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i == i'
+valueEqual' (ValueTextureCube i) (ValueTextureCube i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i == i'
 valueEqual' (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM valueEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (&&) DFBoolAnd) x y) $ map unValueDFBool vs
+  return $ ValueDF $ DFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (&&) DFBoolAnd) x y) $ map unValueDFBool vs
 valueEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   vs <- zipWithM valueEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (&&) DFBoolAnd) x y) $ map unValueDFBool vs
+  return $ ValueDF $ DFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (&&) DFBoolAnd) x y) $ map unValueDFBool vs
 valueEqual' (ValueFun _) (ValueFun _) = throwError $ "equality expression would violate run time model"
 valueEqual' _ _ = undefined
 
@@ -310,19 +310,19 @@ valueNotEqual =
     ValueFun $ \ v2 -> valueNotEqual' v1 v2
 
 valueNotEqual' :: Value -> Value -> Either String Value
-valueNotEqual' (ValueUnit) (ValueUnit) = return $ ValueDFBool $ DFBoolLiteral False
-valueNotEqual' (ValueDFReal df1) (ValueDFReal df2) = return $ liftRRB' (/=) DFBoolNotEqualReal df1 df2
-valueNotEqual' (ValueDFBool df1) (ValueDFBool df2) = return $ liftBBB' (/=) DFBoolNotEqualBool df1 df2
-valueNotEqual' (ValueTexture1D i) (ValueTexture1D i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
-valueNotEqual' (ValueTexture2D i) (ValueTexture2D i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
-valueNotEqual' (ValueTexture3D i) (ValueTexture3D i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
-valueNotEqual' (ValueTextureCube i) (ValueTextureCube i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
+valueNotEqual' (ValueUnit) (ValueUnit) = return $ ValueDF $ DFBool $ DFBoolLiteral False
+valueNotEqual' (ValueDF (DFReal df1)) (ValueDF (DFReal df2)) = return $ liftRRB' (/=) DFBoolNotEqualReal df1 df2
+valueNotEqual' (ValueDF (DFBool df1)) (ValueDF (DFBool df2)) = return $ liftBBB' (/=) DFBoolNotEqualBool df1 df2
+valueNotEqual' (ValueTexture1D i) (ValueTexture1D i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i /= i'
+valueNotEqual' (ValueTexture2D i) (ValueTexture2D i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i /= i'
+valueNotEqual' (ValueTexture3D i) (ValueTexture3D i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i /= i'
+valueNotEqual' (ValueTextureCube i) (ValueTextureCube i') = return $ ValueDF $ DFBool $ DFBoolLiteral $ i /= i'
 valueNotEqual' (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM valueNotEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (||) DFBoolOr) x y) $ map unValueDFBool vs
+  return $ ValueDF $ DFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (||) DFBoolOr) x y) $ map unValueDFBool vs
 valueNotEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   vs <- zipWithM valueNotEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (||) DFBoolOr) x y) $ map unValueDFBool vs
+  return $ ValueDF $ DFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (||) DFBoolOr) x y) $ map unValueDFBool vs
 valueNotEqual' (ValueFun _) (ValueFun _) = throwError $ "inequality expression would violate run time model"
 valueNotEqual' _ _ = undefined
 
@@ -361,7 +361,7 @@ libraryBase = [
   (Prefix, "unroll", "('a -> 'a) -> Real -> 'a -> 'a", "apply f n times to z (n must be statically determinable)", False, ["f", "n", "z"], valueFun_unroll),
   (Prefix, "zipWith", "('a -> 'b -> 'c) -> 'a 'n -> 'b 'n -> 'c 'n", "general zip over 2 arrays", False, ["f", "as", "bs"], valueFun_zipWith),
   (Prefix, "zipWith3", "('a -> 'b -> 'c -> 'd) -> 'a 'n -> 'b 'n -> 'c 'n -> 'd 'n", "general zip over 3 arrays", False, ["f", "as", "bs", "cs"], valueFun_zipWith3),
-  (Prefix, "pi", "Real", "pi", False, [], ValueDFReal $ DFRealLiteral pi),
+  (Prefix, "pi", "Real", "pi", False, [], ValueDF $ DFReal $ DFRealLiteral pi),
   (Prefix, "sin", "Real -> Real", "sine (radians)", False, ["a"], liftRR sin DFRealSin),
   (Prefix, "cos", "Real -> Real", "cosine (radians)", False, ["a"], liftRR cos DFRealCos),
   (Prefix, "tan", "Real -> Real", "tangent (radians)", False, ["a"], liftRR tan DFRealTan),

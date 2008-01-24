@@ -86,8 +86,9 @@ dependencyEdges acc@(_, _, mnv1, _) (n:ns) =
 -- Gets the root DFs which represent this Value.
 getRootDFs :: Value -> [DF]
 getRootDFs (ValueUnit) = []
-getRootDFs (ValueDFReal df) = [DFReal df]
-getRootDFs (ValueDFBool df) = [DFBool df]
+getRootDFs (ValueDF (DFReal df)) = [DFReal df]
+getRootDFs (ValueDF (DFBool df)) = [DFBool df]
+getRootDFs (ValueDF (DFSample _)) = undefined
 getRootDFs (ValueTexture1D _) = error getRootDFsErrorMsg
 getRootDFs (ValueTexture2D _) = error getRootDFsErrorMsg
 getRootDFs (ValueTexture3D _) = error getRootDFsErrorMsg
