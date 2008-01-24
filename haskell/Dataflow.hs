@@ -15,7 +15,7 @@ import Representation
 -- Dependency graph.
 -- Each edge (a,b) in the Graph means that b depends on a, or equivalently
 -- that a must be calculated before b.
-type DFGraph = (Graph, Map.Map DFNode Vertex, Map.Map Vertex DFNode)
+type DFGraph = (Graph, Map.Map DF Vertex, Map.Map Vertex DF)
 
 
 -- Compile a GraphViz "dot" representation of a graph.
@@ -38,7 +38,7 @@ graphviz (adjs, _, mvn) =
   let assoclist = assocs adjs in
     "digraph DF {"
     ++
-    (concat $ map (\(v,_) -> case Map.lookup v mvn of { Just n -> "\nn" ++ show v ++ " [label=\"" ++ (nodeLabel n) ++ "\", color=\"#" ++ case n of { DFNodeReal _ -> "800000"; DFNodeBool _ -> "000080"; DFNodeSample _ -> "008000" } ++ "\"];"; Nothing -> error "" }) assoclist)
+    (concat $ map (\(v,_) -> case Map.lookup v mvn of { Just n -> "\nn" ++ show v ++ " [label=\"" ++ (nodeLabel n) ++ "\", color=\"#" ++ case n of { DFReal _ -> "800000"; DFBool _ -> "000080"; DFSample _ -> "008000" } ++ "\"];"; Nothing -> error "" }) assoclist)
     ++
     (concat $ map (\(v,vs) -> concat $ map (\v' -> "\nn" ++ show v ++ " -> n" ++ show v' ++ ";") vs) $ assoclist)
     ++
@@ -46,18 +46,18 @@ graphviz (adjs, _, mvn) =
 
 
 -- Given a Value, makes its DFGraph.
--- This has the effect of (1) transposing the DFNode graph (where the edges were
+-- This has the effect of (1) transposing the DF graph (where the edges were
 -- in the other direction) and (2) removing any common subgraphs.
 dependencyGraph :: Value -> DFGraph
 dependencyGraph value =
-  let (v', es', mnv', mvn') = dependencyEdges (0, [], Map.empty, Map.empty) (getRootDFNodes value) in
+  let (v', es', mnv', mvn') = dependencyEdges (0, [], Map.empty, Map.empty) (getRootDFs value) in
   (buildG (0, v'-1) es', mnv', mvn')
 
 -- (next Vertex available for use, edges so far, map so far, map so far)
-type DependencyEdgesAcc = (Vertex, [Edge], Map.Map DFNode Vertex, Map.Map Vertex DFNode)
+type DependencyEdgesAcc = (Vertex, [Edge], Map.Map DF Vertex, Map.Map Vertex DF)
 
--- Process a list of DFNodes in the same context.
-dependencyEdges :: DependencyEdgesAcc -> [DFNode] -> DependencyEdgesAcc
+-- Process a list of DFs in the same context.
+dependencyEdges :: DependencyEdgesAcc -> [DF] -> DependencyEdgesAcc
 dependencyEdges acc [] = acc
 dependencyEdges acc@(_, _, mnv1, _) (n:ns) =
   -- Check whether this node has been done before.
@@ -83,151 +83,151 @@ dependencyEdges acc@(_, _, mnv1, _) (n:ns) =
       dependencyEdges (v2+1, es4, Map.insert n v2 mnv2, Map.insert v2 n mvn2) ns
 
 
--- Gets the root DFNodes which represent this Value.
-getRootDFNodes :: Value -> [DFNode]
-getRootDFNodes (ValueUnit) = []
-getRootDFNodes (ValueDFReal df) = [DFNodeReal df]
-getRootDFNodes (ValueDFBool df) = [DFNodeBool df]
-getRootDFNodes (ValueTexture1D _) = error getRootDFNodesErrorMsg
-getRootDFNodes (ValueTexture2D _) = error getRootDFNodesErrorMsg
-getRootDFNodes (ValueTexture3D _) = error getRootDFNodesErrorMsg
-getRootDFNodes (ValueTextureCube _) = error getRootDFNodesErrorMsg
-getRootDFNodes (ValueArray vs) = concat $ map getRootDFNodes vs
-getRootDFNodes (ValueTuple vs) = concat $ map getRootDFNodes vs
-getRootDFNodes (ValueFun _) = error getRootDFNodesErrorMsg
-getRootDFNodesErrorMsg :: String
-getRootDFNodesErrorMsg = "this value cannot be represented by a dataflow graph"
+-- Gets the root DFs which represent this Value.
+getRootDFs :: Value -> [DF]
+getRootDFs (ValueUnit) = []
+getRootDFs (ValueDFReal df) = [DFReal df]
+getRootDFs (ValueDFBool df) = [DFBool df]
+getRootDFs (ValueTexture1D _) = error getRootDFsErrorMsg
+getRootDFs (ValueTexture2D _) = error getRootDFsErrorMsg
+getRootDFs (ValueTexture3D _) = error getRootDFsErrorMsg
+getRootDFs (ValueTextureCube _) = error getRootDFsErrorMsg
+getRootDFs (ValueArray vs) = concat $ map getRootDFs vs
+getRootDFs (ValueTuple vs) = concat $ map getRootDFs vs
+getRootDFs (ValueFun _) = error getRootDFsErrorMsg
+getRootDFsErrorMsg :: String
+getRootDFsErrorMsg = "this value cannot be represented by a dataflow graph"
 
 
 -- Given a node, returns the list of nodes that it depends on.
-nodeDependencies :: DFNode -> [DFNode]
+nodeDependencies :: DF -> [DF]
 
-nodeDependencies (DFNodeReal (DFRealLiteral _)) = []
-nodeDependencies (DFNodeReal (DFRealVarying _)) = []
-nodeDependencies (DFNodeReal (DFRealUniform _)) = []
+nodeDependencies (DFReal (DFRealLiteral _)) = []
+nodeDependencies (DFReal (DFRealVarying _)) = []
+nodeDependencies (DFReal (DFRealUniform _)) = []
 
-nodeDependencies (DFNodeReal (DFRealCond dfbc dfr1 dfr2)) = [DFNodeBool dfbc, DFNodeReal dfr1, DFNodeReal dfr2]
+nodeDependencies (DFReal (DFRealCond dfbc dfr1 dfr2)) = [DFBool dfbc, DFReal dfr1, DFReal dfr2]
 
-nodeDependencies (DFNodeReal (DFRealAdd dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeReal (DFRealSub dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeReal (DFRealMul dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeReal (DFRealDiv dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeReal (DFRealNeg dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealRcp dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealRsq dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealAbs dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealMin dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeReal (DFRealMax dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeReal (DFRealFloor dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealCeiling dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealRound dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealTruncate dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealFract dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealExp dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealExp2 dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealLog dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealLog2 dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealPow dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeReal (DFRealSin dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealCos dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealTan dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealASin dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealACos dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeReal (DFRealATan dfr1)) = [DFNodeReal dfr1]
+nodeDependencies (DFReal (DFRealAdd dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFReal (DFRealSub dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFReal (DFRealMul dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFReal (DFRealDiv dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFReal (DFRealNeg dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealRcp dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealRsq dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealAbs dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealMin dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFReal (DFRealMax dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFReal (DFRealFloor dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealCeiling dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealRound dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealTruncate dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealFract dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealExp dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealExp2 dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealLog dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealLog2 dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealPow dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFReal (DFRealSin dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealCos dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealTan dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealASin dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealACos dfr1)) = [DFReal dfr1]
+nodeDependencies (DFReal (DFRealATan dfr1)) = [DFReal dfr1]
 
-nodeDependencies (DFNodeReal (DFRealGetTexR dfs1)) = [DFNodeSample dfs1]
-nodeDependencies (DFNodeReal (DFRealGetTexG dfs1)) = [DFNodeSample dfs1]
-nodeDependencies (DFNodeReal (DFRealGetTexB dfs1)) = [DFNodeSample dfs1]
-nodeDependencies (DFNodeReal (DFRealGetTexA dfs1)) = [DFNodeSample dfs1]
+nodeDependencies (DFReal (DFRealGetTexR dfs1)) = [DFSample dfs1]
+nodeDependencies (DFReal (DFRealGetTexG dfs1)) = [DFSample dfs1]
+nodeDependencies (DFReal (DFRealGetTexB dfs1)) = [DFSample dfs1]
+nodeDependencies (DFReal (DFRealGetTexA dfs1)) = [DFSample dfs1]
 
-nodeDependencies (DFNodeBool (DFBoolLiteral _)) = []
-nodeDependencies (DFNodeBool (DFBoolVarying _)) = []
-nodeDependencies (DFNodeBool (DFBoolUniform _)) = []
+nodeDependencies (DFBool (DFBoolLiteral _)) = []
+nodeDependencies (DFBool (DFBoolVarying _)) = []
+nodeDependencies (DFBool (DFBoolUniform _)) = []
 
-nodeDependencies (DFNodeBool (DFBoolCond dfbc dfb1 dfb2)) = [DFNodeBool dfbc, DFNodeBool dfb1, DFNodeBool dfb2]
+nodeDependencies (DFBool (DFBoolCond dfbc dfb1 dfb2)) = [DFBool dfbc, DFBool dfb1, DFBool dfb2]
 
-nodeDependencies (DFNodeBool (DFBoolLessThan dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeBool (DFBoolLessThanEqual dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeBool (DFBoolGreaterThan dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeBool (DFBoolGreaterThanEqual dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
+nodeDependencies (DFBool (DFBoolLessThan dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFBool (DFBoolLessThanEqual dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFBool (DFBoolGreaterThan dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFBool (DFBoolGreaterThanEqual dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
 
-nodeDependencies (DFNodeBool (DFBoolEqualReal dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeBool (DFBoolNotEqualReal dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeBool (DFBoolEqualBool dfb1 dfb2)) = [DFNodeBool dfb1, DFNodeBool dfb2]
-nodeDependencies (DFNodeBool (DFBoolNotEqualBool dfb1 dfb2)) = [DFNodeBool dfb1, DFNodeBool dfb2]
+nodeDependencies (DFBool (DFBoolEqualReal dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFBool (DFBoolNotEqualReal dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFBool (DFBoolEqualBool dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
+nodeDependencies (DFBool (DFBoolNotEqualBool dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
 
-nodeDependencies (DFNodeBool (DFBoolAnd dfb1 dfb2)) = [DFNodeBool dfb1, DFNodeBool dfb2]
-nodeDependencies (DFNodeBool (DFBoolOr dfb1 dfb2)) = [DFNodeBool dfb1, DFNodeBool dfb2]
-nodeDependencies (DFNodeBool (DFBoolNot dfb1)) = [DFNodeBool dfb1]
+nodeDependencies (DFBool (DFBoolAnd dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
+nodeDependencies (DFBool (DFBoolOr dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
+nodeDependencies (DFBool (DFBoolNot dfb1)) = [DFBool dfb1]
 
-nodeDependencies (DFNodeSample (DFSample1D _ dfr1)) = [DFNodeReal dfr1]
-nodeDependencies (DFNodeSample (DFSample2D _ dfr1 dfr2)) = [DFNodeReal dfr1, DFNodeReal dfr2]
-nodeDependencies (DFNodeSample (DFSample3D _ dfr1 dfr2 dfr3)) = [DFNodeReal dfr1, DFNodeReal dfr2, DFNodeReal dfr3]
-nodeDependencies (DFNodeSample (DFSampleCube _ dfr1 dfr2 dfr3)) = [DFNodeReal dfr1, DFNodeReal dfr2, DFNodeReal dfr3]
+nodeDependencies (DFSample (DFSample1D _ dfr1)) = [DFReal dfr1]
+nodeDependencies (DFSample (DFSample2D _ dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
+nodeDependencies (DFSample (DFSample3D _ dfr1 dfr2 dfr3)) = [DFReal dfr1, DFReal dfr2, DFReal dfr3]
+nodeDependencies (DFSample (DFSampleCube _ dfr1 dfr2 dfr3)) = [DFReal dfr1, DFReal dfr2, DFReal dfr3]
 
 
 -- Given a node, returns a pretty label for visualization.
-nodeLabel :: DFNode -> String
+nodeLabel :: DF -> String
 
-nodeLabel (DFNodeReal (DFRealLiteral d)) = show d
-nodeLabel (DFNodeReal (DFRealVarying i)) = "RealVarying[" ++ show i ++ "]"
-nodeLabel (DFNodeReal (DFRealUniform i)) = "RealUniform[" ++ show i ++ "]"
+nodeLabel (DFReal (DFRealLiteral d)) = show d
+nodeLabel (DFReal (DFRealVarying i)) = "RealVarying[" ++ show i ++ "]"
+nodeLabel (DFReal (DFRealUniform i)) = "RealUniform[" ++ show i ++ "]"
 
-nodeLabel (DFNodeReal (DFRealCond _ _ _)) = "Cond"
+nodeLabel (DFReal (DFRealCond _ _ _)) = "Cond"
 
-nodeLabel (DFNodeReal (DFRealAdd _ _)) = "Add"
-nodeLabel (DFNodeReal (DFRealSub _ _)) = "Sub"
-nodeLabel (DFNodeReal (DFRealMul _ _)) = "Mul"
-nodeLabel (DFNodeReal (DFRealDiv _ _)) = "Div"
-nodeLabel (DFNodeReal (DFRealNeg _)) = "Neg"
-nodeLabel (DFNodeReal (DFRealRcp _)) = "Rcp"
-nodeLabel (DFNodeReal (DFRealRsq _)) = "Rsq"
-nodeLabel (DFNodeReal (DFRealAbs _)) = "Abs"
-nodeLabel (DFNodeReal (DFRealMin _ _)) = "Min"
-nodeLabel (DFNodeReal (DFRealMax _ _)) = "Max"
-nodeLabel (DFNodeReal (DFRealFloor _)) = "Floor"
-nodeLabel (DFNodeReal (DFRealCeiling _)) = "Ceiling"
-nodeLabel (DFNodeReal (DFRealRound _)) = "Round"
-nodeLabel (DFNodeReal (DFRealTruncate _)) = "Truncate"
-nodeLabel (DFNodeReal (DFRealFract _)) = "Fract"
-nodeLabel (DFNodeReal (DFRealExp _)) = "Exp"
-nodeLabel (DFNodeReal (DFRealExp2 _)) = "Exp2"
-nodeLabel (DFNodeReal (DFRealLog _)) = "Log"
-nodeLabel (DFNodeReal (DFRealLog2 _)) = "Log2"
-nodeLabel (DFNodeReal (DFRealPow _ _)) = "Pow"
-nodeLabel (DFNodeReal (DFRealSin _)) = "Sin"
-nodeLabel (DFNodeReal (DFRealCos _)) = "Cos"
-nodeLabel (DFNodeReal (DFRealTan _)) = "Tan"
-nodeLabel (DFNodeReal (DFRealASin _)) = "ASin"
-nodeLabel (DFNodeReal (DFRealACos _)) = "ACos"
-nodeLabel (DFNodeReal (DFRealATan _)) = "ATan"
+nodeLabel (DFReal (DFRealAdd _ _)) = "Add"
+nodeLabel (DFReal (DFRealSub _ _)) = "Sub"
+nodeLabel (DFReal (DFRealMul _ _)) = "Mul"
+nodeLabel (DFReal (DFRealDiv _ _)) = "Div"
+nodeLabel (DFReal (DFRealNeg _)) = "Neg"
+nodeLabel (DFReal (DFRealRcp _)) = "Rcp"
+nodeLabel (DFReal (DFRealRsq _)) = "Rsq"
+nodeLabel (DFReal (DFRealAbs _)) = "Abs"
+nodeLabel (DFReal (DFRealMin _ _)) = "Min"
+nodeLabel (DFReal (DFRealMax _ _)) = "Max"
+nodeLabel (DFReal (DFRealFloor _)) = "Floor"
+nodeLabel (DFReal (DFRealCeiling _)) = "Ceiling"
+nodeLabel (DFReal (DFRealRound _)) = "Round"
+nodeLabel (DFReal (DFRealTruncate _)) = "Truncate"
+nodeLabel (DFReal (DFRealFract _)) = "Fract"
+nodeLabel (DFReal (DFRealExp _)) = "Exp"
+nodeLabel (DFReal (DFRealExp2 _)) = "Exp2"
+nodeLabel (DFReal (DFRealLog _)) = "Log"
+nodeLabel (DFReal (DFRealLog2 _)) = "Log2"
+nodeLabel (DFReal (DFRealPow _ _)) = "Pow"
+nodeLabel (DFReal (DFRealSin _)) = "Sin"
+nodeLabel (DFReal (DFRealCos _)) = "Cos"
+nodeLabel (DFReal (DFRealTan _)) = "Tan"
+nodeLabel (DFReal (DFRealASin _)) = "ASin"
+nodeLabel (DFReal (DFRealACos _)) = "ACos"
+nodeLabel (DFReal (DFRealATan _)) = "ATan"
 
-nodeLabel (DFNodeReal (DFRealGetTexR _)) = "GetTexR"
-nodeLabel (DFNodeReal (DFRealGetTexG _)) = "GetTexG"
-nodeLabel (DFNodeReal (DFRealGetTexB _)) = "GetTexB"
-nodeLabel (DFNodeReal (DFRealGetTexA _)) = "GetTexA"
+nodeLabel (DFReal (DFRealGetTexR _)) = "GetTexR"
+nodeLabel (DFReal (DFRealGetTexG _)) = "GetTexG"
+nodeLabel (DFReal (DFRealGetTexB _)) = "GetTexB"
+nodeLabel (DFReal (DFRealGetTexA _)) = "GetTexA"
 
-nodeLabel (DFNodeBool (DFBoolLiteral b)) = show b
-nodeLabel (DFNodeBool (DFBoolVarying i)) = "BoolVarying[" ++ show i ++ "]"
-nodeLabel (DFNodeBool (DFBoolUniform i)) = "BoolUniform[" ++ show i ++ "]"
+nodeLabel (DFBool (DFBoolLiteral b)) = show b
+nodeLabel (DFBool (DFBoolVarying i)) = "BoolVarying[" ++ show i ++ "]"
+nodeLabel (DFBool (DFBoolUniform i)) = "BoolUniform[" ++ show i ++ "]"
 
-nodeLabel (DFNodeBool (DFBoolCond _ _ _)) = "BoolCond"
+nodeLabel (DFBool (DFBoolCond _ _ _)) = "BoolCond"
 
-nodeLabel (DFNodeBool (DFBoolLessThan _ _)) = "LessThan"
-nodeLabel (DFNodeBool (DFBoolLessThanEqual _ _)) = "LessThanEqual"
-nodeLabel (DFNodeBool (DFBoolGreaterThan _ _)) = "GreaterThan"
-nodeLabel (DFNodeBool (DFBoolGreaterThanEqual _ _)) = "GreaterThanEqual"
+nodeLabel (DFBool (DFBoolLessThan _ _)) = "LessThan"
+nodeLabel (DFBool (DFBoolLessThanEqual _ _)) = "LessThanEqual"
+nodeLabel (DFBool (DFBoolGreaterThan _ _)) = "GreaterThan"
+nodeLabel (DFBool (DFBoolGreaterThanEqual _ _)) = "GreaterThanEqual"
 
-nodeLabel (DFNodeBool (DFBoolEqualReal _ _)) = "EqualReal"
-nodeLabel (DFNodeBool (DFBoolNotEqualReal _ _)) = "NotEqualReal"
-nodeLabel (DFNodeBool (DFBoolEqualBool _ _)) = "EqualBool"
-nodeLabel (DFNodeBool (DFBoolNotEqualBool _ _)) = "NotEqualBool"
+nodeLabel (DFBool (DFBoolEqualReal _ _)) = "EqualReal"
+nodeLabel (DFBool (DFBoolNotEqualReal _ _)) = "NotEqualReal"
+nodeLabel (DFBool (DFBoolEqualBool _ _)) = "EqualBool"
+nodeLabel (DFBool (DFBoolNotEqualBool _ _)) = "NotEqualBool"
 
-nodeLabel (DFNodeBool (DFBoolAnd _ _)) = "And"
-nodeLabel (DFNodeBool (DFBoolOr _ _)) = "Or"
-nodeLabel (DFNodeBool (DFBoolNot _)) = "Not"
+nodeLabel (DFBool (DFBoolAnd _ _)) = "And"
+nodeLabel (DFBool (DFBoolOr _ _)) = "Or"
+nodeLabel (DFBool (DFBoolNot _)) = "Not"
 
-nodeLabel (DFNodeSample (DFSample1D i _)) = "Texture[" ++ show i ++ ", 1D]"
-nodeLabel (DFNodeSample (DFSample2D i _ _)) = "Texture[" ++ show i ++ ", 2D]"
-nodeLabel (DFNodeSample (DFSample3D i _ _ _)) = "Texture[" ++ show i ++ ", 3D]"
-nodeLabel (DFNodeSample (DFSampleCube i _ _ _)) = "Texture[" ++ show i ++ ", Cube]"
+nodeLabel (DFSample (DFSample1D i _)) = "Texture[" ++ show i ++ ", 1D]"
+nodeLabel (DFSample (DFSample2D i _ _)) = "Texture[" ++ show i ++ ", 2D]"
+nodeLabel (DFSample (DFSample3D i _ _ _)) = "Texture[" ++ show i ++ ", 3D]"
+nodeLabel (DFSample (DFSampleCube i _ _ _)) = "Texture[" ++ show i ++ ", Cube]"

@@ -337,10 +337,10 @@ instance Show Operator where
 
 -- Dataflow graph.
 
-data DFNode
-  = DFNodeReal !DFReal
-  | DFNodeBool !DFBool
-  | DFNodeSample !DFSample
+data DF
+  = DFReal !DFReal
+  | DFBool !DFBool
+  | DFSample !DFSample
   
   deriving (Show, Eq, Ord)
 
