@@ -422,7 +422,8 @@ data DFSample -- these are internal to a texture sampling gadget
 
 data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit
-  | ValueDF !DF
+  | ValueDFReal !DFReal
+  | ValueDFBool !DFBool
   | ValueTexture1D !Int -- texture image unit
   | ValueTexture2D !Int
   | ValueTexture3D !Int
@@ -432,17 +433,18 @@ data Value -- can't derive Show or Eq due to those pesky closures
   | ValueFun !(Value -> Either String Value) -- might raise exception
 
 unValueDFReal :: Value -> DFReal
-unValueDFReal (ValueDF (DFReal df)) = df
+unValueDFReal (ValueDFReal df) = df
 unValueDFReal _ = undefined
 
 unValueDFBool :: Value -> DFBool
-unValueDFBool (ValueDF (DFBool df)) = df
+unValueDFBool (ValueDFBool df) = df
 unValueDFBool _ = undefined
 
 instance Show Value where
 
   show (ValueUnit) = "()"
-  show (ValueDF df) = show df
+  show (ValueDFReal df) = show df
+  show (ValueDFBool df) = show df
   show (ValueTexture1D i) = "texture[" ++ show i ++ ", 1D]"
   show (ValueTexture2D i) = "texture[" ++ show i ++ ", 2D]"
   show (ValueTexture3D i) = "texture[" ++ show i ++ ", 3D]"
@@ -454,7 +456,8 @@ instance Show Value where
 instance Eq Value where
 
   (ValueUnit) == (ValueUnit) = True
-  (ValueDF df) == (ValueDF df') = df == df'
+  (ValueDFReal df) == (ValueDFReal df') = df == df'
+  (ValueDFBool df) == (ValueDFBool df') = df == df'
   (ValueTexture1D i) == (ValueTexture1D i') = i == i'
   (ValueTexture2D i) == (ValueTexture2D i') = i == i'
   (ValueTexture3D i) == (ValueTexture3D i') = i == i'

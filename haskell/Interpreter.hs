@@ -19,9 +19,9 @@ interpretExpr :: ValueEnv -> Expr -> Either String Value
 
 interpretExpr _ (ExprUnitLiteral) = return ValueUnit
 
-interpretExpr _ (ExprRealLiteral b) = return $ ValueDF $ DFReal $ DFRealLiteral b
+interpretExpr _ (ExprRealLiteral b) = return $ ValueDFReal $ DFRealLiteral b
 
-interpretExpr _ (ExprBoolLiteral b) = return $ ValueDF $ DFBool $ DFBoolLiteral b
+interpretExpr _ (ExprBoolLiteral b) = return $ ValueDFBool $ DFBoolLiteral b
 
 interpretExpr env a@(ExprVar ident) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
@@ -47,7 +47,7 @@ interpretExpr env a@(ExprTuple es) =
 
 interpretExpr env a@(ExprIf eb e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  ValueDF (DFBool dfb) <- interpretExpr env eb
+  ValueDFBool dfb <- interpretExpr env eb
   v1 <- interpretExpr env e1
   v2 <- interpretExpr env e2
   if v1 == v2
@@ -71,9 +71,9 @@ interpretExpr env a@(ExprLambda p e) =
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
 -- so that the resulting value is either the first or second value according to the condition.
 conditionalize :: DFBool -> Value -> Value -> Either String Value
-conditionalize _ (ValueUnit) (ValueUnit) = return ValueUnit
-conditionalize dfb (ValueDF (DFReal df1)) (ValueDF (DFReal df2)) = return $ ValueDF $ DFReal $ DFRealCond dfb df1 df2
-conditionalize dfb (ValueDF (DFBool df1)) (ValueDF (DFBool df2)) = return $ ValueDF $ DFBool $ DFBoolCond dfb df1 df2
+conditionalize dfb (ValueUnit) (ValueUnit) = return ValueUnit
+conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = return $ ValueDFReal $ DFRealCond dfb df1 df2
+conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = return $ ValueDFBool $ DFBoolCond dfb df1 df2
 conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM (conditionalize dfb) vs1 vs2
   return $ ValueArray vs
@@ -120,11 +120,11 @@ dummyUniformValue' (TypeUnit) =
 dummyUniformValue' (TypeReal) = do
   (r:rs, bs) <- get
   put (rs, bs)
-  return $ ValueDF $ DFReal r
+  return $ ValueDFReal r
 dummyUniformValue' (TypeBool) = do
   (rs, b:bs) <- get
   put (rs, bs)
-  return $ ValueDF $ DFBool b
+  return $ ValueDFBool b
 dummyUniformValue' (TypeArray t (DimFix i)) = do
   vs <- replicateM (fromIntegral i) (dummyUniformValue' t)
   return $ ValueArray vs
@@ -176,11 +176,11 @@ dummyVaryingValue' (TypeUnit) =
 dummyVaryingValue' (TypeReal) = do
   (r:rs, bs) <- get
   put (rs, bs)
-  return $ ValueDF $ DFReal r
+  return $ ValueDFReal r
 dummyVaryingValue' (TypeBool) = do
   (rs, b:bs) <- get
   put (rs, bs)
-  return $ ValueDF $ DFBool b
+  return $ ValueDFBool b
 dummyVaryingValue' (TypeArray t (DimFix i)) = do
   vs <- replicateM (fromIntegral i) (dummyVaryingValue' t)
   return $ ValueArray vs
