@@ -5,6 +5,13 @@ import qualified Data.List as List
 import Control.Monad.State
 
 
+data ProgramKind
+  = ProgramKindVertex
+  | ProgramKindFragment
+  
+  deriving (Show, Eq)
+
+
 data Token
   = TOK_REAL
   | TOK_BOOL

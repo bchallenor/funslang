@@ -38,5 +38,8 @@ main = do
       hFlush stdout
       success <- graphvizCompile g "graph" "png"
       putStrLn $ show success
-      putStrLn $ emit g
+      putStrLn "vertex..."
+      putStrLn $ emit ProgramKindVertex g
+      putStrLn "fragment..."
+      putStrLn $ emit ProgramKindFragment g
     Left msg -> putStrLn msg
