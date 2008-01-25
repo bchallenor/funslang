@@ -17,8 +17,20 @@ emit pk (g, mnv, mvn) =
     unlines $ map (\v -> let Just n = Map.lookup v mvn in emitNode (pk, mnv) n) vs
 
 
+-- Emits a string that is different for vertex and fragment programs.
+emitProgramKind :: ProgramKind -> String
+emitProgramKind ProgramKindVertex = "Vertex"
+emitProgramKind ProgramKindFragment = "Fragment"
+
+
 -- Locations are temporary variables where dataflow node results are stored.
 -- These emit the given location.
+
+emitLocUniforms :: ProgramKind -> String
+emitLocUniforms pk = emitProgramKind pk ++ "Uniforms"
+
+emitLocVaryings :: ProgramKind -> String
+emitLocVaryings pk = emitProgramKind pk ++ "Varyings"
 
 emitLocVertex :: Vertex -> String
 emitLocVertex v = "t" ++ show v
@@ -64,8 +76,8 @@ emitFunAssign mnv d f args = emitStrAssign (emitLocDF mnv d) (emitStrFun f $ map
 emitNode :: EmitState -> DF -> String
 
 emitNode (_, mnv) n@(DFReal (DFRealLiteral d)) = emitStrAssign (emitLocDF mnv n) $ show d
-emitNode (_, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitLocDF mnv n) $ "RealVarying[" ++ show i ++ "]"
-emitNode (_, mnv) n@(DFReal (DFRealUniform i)) = emitStrAssign (emitLocDF mnv n) $ "RealUniform[" ++ show i ++ "]"
+emitNode (pk, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitLocDF mnv n) $ "Real" ++ emitLocVaryings pk ++ "[" ++ show i ++ "]"
+emitNode (pk, mnv) n@(DFReal (DFRealUniform i)) = emitStrAssign (emitLocDF mnv n) $ "Real" ++ emitLocUniforms pk ++ "[" ++ show i ++ "]"
 
 emitNode (_, mnv) n@(DFReal (DFRealCond cond p q)) = emitStrAssign (emitLocDF mnv n) $ (emitLocDFBool mnv cond) ++ " ? " ++ (emitLocDFReal mnv p) ++ " : " ++ (emitLocDFReal mnv q)
 
@@ -102,8 +114,8 @@ emitNode (_, mnv) n@(DFReal (DFRealGetTexB p)) = emitStrAssign (emitLocDF mnv n)
 emitNode (_, mnv) n@(DFReal (DFRealGetTexA p)) = emitStrAssign (emitLocDF mnv n) (emitLocDFSample mnv p ++ ".a")
 
 emitNode (_, mnv) n@(DFBool (DFBoolLiteral b)) = emitStrAssign (emitLocDF mnv n) $ show b
-emitNode (_, mnv) n@(DFBool (DFBoolVarying i)) = emitStrAssign (emitLocDF mnv n) $ "BoolVarying[" ++ show i ++ "]"
-emitNode (_, mnv) n@(DFBool (DFBoolUniform i)) = emitStrAssign (emitLocDF mnv n) $ "BoolUniform[" ++ show i ++ "]"
+emitNode (pk, mnv) n@(DFBool (DFBoolVarying i)) = emitStrAssign (emitLocDF mnv n) $ "Bool" ++ emitLocVaryings pk ++ "[" ++ show i ++ "]"
+emitNode (pk, mnv) n@(DFBool (DFBoolUniform i)) = emitStrAssign (emitLocDF mnv n) $ "Bool" ++ emitLocUniforms pk ++ "[" ++ show i ++ "]"
 
 emitNode (_, mnv) n@(DFBool (DFBoolCond cond p q)) = emitStrAssign (emitLocDF mnv n) $ (emitLocDFBool mnv cond) ++ " ? " ++ (emitLocDFBool mnv p) ++ " : " ++ (emitLocDFBool mnv q)
 
