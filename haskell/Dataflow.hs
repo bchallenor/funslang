@@ -15,7 +15,11 @@ import Representation
 -- Dependency graph.
 -- Each edge (a,b) in the Graph means that b depends on a, or equivalently
 -- that a must be calculated before b.
-type DFGraph = (Graph, Map.Map DF Vertex, Map.Map Vertex DF)
+type DFGraph = (
+  Graph, -- graph representation
+  [DF], -- result nodes
+  Map.Map DF Vertex, Map.Map Vertex DF -- translations between nodes/vertices
+  )
 
 
 -- Compile a GraphViz "dot" representation of a graph.
@@ -34,7 +38,7 @@ graphvizCompile g name ext = do
 
 -- Return a GraphViz "dot" representation of a graph.
 graphviz :: DFGraph -> String
-graphviz (adjs, _, mvn) =
+graphviz (adjs, _, _, mvn) =
   let assoclist = assocs adjs in
     "digraph DF {"
     ++
@@ -50,8 +54,9 @@ graphviz (adjs, _, mvn) =
 -- in the other direction) and (2) removing any common subgraphs.
 dependencyGraph :: Value -> DFGraph
 dependencyGraph value =
-  let (v', es', mnv', mvn') = dependencyEdges (0, [], Map.empty, Map.empty) (getRootDFs value) in
-  (buildG (0, v'-1) es', mnv', mvn')
+  let result_ns = getResultDFs value in
+  let (v', es', mnv', mvn') = dependencyEdges (0, [], Map.empty, Map.empty) result_ns in
+    (buildG (0, v'-1) es', result_ns, mnv', mvn')
 
 -- (next Vertex available for use, edges so far, map so far, map so far)
 type DependencyEdgesAcc = (Vertex, [Edge], Map.Map DF Vertex, Map.Map Vertex DF)
@@ -83,20 +88,20 @@ dependencyEdges acc@(_, _, mnv1, _) (n:ns) =
       dependencyEdges (v2+1, es4, Map.insert n v2 mnv2, Map.insert v2 n mvn2) ns
 
 
--- Gets the root DFs which represent this Value.
-getRootDFs :: Value -> [DF]
-getRootDFs (ValueUnit) = []
-getRootDFs (ValueDFReal df) = [DFReal df]
-getRootDFs (ValueDFBool df) = [DFBool df]
-getRootDFs (ValueTexture1D _) = error getRootDFsErrorMsg
-getRootDFs (ValueTexture2D _) = error getRootDFsErrorMsg
-getRootDFs (ValueTexture3D _) = error getRootDFsErrorMsg
-getRootDFs (ValueTextureCube _) = error getRootDFsErrorMsg
-getRootDFs (ValueArray vs) = concat $ map getRootDFs vs
-getRootDFs (ValueTuple vs) = concat $ map getRootDFs vs
-getRootDFs (ValueFun _) = error getRootDFsErrorMsg
-getRootDFsErrorMsg :: String
-getRootDFsErrorMsg = "this value cannot be represented by a dataflow graph"
+-- Gets the result DFs which represent this Value.
+getResultDFs :: Value -> [DF]
+getResultDFs (ValueUnit) = []
+getResultDFs (ValueDFReal df) = [DFReal df]
+getResultDFs (ValueDFBool df) = [DFBool df]
+getResultDFs (ValueTexture1D _) = error getResultDFsErrorMsg
+getResultDFs (ValueTexture2D _) = error getResultDFsErrorMsg
+getResultDFs (ValueTexture3D _) = error getResultDFsErrorMsg
+getResultDFs (ValueTextureCube _) = error getResultDFsErrorMsg
+getResultDFs (ValueArray vs) = concat $ map getResultDFs vs
+getResultDFs (ValueTuple vs) = concat $ map getResultDFs vs
+getResultDFs (ValueFun _) = error getResultDFsErrorMsg
+getResultDFsErrorMsg :: String
+getResultDFsErrorMsg = "this value cannot be represented by a dataflow graph"
 
 
 -- Given a node, returns the list of nodes that it depends on.

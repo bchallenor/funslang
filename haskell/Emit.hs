@@ -20,12 +20,13 @@ import Dataflow
 
 
 emit :: ShaderKind -> ShaderInputOutput -> DFGraph -> String
-emit sk si (g, mnv, mvn) =
+emit sk si (g, result_ns, mnv, mvn) =
   let vs = topSort g in
     unlines $
       emitDecls sk si ++
       ["","void main()", "{"] ++
       map (\v -> let Just n = Map.lookup v mvn in emitNode (sk, si, mnv) n) vs ++
+      emitCopyOut sk si mnv result_ns ++
       ["}"]
 
 
@@ -210,3 +211,21 @@ emitNode (_, _, mnv) n@(DFSample (DFSample1D i p)) = emitStrAssign (emitNameDF m
 emitNode (_, _, mnv) n@(DFSample (DFSample2D i p q)) = emitStrAssign (emitNameDF mnv n) (emitStrFun "texture2D" [emitNameTexture i, "vec2(" ++ emitNameDFReal mnv p ++ ", " ++ emitNameDFReal mnv q ++ ")"]) 
 emitNode (_, _, mnv) n@(DFSample (DFSample3D i p q r)) = emitStrAssign (emitNameDF mnv n) (emitStrFun "texture3D" [emitNameTexture i, "vec3(" ++ emitNameDFReal mnv p ++ ", " ++ emitNameDFReal mnv q ++ ", " ++ emitNameDFReal mnv r ++ ")"]) 
 emitNode (_, _, mnv) n@(DFSample (DFSampleCube i p q r)) = emitStrAssign (emitNameDF mnv n) (emitStrFun "textureCube" [emitNameTexture i, "vec3(" ++ emitNameDFReal mnv p ++ ", " ++ emitNameDFReal mnv q ++ ", " ++ emitNameDFReal mnv r ++ ")"]) 
+
+
+-- Gets the index from a varying DF node.
+getVaryingIndex :: DF -> Int
+getVaryingIndex (DFReal (DFRealVarying i)) = i
+getVaryingIndex (DFBool (DFBoolVarying i)) = i
+getVaryingIndex _ = undefined
+
+-- Emits copy out code to save results.
+emitCopyOut :: ShaderKind -> ShaderInputOutput -> Map.Map DF Vertex -> [DF] -> [String]
+emitCopyOut ShaderKindVertex si mnv (x:y:z:w : output_varyings) =
+  (emitStrAssign "gl_Position" $ "vec4(" ++ emitNameDF mnv x ++ ", " ++ emitNameDF mnv y ++ ", " ++ emitNameDF mnv z ++ ", " ++ emitNameDF mnv w ++ ")") :
+  map (\n -> emitStrAssign (emitNameVarying ShaderKindFragment (num_outputs si) (getVaryingIndex n)) (emitNameDF mnv n)) output_varyings
+emitCopyOut ShaderKindVertex _ _ _ = undefined
+emitCopyOut ShaderKindFragment _ mnv (r:g:b:a:[]) =
+  (emitStrAssign "gl_FragColor" $ "vec4(" ++ emitNameDF mnv r ++ ", " ++ emitNameDF mnv g ++ ", " ++ emitNameDF mnv b ++ ", " ++ emitNameDF mnv a ++ ")") :
+  []
+emitCopyOut ShaderKindFragment _ _ _ = undefined
