@@ -19,12 +19,14 @@ import Dataflow
 
 
 
-emit :: ShaderKind -> ShaderInputs -> DFGraph -> String
+emit :: ShaderKind -> ShaderInputOutput -> DFGraph -> String
 emit sk si (g, mnv, mvn) =
   let vs = topSort g in
     unlines $
       emitDecls sk si ++
-      map (\v -> let Just n = Map.lookup v mvn in emitNode (sk, si, mnv) n) vs
+      ["","void main()", "{"] ++
+      map (\v -> let Just n = Map.lookup v mvn in emitNode (sk, si, mnv) n) vs ++
+      ["}"]
 
 
 -- The names that GLSL gives to Funslang varyings.
@@ -107,25 +109,29 @@ emitFunAssign mnv d f args = emitStrAssign (emitNameDF mnv d) (emitStrFun f $ ma
 
 
 -- Emits uniforms declaration.
-emitUniformsDecl :: ShaderKind -> ShaderInputs -> String
+emitUniformsDecl :: ShaderKind -> ShaderInputOutput -> String
 emitUniformsDecl sk si = "uniform float " ++ emitNameUniform sk (num_uniforms si) ++ ";"
 
--- Emits varyings declarations.
-emitVaryingsDecls :: ShaderKind -> ShaderInputs -> [String]
-emitVaryingsDecls sk si = emitVaryingsDecls' sk (num_varyings si) 0 []
+-- Emits varying declarations (for both input and output).
+emitVaryingsDecls :: ShaderKind -> ShaderInputOutput -> [String]
+emitVaryingsDecls ShaderKindVertex si = emitVaryingsDecls' ShaderKindVertex (num_varyings si) ++ emitVaryingsDecls' ShaderKindFragment (num_outputs si)
+emitVaryingsDecls ShaderKindFragment si = emitVaryingsDecls' ShaderKindFragment (num_varyings si)
 
-emitVaryingsDecls' :: ShaderKind -> Int -> Int -> [String] -> [String]
-emitVaryingsDecls' sk num_total num_packed acc =
+emitVaryingsDecls' :: ShaderKind -> Int -> [String]
+emitVaryingsDecls' sk num_total = emitVaryingsDecls'' sk num_total 0 []
+
+emitVaryingsDecls'' :: ShaderKind -> Int -> Int -> [String] -> [String]
+emitVaryingsDecls'' sk num_total num_packed acc =
   let num_left = num_total - num_packed in
     if num_left <= 0
       then acc
       else
         let num_now = min num_left maxPackingSize in
         let decl = emitVaryingQualifier sk ++ " " ++ emitPackingType num_now ++ " " ++ emitRootNameVarying sk ++ show num_packed ++ ";" in
-          emitVaryingsDecls' sk num_total (num_packed + num_now) (decl : acc)
+          emitVaryingsDecls'' sk num_total (num_packed + num_now) (decl : acc)
 
 -- Emits texture declarations.
-emitTextureDecls :: ShaderInputs -> [String]
+emitTextureDecls :: ShaderInputOutput -> [String]
 emitTextureDecls si = map emitTextureDecl (textures si)
 
 emitTextureDecl :: ShaderTextureInput -> String
@@ -135,12 +141,12 @@ emitTextureDecl (ShaderTextureInput3D i) = "uniform sampler3D " ++ emitNameTextu
 emitTextureDecl (ShaderTextureInputCube i) = "uniform samplerCube " ++ emitNameTexture i ++ ";"
 
 -- Emits all relevant declarations.
-emitDecls :: ShaderKind -> ShaderInputs -> [String]
+emitDecls :: ShaderKind -> ShaderInputOutput -> [String]
 emitDecls sk si = emitUniformsDecl sk si : emitTextureDecls si ++ emitVaryingsDecls sk si
 
 
 -- Emits the operation represented by a DF.
-emitNode :: (ShaderKind, ShaderInputs, Map.Map DF Vertex) -> DF -> String
+emitNode :: (ShaderKind, ShaderInputOutput, Map.Map DF Vertex) -> DF -> String
 
 emitNode (_, _, mnv) n@(DFReal (DFRealLiteral d)) = emitStrAssign (emitNameDF mnv n) $ show d
 emitNode (sk, si, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitNameDF mnv n) $ emitNameVarying sk (num_varyings si) i

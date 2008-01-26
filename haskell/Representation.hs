@@ -21,13 +21,14 @@ data ShaderTextureInput
   deriving (Show, Eq)
 
 
-data ShaderInputs
-  = ShaderInputs
+data ShaderInputOutput
+  = ShaderInputOutput
   {
     num_uniforms :: !Int,
     num_textures :: !Int,
     num_varyings :: !Int,
-    textures :: ![ShaderTextureInput]
+    textures :: ![ShaderTextureInput],
+    num_outputs :: !Int
   }
   
   deriving (Show, Eq)

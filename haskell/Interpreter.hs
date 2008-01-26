@@ -95,7 +95,7 @@ matchPattern (PattTuple _ _) _ = undefined
 
 
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
-interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Either String (Value, ShaderInputs)
+interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Either String (Value, ShaderInputOutput)
 interpretExprAsShader sk env e t =
   flip catchError (\s -> throwError $ s ++ "\nin expression with type: " ++ prettyType t) $ do
   case t of
@@ -103,9 +103,9 @@ interpretExprAsShader sk env e t =
       -- Count the number of outputs.
       no <- case (sk, result_type) of
         (ShaderKindVertex, TypeTuple [TypeArray TypeReal (DimFix 4), output_type]) -> countOutputs output_type
-        (ShaderKindVertex, _) -> throwError "shader has correct kind, but incorrect return type"
+        (ShaderKindVertex, _) -> throwError "vertex shader has correct kind, but incorrect return type"
         (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return 0
-        (ShaderKindFragment, _) -> throwError "shader has correct kind, but incorrect return type"
+        (ShaderKindFragment, _) -> throwError "fragment shader has correct kind, but incorrect return type"
       
       -- Interpret the expression to create a closure.
       ValueFun f1 <- interpretExpr env e
@@ -122,7 +122,7 @@ interpretExprAsShader sk env e t =
       (varying_value, nv) <- dummyVaryingValue varying_type
       v <- f3 varying_value
       
-      return (v, ShaderInputs{num_uniforms = nu, num_textures = nt, num_varyings = nv, textures = ts})
+      return (v, ShaderInputOutput{num_uniforms = nu, num_textures = nt, num_varyings = nv, textures = ts, num_outputs = no})
       
     _ -> throwError "shader does not have correct kind"
 

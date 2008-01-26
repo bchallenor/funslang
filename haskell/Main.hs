@@ -17,7 +17,7 @@ import Emit
 test :: IO ()
 test = withArgs ["test"] main
 
-compile :: ShaderKind -> ByteString.ByteString -> Either String (Expr, Type, Value, ShaderInputs, DFGraph)
+compile :: ShaderKind -> ByteString.ByteString -> Either String (Expr, Type, Value, ShaderInputOutput, DFGraph)
 compile sk bs = do
   let (gamma, env, vrefs) = library
   (e, vrefs') <- parseExpr vrefs bs
