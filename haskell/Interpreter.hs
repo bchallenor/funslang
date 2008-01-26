@@ -95,7 +95,7 @@ matchPattern (PattTuple _ _) _ = undefined
 
 
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
-interpretExprAsShader :: ValueEnv -> Expr -> Type -> Either String (Value, ShaderNumInputs)
+interpretExprAsShader :: ValueEnv -> Expr -> Type -> Either String (Value, ShaderInputs)
 interpretExprAsShader env e t =
   flip catchError (\s -> throwError $ s ++ "\nin expression with type: " ++ prettyType t) $ do
   case t of
@@ -103,11 +103,11 @@ interpretExprAsShader env e t =
       ValueFun f1 <- interpretExpr env e
       (uniform_value, nu) <- dummyUniformValue uniform_type
       ValueFun f2 <- f1 uniform_value
-      (texture_value, nt) <- dummyTextureValue texture_type
+      (texture_value, nt, ts) <- dummyTextureValue texture_type
       ValueFun f3 <- f2 texture_value
       (varying_value, nv) <- dummyVaryingValue varying_type
       v <- f3 varying_value
-      return (v, ShaderNumInputs{num_uniforms = nu, num_textures = nt, num_varyings = nv})
+      return (v, ShaderInputs{num_uniforms = nu, num_textures = nt, num_varyings = nv, textures = ts})
     _ -> throwError "expression does not have correct kind to be a shader"
 
 
@@ -139,30 +139,30 @@ dummyUniformValue' t = throwError $ "shader uniform arguments cannot have type <
 
 
 -- Returns a dummy value and the number of textures.
-dummyTextureValue :: Type -> Either String (Value, Int)
+dummyTextureValue :: Type -> Either String (Value, Int, [ShaderTextureInput])
 dummyTextureValue t = do
-  let (a, i') = runState (runErrorT $ dummyTextureValue' t) 0
+  let (a, (i, ts)) = runState (runErrorT $ dummyTextureValue' t) (0, [])
   v <- a
-  return (v, i')
+  return (v, i, ts)
 
-dummyTextureValue' :: Type -> ErrorT String (State Int) Value
+dummyTextureValue' :: Type -> ErrorT String (State (Int, [ShaderTextureInput])) Value
 dummyTextureValue' (TypeUnit) =
   return ValueUnit
 dummyTextureValue' (TypeTexture1D) = do
-  i <- get
-  put (i+1)
+  (i, ts) <- get
+  put (i+1, (ShaderTextureInput1D i) : ts)
   return $ ValueTexture1D i
 dummyTextureValue' (TypeTexture2D) = do
-  i <- get
-  put (i+1)
+  (i, ts) <- get
+  put (i+1, (ShaderTextureInput2D i) : ts)
   return $ ValueTexture2D i
 dummyTextureValue' (TypeTexture3D) = do
-  i <- get
-  put (i+1)
+  (i, ts) <- get
+  put (i+1, (ShaderTextureInput3D i) : ts)
   return $ ValueTexture3D i
 dummyTextureValue' (TypeTextureCube) = do
-  i <- get
-  put (i+1)
+  (i, ts) <- get
+  put (i+1, (ShaderTextureInputCube i) : ts)
   return $ ValueTextureCube i
 dummyTextureValue' (TypeArray t (DimFix n)) = do
   vs <- replicateM (fromIntegral n) (dummyTextureValue' t)

@@ -12,12 +12,22 @@ data ShaderKind
   deriving (Show, Eq)
 
 
-data ShaderNumInputs
-  = ShaderNumInputs
+data ShaderTextureInput
+  = ShaderTextureInput1D !Int -- texture image unit
+  | ShaderTextureInput2D !Int
+  | ShaderTextureInput3D !Int
+  | ShaderTextureInputCube !Int
+  
+  deriving (Show, Eq)
+
+
+data ShaderInputs
+  = ShaderInputs
   {
-    num_uniforms :: Int,
-    num_textures :: Int,
-    num_varyings :: Int
+    num_uniforms :: !Int,
+    num_textures :: !Int,
+    num_varyings :: !Int,
+    textures :: ![ShaderTextureInput]
   }
   
   deriving (Show, Eq)

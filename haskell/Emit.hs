@@ -11,7 +11,7 @@ import Dataflow
 type EmitState = (ShaderKind, Map.Map DF Vertex)
 
 
-emit :: ShaderKind -> ShaderNumInputs -> DFGraph -> String
+emit :: ShaderKind -> ShaderInputs -> DFGraph -> String
 emit pk num_inputs (g, mnv, mvn) =
   let vs = topSort g in
     unlines $ map (\v -> let Just n = Map.lookup v mvn in emitNode (pk, mnv) n) vs
