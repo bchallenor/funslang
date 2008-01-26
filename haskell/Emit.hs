@@ -115,7 +115,7 @@ emitUniformsDecl sk si = "uniform float " ++ emitNameUniform sk (num_uniforms si
 
 -- Emits varying declarations (for both input and output).
 emitVaryingsDecls :: ShaderKind -> ShaderInputOutput -> [String]
-emitVaryingsDecls ShaderKindVertex si = emitVaryingsDecls' ShaderKindVertex (num_varyings si) ++ emitVaryingsDecls' ShaderKindFragment (num_outputs si)
+emitVaryingsDecls ShaderKindVertex si = emitVaryingsDecls' ShaderKindVertex (num_varyings si) ++ emitVaryingsDecls' ShaderKindFragment (num_generic_outputs si)
 emitVaryingsDecls ShaderKindFragment si = emitVaryingsDecls' ShaderKindFragment (num_varyings si)
 
 emitVaryingsDecls' :: ShaderKind -> Int -> [String]
@@ -213,17 +213,11 @@ emitNode (_, _, mnv) n@(DFSample (DFSample3D i p q r)) = emitStrAssign (emitName
 emitNode (_, _, mnv) n@(DFSample (DFSampleCube i p q r)) = emitStrAssign (emitNameDF mnv n) (emitStrFun "textureCube" [emitNameTexture i, "vec3(" ++ emitNameDFReal mnv p ++ ", " ++ emitNameDFReal mnv q ++ ", " ++ emitNameDFReal mnv r ++ ")"]) 
 
 
--- Gets the index from a varying DF node.
-getVaryingIndex :: DF -> Int
-getVaryingIndex (DFReal (DFRealVarying i)) = i
-getVaryingIndex (DFBool (DFBoolVarying i)) = i
-getVaryingIndex _ = undefined
-
 -- Emits copy out code to save results.
 emitCopyOut :: ShaderKind -> ShaderInputOutput -> Map.Map DF Vertex -> [DF] -> [String]
 emitCopyOut ShaderKindVertex si mnv (x:y:z:w : output_varyings) =
   (emitStrAssign "gl_Position" $ "vec4(" ++ emitNameDF mnv x ++ ", " ++ emitNameDF mnv y ++ ", " ++ emitNameDF mnv z ++ ", " ++ emitNameDF mnv w ++ ")") :
-  map (\n -> emitStrAssign (emitNameVarying ShaderKindFragment (num_outputs si) (getVaryingIndex n)) (emitNameDF mnv n)) output_varyings
+  zipWith (\n i -> emitStrAssign (emitNameVarying ShaderKindFragment (num_generic_outputs si) i) (emitNameDF mnv n)) output_varyings [0..]
 emitCopyOut ShaderKindVertex _ _ _ = undefined
 emitCopyOut ShaderKindFragment _ mnv (r:g:b:a:[]) =
   (emitStrAssign "gl_FragColor" $ "vec4(" ++ emitNameDF mnv r ++ ", " ++ emitNameDF mnv g ++ ", " ++ emitNameDF mnv b ++ ", " ++ emitNameDF mnv a ++ ")") :

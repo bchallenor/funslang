@@ -101,7 +101,7 @@ interpretExprAsShader sk env e t =
   case t of
     TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type result_type)) -> do
       -- Count the number of outputs.
-      no <- case (sk, result_type) of
+      ngo <- case (sk, result_type) of
         (ShaderKindVertex, TypeTuple [TypeArray TypeReal (DimFix 4), output_type]) -> countOutputs output_type
         (ShaderKindVertex, _) -> throwError "vertex shader has correct kind, but incorrect return type"
         (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return 0
@@ -122,7 +122,7 @@ interpretExprAsShader sk env e t =
       (varying_value, nv) <- dummyVaryingValue varying_type
       v <- f3 varying_value
       
-      return (v, ShaderInputOutput{num_uniforms = nu, num_textures = nt, num_varyings = nv, textures = ts, num_outputs = no})
+      return (v, ShaderInputOutput{num_uniforms = nu, num_textures = nt, num_varyings = nv, textures = ts, num_generic_outputs = ngo})
       
     _ -> throwError "shader does not have correct kind"
 

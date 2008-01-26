@@ -28,7 +28,7 @@ data ShaderInputOutput
     num_textures :: !Int,
     num_varyings :: !Int,
     textures :: ![ShaderTextureInput],
-    num_outputs :: !Int
+    num_generic_outputs :: !Int -- not including position, color etc
   }
   
   deriving (Show, Eq)
