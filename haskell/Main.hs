@@ -5,6 +5,7 @@ import Control.Monad.Error
 import System.IO
 
 import Parser
+import System.Directory
 import System.Environment
 import Pretty
 import Typing
@@ -42,10 +43,18 @@ main :: IO ()
 main = do
   a:_ <- getArgs
   
-  putStrLn "vertex..."
-  bsvp <- ByteString.readFile $ a ++ ".vp"
-  compileAndPrint ShaderKindVertex bsvp
+  exists_vp <- doesFileExist $ a ++ ".vp"
+  if exists_vp
+    then do
+      putStrLn "vertex..."
+      bsvp <- ByteString.readFile $ a ++ ".vp"
+      compileAndPrint ShaderKindVertex bsvp
+    else return ()
   
-  putStrLn "fragment..."
-  bsfp <- ByteString.readFile $ a ++ ".fp"
-  compileAndPrint ShaderKindFragment bsfp
+  exists_fp <- doesFileExist $ a ++ ".fp"
+  if exists_fp
+    then do
+      putStrLn "fragment..."
+      bsfp <- ByteString.readFile $ a ++ ".fp"
+      compileAndPrint ShaderKindFragment bsfp
+    else return ()
