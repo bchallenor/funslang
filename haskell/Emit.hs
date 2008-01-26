@@ -26,6 +26,7 @@ emit sk si (g, result_ns, mnv, mvn) =
       emitDecls sk si ++
       ["","void main()", "{"] ++
       map (\v -> let Just n = Map.lookup v mvn in emitNode (sk, si, mnv) n) vs ++
+      [""] ++
       emitCopyOut sk si mnv result_ns ++
       ["}"]
 
