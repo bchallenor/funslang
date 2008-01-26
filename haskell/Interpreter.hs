@@ -95,20 +95,36 @@ matchPattern (PattTuple _ _) _ = undefined
 
 
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
-interpretExprAsShader :: ValueEnv -> Expr -> Type -> Either String (Value, ShaderInputs)
-interpretExprAsShader env e t =
+interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Either String (Value, ShaderInputs)
+interpretExprAsShader sk env e t =
   flip catchError (\s -> throwError $ s ++ "\nin expression with type: " ++ prettyType t) $ do
   case t of
-    TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type _)) -> do
+    TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type result_type)) -> do
+      -- Count the number of outputs.
+      no <- case (sk, result_type) of
+        (ShaderKindVertex, TypeTuple [TypeArray TypeReal (DimFix 4), output_type]) -> countOutputs output_type
+        (ShaderKindVertex, _) -> throwError "shader has correct kind, but incorrect return type"
+        (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return 0
+        (ShaderKindFragment, _) -> throwError "shader has correct kind, but incorrect return type"
+      
+      -- Interpret the expression to create a closure.
       ValueFun f1 <- interpretExpr env e
+      
+      -- Count the number of uniforms, create a dummy variable to represent them, and apply closure.
       (uniform_value, nu) <- dummyUniformValue uniform_type
       ValueFun f2 <- f1 uniform_value
+      
+      -- Count the number of textures, create a dummy variable to represent them, and apply closure.
       (texture_value, nt, ts) <- dummyTextureValue texture_type
       ValueFun f3 <- f2 texture_value
+      
+      -- Count the number of varyings, create a dummy variable to represent them, and apply closure.
       (varying_value, nv) <- dummyVaryingValue varying_type
       v <- f3 varying_value
+      
       return (v, ShaderInputs{num_uniforms = nu, num_textures = nt, num_varyings = nv, textures = ts})
-    _ -> throwError "expression does not have correct kind to be a shader"
+      
+    _ -> throwError "shader does not have correct kind"
 
 
 -- Returns a dummy value and the number of uniforms.
@@ -129,8 +145,8 @@ dummyUniformValue' (TypeBool) = do
   i <- get
   put (i+1)
   return $ ValueDFBool $ DFBoolUniform i
-dummyUniformValue' (TypeArray t (DimFix n)) = do
-  vs <- replicateM (fromIntegral n) (dummyUniformValue' t)
+dummyUniformValue' (TypeArray t (DimFix d)) = do
+  vs <- replicateM (fromIntegral d) (dummyUniformValue' t)
   return $ ValueArray vs
 dummyUniformValue' (TypeTuple ts) = do
   vs <- mapM dummyUniformValue' ts
@@ -164,8 +180,8 @@ dummyTextureValue' (TypeTextureCube) = do
   (i, ts) <- get
   put (i+1, (ShaderTextureInputCube i) : ts)
   return $ ValueTextureCube i
-dummyTextureValue' (TypeArray t (DimFix n)) = do
-  vs <- replicateM (fromIntegral n) (dummyTextureValue' t)
+dummyTextureValue' (TypeArray t (DimFix d)) = do
+  vs <- replicateM (fromIntegral d) (dummyTextureValue' t)
   return $ ValueArray vs
 dummyTextureValue' (TypeTuple ts) = do
   vs <- mapM dummyTextureValue' ts
@@ -191,10 +207,24 @@ dummyVaryingValue' (TypeBool) = do
   i <- get
   put (i+1)
   return $ ValueDFBool $ DFBoolVarying i
-dummyVaryingValue' (TypeArray t (DimFix n)) = do
-  vs <- replicateM (fromIntegral n) (dummyVaryingValue' t)
+dummyVaryingValue' (TypeArray t (DimFix d)) = do
+  vs <- replicateM (fromIntegral d) (dummyVaryingValue' t)
   return $ ValueArray vs
 dummyVaryingValue' (TypeTuple ts) = do
   vs <- mapM dummyVaryingValue' ts
   return $ ValueTuple vs
 dummyVaryingValue' t = throwError $ "shader varying arguments cannot have type <" ++ prettyType t ++ ">"
+
+
+-- Counts the number of outputs in the given output type.
+countOutputs :: Type -> Either String Int
+countOutputs (TypeUnit) = return 0
+countOutputs (TypeReal) = return 1
+countOutputs (TypeBool) = return 1
+countOutputs (TypeArray t (DimFix d)) = do
+  n <- countOutputs t
+  return $ fromIntegral d * n
+countOutputs (TypeTuple ts) = do
+  ns <- mapM (countOutputs) ts
+  return $ sum ns
+countOutputs t = throwError $ "shader output cannot have type <" ++ prettyType t ++ ">"
