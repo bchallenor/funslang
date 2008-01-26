@@ -5,9 +5,20 @@ import qualified Data.List as List
 import Control.Monad.State
 
 
-data ProgramKind
-  = ProgramKindVertex
-  | ProgramKindFragment
+data ShaderKind
+  = ShaderKindVertex
+  | ShaderKindFragment
+  
+  deriving (Show, Eq)
+
+
+data ShaderNumInputs
+  = ShaderNumInputs
+  {
+    num_uniforms :: Int,
+    num_textures :: Int,
+    num_varyings :: Int
+  }
   
   deriving (Show, Eq)
 

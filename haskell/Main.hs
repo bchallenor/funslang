@@ -17,29 +17,29 @@ import Emit
 test :: IO ()
 test = withArgs ["test.vp"] main
 
-compile :: ByteString.ByteString -> Either String (Expr, Type, Value, Value, DFGraph)
+compile :: ByteString.ByteString -> Either String (Expr, Type, Value, ShaderNumInputs, DFGraph)
 compile bs = do
   let (gamma, env, vrefs) = library
   (e, vrefs') <- parseExpr vrefs bs
   (t, vrefs'') <- inferExprType gamma e vrefs'
-  v1 <- interpretExpr env e
-  v2 <- interpretExprAsShader env e t
-  return (e, t, v1, v2, dependencyGraph v2)
+  (v, num_inputs) <- interpretExprAsShader env e t
+  return (e, t, v, num_inputs, dependencyGraph v)
 
 main :: IO ()
 main = do
   a:_ <- getArgs
   bs <- ByteString.readFile a
   case compile bs of
-    Right (e, t, v1, v2, g) -> do
+    Right (e, t, v, num_inputs, g) -> do
       --putStrLn $ prettyExpr e ++ "\n\n" ++ prettyType t
       putStrLn $ prettyType t
+      putStrLn $ "inputs: " ++ show num_inputs
       putStrLn "outputting graphviz..."
       hFlush stdout
       success <- graphvizCompile g "graph" "png"
       putStrLn $ show success
       putStrLn "vertex..."
-      putStrLn $ emit ProgramKindVertex g
+      putStrLn $ emit ShaderKindVertex num_inputs g
       putStrLn "fragment..."
-      putStrLn $ emit ProgramKindFragment g
+      putStrLn $ emit ShaderKindFragment num_inputs g
     Left msg -> putStrLn msg

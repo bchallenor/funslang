@@ -71,7 +71,7 @@ interpretExpr env a@(ExprLambda p e) =
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
 -- so that the resulting value is either the first or second value according to the condition.
 conditionalize :: DFBool -> Value -> Value -> Either String Value
-conditionalize dfb (ValueUnit) (ValueUnit) = return ValueUnit
+conditionalize _ (ValueUnit) (ValueUnit) = return ValueUnit
 conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = return $ ValueDFReal $ DFRealCond dfb df1 df2
 conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = return $ ValueDFBool $ DFBoolCond dfb df1 df2
 conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
@@ -95,38 +95,42 @@ matchPattern (PattTuple _ _) _ = undefined
 
 
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
-interpretExprAsShader :: ValueEnv -> Expr -> Type -> Either String Value
+interpretExprAsShader :: ValueEnv -> Expr -> Type -> Either String (Value, ShaderNumInputs)
 interpretExprAsShader env e t =
   flip catchError (\s -> throwError $ s ++ "\nin expression with type: " ++ prettyType t) $ do
   case t of
     TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type _)) -> do
       ValueFun f1 <- interpretExpr env e
-      uniform_value <- dummyUniformValue uniform_type
+      (uniform_value, nu) <- dummyUniformValue uniform_type
       ValueFun f2 <- f1 uniform_value
-      texture_value <- dummyTextureValue texture_type
+      (texture_value, nt) <- dummyTextureValue texture_type
       ValueFun f3 <- f2 texture_value
-      varying_value <- dummyVaryingValue varying_type
-      f3 varying_value
+      (varying_value, nv) <- dummyVaryingValue varying_type
+      v <- f3 varying_value
+      return (v, ShaderNumInputs{num_uniforms = nu, num_textures = nt, num_varyings = nv})
     _ -> throwError "expression does not have correct kind to be a shader"
 
 
-dummyUniformValue :: Type -> Either String Value
-dummyUniformValue t =
-  evalState (runErrorT $ dummyUniformValue' t) (map DFRealUniform [0..], map DFBoolUniform [0..])
+-- Returns a dummy value and the number of uniforms.
+dummyUniformValue :: Type -> Either String (Value, Int)
+dummyUniformValue t = do
+  let (a, i') = runState (runErrorT $ dummyUniformValue' t) 0
+  v <- a
+  return (v, i')
 
-dummyUniformValue' :: Type -> ErrorT String (State ([DFReal], [DFBool])) Value
+dummyUniformValue' :: Type -> ErrorT String (State Int) Value
 dummyUniformValue' (TypeUnit) =
   return ValueUnit
 dummyUniformValue' (TypeReal) = do
-  (r:rs, bs) <- get
-  put (rs, bs)
-  return $ ValueDFReal r
+  i <- get
+  put (i+1)
+  return $ ValueDFReal $ DFRealUniform i
 dummyUniformValue' (TypeBool) = do
-  (rs, b:bs) <- get
-  put (rs, bs)
-  return $ ValueDFBool b
-dummyUniformValue' (TypeArray t (DimFix i)) = do
-  vs <- replicateM (fromIntegral i) (dummyUniformValue' t)
+  i <- get
+  put (i+1)
+  return $ ValueDFBool $ DFBoolUniform i
+dummyUniformValue' (TypeArray t (DimFix n)) = do
+  vs <- replicateM (fromIntegral n) (dummyUniformValue' t)
   return $ ValueArray vs
 dummyUniformValue' (TypeTuple ts) = do
   vs <- mapM dummyUniformValue' ts
@@ -134,31 +138,34 @@ dummyUniformValue' (TypeTuple ts) = do
 dummyUniformValue' t = throwError $ "shader uniform arguments cannot have type <" ++ prettyType t ++ ">"
 
 
-dummyTextureValue :: Type -> Either String Value
-dummyTextureValue t =
-  evalState (runErrorT $ dummyTextureValue' t) ([0..])
+-- Returns a dummy value and the number of textures.
+dummyTextureValue :: Type -> Either String (Value, Int)
+dummyTextureValue t = do
+  let (a, i') = runState (runErrorT $ dummyTextureValue' t) 0
+  v <- a
+  return (v, i')
 
-dummyTextureValue' :: Type -> ErrorT String (State ([Int])) Value
+dummyTextureValue' :: Type -> ErrorT String (State Int) Value
 dummyTextureValue' (TypeUnit) =
   return ValueUnit
 dummyTextureValue' (TypeTexture1D) = do
-  i:is <- get
-  put is
+  i <- get
+  put (i+1)
   return $ ValueTexture1D i
 dummyTextureValue' (TypeTexture2D) = do
-  i:is <- get
-  put is
+  i <- get
+  put (i+1)
   return $ ValueTexture2D i
 dummyTextureValue' (TypeTexture3D) = do
-  i:is <- get
-  put is
+  i <- get
+  put (i+1)
   return $ ValueTexture3D i
 dummyTextureValue' (TypeTextureCube) = do
-  i:is <- get
-  put is
+  i <- get
+  put (i+1)
   return $ ValueTextureCube i
-dummyTextureValue' (TypeArray t (DimFix i)) = do
-  vs <- replicateM (fromIntegral i) (dummyTextureValue' t)
+dummyTextureValue' (TypeArray t (DimFix n)) = do
+  vs <- replicateM (fromIntegral n) (dummyTextureValue' t)
   return $ ValueArray vs
 dummyTextureValue' (TypeTuple ts) = do
   vs <- mapM dummyTextureValue' ts
@@ -166,23 +173,26 @@ dummyTextureValue' (TypeTuple ts) = do
 dummyTextureValue' t = throwError $ "shader texture arguments cannot have type <" ++ prettyType t ++ ">"
 
 
-dummyVaryingValue :: Type -> Either String Value
-dummyVaryingValue t =
-  evalState (runErrorT $ dummyVaryingValue' t) (map DFRealVarying [0..], map DFBoolVarying [0..])
+-- Returns a dummy value and the number of varyings.
+dummyVaryingValue :: Type -> Either String (Value, Int)
+dummyVaryingValue t = do
+  let (a, i') = runState (runErrorT $ dummyVaryingValue' t) 0
+  v <- a
+  return (v, i')
 
-dummyVaryingValue' :: Type -> ErrorT String (State ([DFReal], [DFBool])) Value
+dummyVaryingValue' :: Type -> ErrorT String (State Int) Value
 dummyVaryingValue' (TypeUnit) =
   return ValueUnit
 dummyVaryingValue' (TypeReal) = do
-  (r:rs, bs) <- get
-  put (rs, bs)
-  return $ ValueDFReal r
+  i <- get
+  put (i+1)
+  return $ ValueDFReal $ DFRealVarying i
 dummyVaryingValue' (TypeBool) = do
-  (rs, b:bs) <- get
-  put (rs, bs)
-  return $ ValueDFBool b
-dummyVaryingValue' (TypeArray t (DimFix i)) = do
-  vs <- replicateM (fromIntegral i) (dummyVaryingValue' t)
+  i <- get
+  put (i+1)
+  return $ ValueDFBool $ DFBoolVarying i
+dummyVaryingValue' (TypeArray t (DimFix n)) = do
+  vs <- replicateM (fromIntegral n) (dummyVaryingValue' t)
   return $ ValueArray vs
 dummyVaryingValue' (TypeTuple ts) = do
   vs <- mapM dummyVaryingValue' ts

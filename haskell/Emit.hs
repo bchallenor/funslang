@@ -8,29 +8,29 @@ import Representation
 import Dataflow
 
 
-type EmitState = (ProgramKind, Map.Map DF Vertex)
+type EmitState = (ShaderKind, Map.Map DF Vertex)
 
 
-emit :: ProgramKind -> DFGraph -> String
-emit pk (g, mnv, mvn) =
+emit :: ShaderKind -> ShaderNumInputs -> DFGraph -> String
+emit pk num_inputs (g, mnv, mvn) =
   let vs = topSort g in
     unlines $ map (\v -> let Just n = Map.lookup v mvn in emitNode (pk, mnv) n) vs
 
 
 -- Emits a string that is different for vertex and fragment programs.
-emitProgramKind :: ProgramKind -> String
-emitProgramKind ProgramKindVertex = "Vertex"
-emitProgramKind ProgramKindFragment = "Fragment"
+emitShaderKind :: ShaderKind -> String
+emitShaderKind ShaderKindVertex = "Vertex"
+emitShaderKind ShaderKindFragment = "Fragment"
 
 
 -- Locations are temporary variables where dataflow node results are stored.
 -- These emit the given location.
 
-emitLocUniforms :: ProgramKind -> String
-emitLocUniforms pk = emitProgramKind pk ++ "Uniforms"
+emitLocUniforms :: ShaderKind -> String
+emitLocUniforms pk = emitShaderKind pk ++ "Uniforms"
 
-emitLocVaryings :: ProgramKind -> String
-emitLocVaryings pk = emitProgramKind pk ++ "Varyings"
+emitLocVaryings :: ShaderKind -> String
+emitLocVaryings pk = emitShaderKind pk ++ "Varyings"
 
 emitLocVertex :: Vertex -> String
 emitLocVertex v = "t" ++ show v
@@ -76,8 +76,8 @@ emitFunAssign mnv d f args = emitStrAssign (emitLocDF mnv d) (emitStrFun f $ map
 emitNode :: EmitState -> DF -> String
 
 emitNode (_, mnv) n@(DFReal (DFRealLiteral d)) = emitStrAssign (emitLocDF mnv n) $ show d
-emitNode (pk, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitLocDF mnv n) $ "Real" ++ emitLocVaryings pk ++ "[" ++ show i ++ "]"
-emitNode (pk, mnv) n@(DFReal (DFRealUniform i)) = emitStrAssign (emitLocDF mnv n) $ "Real" ++ emitLocUniforms pk ++ "[" ++ show i ++ "]"
+emitNode (pk, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitLocDF mnv n) $ emitLocVaryings pk ++ "[" ++ show i ++ "]"
+emitNode (pk, mnv) n@(DFReal (DFRealUniform i)) = emitStrAssign (emitLocDF mnv n) $ emitLocUniforms pk ++ "[" ++ show i ++ "]"
 
 emitNode (_, mnv) n@(DFReal (DFRealCond cond p q)) = emitStrAssign (emitLocDF mnv n) $ (emitLocDFBool mnv cond) ++ " ? " ++ (emitLocDFReal mnv p) ++ " : " ++ (emitLocDFReal mnv q)
 
@@ -114,8 +114,8 @@ emitNode (_, mnv) n@(DFReal (DFRealGetTexB p)) = emitStrAssign (emitLocDF mnv n)
 emitNode (_, mnv) n@(DFReal (DFRealGetTexA p)) = emitStrAssign (emitLocDF mnv n) (emitLocDFSample mnv p ++ ".a")
 
 emitNode (_, mnv) n@(DFBool (DFBoolLiteral b)) = emitStrAssign (emitLocDF mnv n) $ show b
-emitNode (pk, mnv) n@(DFBool (DFBoolVarying i)) = emitStrAssign (emitLocDF mnv n) $ "Bool" ++ emitLocVaryings pk ++ "[" ++ show i ++ "]"
-emitNode (pk, mnv) n@(DFBool (DFBoolUniform i)) = emitStrAssign (emitLocDF mnv n) $ "Bool" ++ emitLocUniforms pk ++ "[" ++ show i ++ "]"
+emitNode (pk, mnv) n@(DFBool (DFBoolVarying i)) = emitStrAssign (emitLocDF mnv n) $ "bool(" ++ emitLocVaryings pk ++ "[" ++ show i ++ "])"
+emitNode (pk, mnv) n@(DFBool (DFBoolUniform i)) = emitStrAssign (emitLocDF mnv n) $ "bool(" ++ emitLocUniforms pk ++ "[" ++ show i ++ "])"
 
 emitNode (_, mnv) n@(DFBool (DFBoolCond cond p q)) = emitStrAssign (emitLocDF mnv n) $ (emitLocDFBool mnv cond) ++ " ? " ++ (emitLocDFBool mnv p) ++ " : " ++ (emitLocDFBool mnv q)
 
