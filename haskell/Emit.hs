@@ -55,11 +55,11 @@ emitRootNameVarying :: ShaderKind -> String
 emitRootNameVarying ShaderKindVertex = "VertexVaryings"
 emitRootNameVarying ShaderKindFragment = "FragmentVaryings"
 
-emitNameVarying :: ShaderKind -> ShaderInputs -> Int -> String
-emitNameVarying sk si i =
+emitNameVarying :: ShaderKind -> Int -> Int -> String
+emitNameVarying sk num_total i =
   let (d, m) = i `divMod` maxPackingSize in
     emitRootNameVarying sk ++ show (maxPackingSize * d) ++
-      if i == (num_varyings si - 1) && m == 0
+      if i == (num_total - 1) && m == 0
         then "" -- no need to subscript: it's the last element, and that element is packed into a float
         else "[" ++ show m ++ "]"
 
@@ -112,17 +112,17 @@ emitUniformsDecl sk si = "uniform float " ++ emitNameUniform sk (num_uniforms si
 
 -- Emits varyings declarations.
 emitVaryingsDecls :: ShaderKind -> ShaderInputs -> [String]
-emitVaryingsDecls sk si = emitVaryingsDecls' sk si 0 []
+emitVaryingsDecls sk si = emitVaryingsDecls' sk (num_varyings si) 0 []
 
-emitVaryingsDecls' :: ShaderKind -> ShaderInputs -> Int -> [String] -> [String]
-emitVaryingsDecls' sk si num_packed acc =
-  let num_left = num_varyings si - num_packed in
+emitVaryingsDecls' :: ShaderKind -> Int -> Int -> [String] -> [String]
+emitVaryingsDecls' sk num_total num_packed acc =
+  let num_left = num_total - num_packed in
     if num_left <= 0
       then acc
       else
         let num_now = min num_left maxPackingSize in
         let decl = emitVaryingQualifier sk ++ " " ++ emitPackingType num_now ++ " " ++ emitRootNameVarying sk ++ show num_packed ++ ";" in
-          emitVaryingsDecls' sk si (num_packed + num_now) (decl : acc)
+          emitVaryingsDecls' sk num_total (num_packed + num_now) (decl : acc)
 
 -- Emits texture declarations.
 emitTextureDecls :: ShaderInputs -> [String]
@@ -143,7 +143,7 @@ emitDecls sk si = emitUniformsDecl sk si : emitTextureDecls si ++ emitVaryingsDe
 emitNode :: (ShaderKind, ShaderInputs, Map.Map DF Vertex) -> DF -> String
 
 emitNode (_, _, mnv) n@(DFReal (DFRealLiteral d)) = emitStrAssign (emitNameDF mnv n) $ show d
-emitNode (sk, si, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitNameDF mnv n) $ emitNameVarying sk si i
+emitNode (sk, si, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitNameDF mnv n) $ emitNameVarying sk (num_varyings si) i
 emitNode (sk, _, mnv) n@(DFReal (DFRealUniform i)) = emitStrAssign (emitNameDF mnv n) $ emitNameUniform sk i
 
 emitNode (_, _, mnv) n@(DFReal (DFRealCond cond p q)) = emitStrAssign (emitNameDF mnv n) $ (emitNameDFBool mnv cond) ++ " ? " ++ (emitNameDFReal mnv p) ++ " : " ++ (emitNameDFReal mnv q)
@@ -181,7 +181,7 @@ emitNode (_, _, mnv) n@(DFReal (DFRealGetTexB p)) = emitStrAssign (emitNameDF mn
 emitNode (_, _, mnv) n@(DFReal (DFRealGetTexA p)) = emitStrAssign (emitNameDF mnv n) (emitNameDFSample mnv p ++ ".a")
 
 emitNode (_, _, mnv) n@(DFBool (DFBoolLiteral b)) = emitStrAssign (emitNameDF mnv n) $ show b
-emitNode (sk, si, mnv) n@(DFBool (DFBoolVarying i)) = emitStrAssign (emitNameDF mnv n) $ "bool(" ++ emitNameVarying sk si i ++ ")"
+emitNode (sk, si, mnv) n@(DFBool (DFBoolVarying i)) = emitStrAssign (emitNameDF mnv n) $ "bool(" ++ emitNameVarying sk (num_varyings si) i ++ ")"
 emitNode (sk, _, mnv) n@(DFBool (DFBoolUniform i)) = emitStrAssign (emitNameDF mnv n) $ "bool(" ++ emitNameUniform sk i ++ ")"
 
 emitNode (_, _, mnv) n@(DFBool (DFBoolCond cond p q)) = emitStrAssign (emitNameDF mnv n) $ (emitNameDFBool mnv cond) ++ " ? " ++ (emitNameDFBool mnv p) ++ " : " ++ (emitNameDFBool mnv q)
