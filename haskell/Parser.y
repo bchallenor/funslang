@@ -144,7 +144,9 @@ opt_type :: { Maybe Type }
 --
 -- Operators
 --
--- Note that the prefix negation operators cannot be sectioned.
+-- Note that the prefix negation operators cannot be sectioned, because they are
+-- lexically indistinguishable from infix subtraction.
+-- Thus (-) is the subtraction function.
 --
 
 operator :: { Operator }
