@@ -102,9 +102,15 @@ interpretExprAsShader sk env e t =
     TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type result_type)) -> do
       -- Count the number of outputs.
       ngo <- case (sk, result_type) of
+        -- Vertex shader: (Real 4, 'a)
         (ShaderKindVertex, TypeTuple [TypeArray TypeReal (DimFix 4), output_type]) -> countOutputs output_type
+        -- Vertex shader: error
         (ShaderKindVertex, _) -> throwError "vertex shader has correct kind, but incorrect return type"
+        -- Fragment shader: Real 4
         (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return 0
+        -- Fragment shader: (Bool, Real 4)
+        (ShaderKindFragment, TypeTuple [TypeBool, TypeArray TypeReal (DimFix 4)]) -> return 0
+        -- Fragment shader: error
         (ShaderKindFragment, _) -> throwError "fragment shader has correct kind, but incorrect return type"
       
       -- Interpret the expression to create a closure.

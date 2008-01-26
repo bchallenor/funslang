@@ -223,4 +223,7 @@ emitCopyOut ShaderKindVertex _ _ _ = undefined
 emitCopyOut ShaderKindFragment _ mnv (r:g:b:a:[]) =
   (emitStrAssign "gl_FragColor" $ "vec4(" ++ emitNameDF mnv r ++ ", " ++ emitNameDF mnv g ++ ", " ++ emitNameDF mnv b ++ ", " ++ emitNameDF mnv a ++ ")") :
   []
+emitCopyOut ShaderKindFragment si mnv (cond:rest) =
+  ("if (!" ++ emitNameDF mnv cond ++ ") discard;") :
+  emitCopyOut ShaderKindFragment si mnv rest
 emitCopyOut ShaderKindFragment _ _ _ = undefined
