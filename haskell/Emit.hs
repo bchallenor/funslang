@@ -23,8 +23,10 @@ emit :: ShaderKind -> ShaderInputOutput -> DFGraph -> String
 emit sk si (g, result_ns, mnv, mvn) =
   let vs = topSort g in
     unlines $
-      emitDecls sk si ++
+      emitGlobalDecls sk si ++
       ["","void main()", "{"] ++
+      emitTempDecls mnv ++
+      [""] ++
       map (\v -> let Just n = Map.lookup v mvn in emitNode (sk, si, mnv) n) vs ++
       [""] ++
       emitCopyOut sk si mnv result_ns ++
@@ -142,9 +144,24 @@ emitTextureDecl (ShaderTextureInput2D i) = "uniform sampler2D " ++ emitNameTextu
 emitTextureDecl (ShaderTextureInput3D i) = "uniform sampler3D " ++ emitNameTexture i ++ ";"
 emitTextureDecl (ShaderTextureInputCube i) = "uniform samplerCube " ++ emitNameTexture i ++ ";"
 
--- Emits all relevant declarations.
-emitDecls :: ShaderKind -> ShaderInputOutput -> [String]
-emitDecls sk si = emitUniformsDecl sk si : emitTextureDecls si ++ emitVaryingsDecls sk si
+-- Emits all relevant global declarations.
+emitGlobalDecls :: ShaderKind -> ShaderInputOutput -> [String]
+emitGlobalDecls sk si = emitUniformsDecl sk si : emitTextureDecls si ++ emitVaryingsDecls sk si
+
+-- Emits temporary declarations.
+emitTempDecls :: Map.Map DF Vertex -> [String]
+emitTempDecls mnv =
+  let (rs, bs, ss) = Map.foldWithKey foldTempName ([], [], []) mnv in
+    [emitTempDecl "float" rs, emitTempDecl "bool" bs, emitTempDecl "vec4" ss]
+
+foldTempName :: DF -> Vertex -> ([String], [String], [String]) -> ([String], [String], [String])
+foldTempName (DFReal _) v (rs, bs, ss) = (emitNameDFVertex v : rs, bs, ss)
+foldTempName (DFBool _) v (rs, bs, ss) = (rs, emitNameDFVertex v : bs, ss)
+foldTempName (DFSample _) v (rs, bs, ss) = (rs, bs, emitNameDFVertex v : ss)
+
+emitTempDecl :: String -> [String] -> String
+emitTempDecl t [] = "// no " ++ t
+emitTempDecl t xs = concat $ t : " " : List.intersperse ", " xs ++ [";"]
 
 
 -- Emits the operation represented by a DF.
