@@ -114,7 +114,11 @@ emitFunAssign mnv d f args = emitStrAssign (emitNameDF mnv d) (emitStrFun f $ ma
 
 -- Emits uniforms declaration.
 emitUniformsDecl :: ShaderKind -> ShaderInputOutput -> String
-emitUniformsDecl sk si = "uniform float " ++ emitNameUniform sk (num_uniforms si) ++ ";"
+emitUniformsDecl sk si =
+  let n = num_uniforms si in
+    if n <= 0
+      then "// no uniforms"
+      else "uniform float " ++ emitNameUniform sk n ++ ";"
 
 -- Emits varying declarations (for both input and output).
 emitVaryingsDecls :: ShaderKind -> ShaderInputOutput -> [String]
