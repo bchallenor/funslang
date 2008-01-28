@@ -4,6 +4,8 @@
 #include <GL/glew.h>
 #include <GL/glut.h>
 
+#include "LibFunslang_stub.h"
+
 #define DEBUG
 
 #define MAX_PACKING_SIZE 4
@@ -97,6 +99,10 @@ void fsSetVertexVaryings(FSprogram* p, const GLfloat* data)
 	}
 }
 
+void fsInit(int argc, char** argv)
+{
+	hs_init(&argc, &argv);
+}
 
 
 
