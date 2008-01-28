@@ -1,14 +1,14 @@
-GHCFLAGS=-Wall -prof -auto-all
+GHCFLAGS=-Wall
 
 .PHONY: clean
 
-all: Main.exe libfunslang.a
+all: lib standalone
 
-libfunslang.a: *.hs
-	ghc -c $(GHCFLAGS) --make LibFunslang
-	ar -rcs $@ *.o
+lib: *.hs
+	ghc $(GHCFLAGS) -c --make LibFunslang
+	ghc $(GHCFLAGS) -c LibFunslang_stub.c
 
-Main.exe: *.hs
+standalone: *.hs
 	ghc $(GHCFLAGS) --make Main
 
 Parser.hs: Parser.y
@@ -18,4 +18,4 @@ Lexer.hs: Lexer.x
 	alex -g Lexer.x
 
 clean:
-	-del *.o *.hi *.exe *.a *.manifest
+	-del *.o *.hi *.exe *.manifest
