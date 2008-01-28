@@ -19,7 +19,8 @@ fsCompileFunslang sk path_cstr success_ptr num_uniforms_ptr num_varyings_ptr emi
   exists <- doesFileExist path
   if exists
     then do
-      bs <- ByteString.readFile path
+      h <- openFile path ReadMode
+      bs <- ByteString.hGetContents h
       case compile sk bs of
         Right (_, _, _, si, g) -> do
           emit_cstr <- newCString $ emit sk si g
@@ -27,10 +28,12 @@ fsCompileFunslang sk path_cstr success_ptr num_uniforms_ptr num_varyings_ptr emi
           poke num_uniforms_ptr $ fromIntegral $ num_uniforms si
           poke num_varyings_ptr $ fromIntegral $ num_varyings si
           poke emit_cstr_ptr emit_cstr
+          hClose h
         Left msg -> do
           msg_cstr <- newCString msg
           poke success_ptr False
           poke emit_cstr_ptr msg_cstr
+          hClose h
     else do
       msg_cstr <- newCString $ "file <" ++ path ++ "> does not exist"
       poke success_ptr False
