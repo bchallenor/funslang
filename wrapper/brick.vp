@@ -1,0 +1,26 @@
+\(LightPosition, mvm, pm :: Real 4 4, nm) () (v :: Real 4, n :: Real 3).
+
+let SpecularContribution = 0.3 in
+let DiffuseContribution  = 1.0 - SpecularContribution in
+
+let mv = mvm #. v in
+let p = pm #. mv in
+
+let ecPosition = strip mv in
+let tnorm      = normalize (nm #. n) in
+let lightVec   = normalize (LightPosition -- ecPosition) in
+let reflectVec = reflect (--lightVec) tnorm in
+let viewVec    = normalize (--ecPosition) in
+let diffuse    = max (dot lightVec tnorm) 0.0 in
+
+let spec =
+  if diffuse > 0
+    then pow (max (dot reflectVec viewVec) 0.0) 16
+    else 0.0 in
+
+let LightIntensity =
+  DiffuseContribution * diffuse + SpecularContribution * spec in
+
+let MCposition = v!![0,1] in
+
+  (p, (LightIntensity, MCposition))
