@@ -13,8 +13,8 @@ import Compiler
 
 -- The following functions export the compiler to C.
 
-fsCompileFunslang :: ShaderKind -> CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-fsCompileFunslang sk path_cstr success_ptr num_uniforms_ptr num_varyings_ptr emit_cstr_ptr = do
+fsCompile :: ShaderKind -> CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+fsCompile sk path_cstr success_ptr num_uniforms_ptr num_varyings_ptr emit_cstr_ptr = do
   path <- peekCString path_cstr
   exists <- doesFileExist path
   if exists
@@ -39,15 +39,12 @@ fsCompileFunslang sk path_cstr success_ptr num_uniforms_ptr num_varyings_ptr emi
       poke success_ptr False
       poke emit_cstr_ptr msg_cstr
 
-fsCompileFunslangVertex :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-fsCompileFunslangVertex = fsCompileFunslang ShaderKindVertex
+fsCompileVertex :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+fsCompileVertex = fsCompile ShaderKindVertex
 
-fsCompileFunslangFragment :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-fsCompileFunslangFragment = fsCompileFunslang ShaderKindFragment
+fsCompileFragment :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+fsCompileFragment = fsCompile ShaderKindFragment
 
-fsCompileFree :: CString -> IO ()
-fsCompileFree cstr = free cstr
-
-foreign export ccall "fsCompileFunslangVertex" fsCompileFunslangVertex :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-foreign export ccall "fsCompileFunslangFragment" fsCompileFunslangFragment :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-foreign export ccall "fsCompileFree" fsCompileFree :: CString -> IO ()
+foreign export ccall "fsCompileVertex" fsCompileVertex :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+foreign export ccall "fsCompileFragment" fsCompileFragment :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+foreign export ccall "fsFree" free :: Ptr a -> IO ()

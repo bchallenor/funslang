@@ -28,14 +28,17 @@ data Fixity
 --   in constructing the type schemes of the library functions.
 library :: (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]))
 library =
+  let wrapmsg ident msg = "in constructing library function <" ++ ident ++ ">: " ++ msg in
+  
   let { base = List.foldl' (
     \ (gamma, env, vrefs) (_, ident, tstr, _, _, _, v) ->
       case parseType vrefs (ByteString.pack tstr) of
         Right (t, vrefs') ->
           let sigma = Scheme (fvType t) t in
             (Map.insert ident sigma gamma, Map.insert ident v env, vrefs')
-        Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
+        Left msg -> error $ wrapmsg ident msg
   ) (Map.empty, Map.empty, initFreshVarRefs) libraryBase } in
+  
   List.foldl' (
     \ (gamma, env, vrefs) (_, ident, _, _, estr) ->
       case parseExpr vrefs (ByteString.pack estr) of
@@ -46,9 +49,9 @@ library =
                 Right v ->
                   let sigma = Scheme (fvType t) t in
                   (Map.insert ident sigma gamma, Map.insert ident v env, vrefs'')
-                Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
-            Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
-        Left msg -> error $ "in constructing library function <" ++ ident ++ ">: " ++ msg
+                Left msg -> error $ wrapmsg ident msg
+            Left msg -> error $ wrapmsg ident msg
+        Left msg -> error $ wrapmsg ident msg
   ) base libraryDerived
 
 

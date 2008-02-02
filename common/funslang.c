@@ -61,31 +61,31 @@ bool fsCompile(FSprogram* p)
 	bool success;
 	char* c;
 	
-	fsCompileFunslangVertex((char*)p->vertex_shader_path, &success, &p->num_vertex_uniforms, &p->num_vertex_varyings, &c);
+	fsCompileVertex((char*)p->vertex_shader_path, &success, &p->num_vertex_uniforms, &p->num_vertex_varyings, &c);
 	
 	if (!success)
 	{
 		printf("error in <%s>:\n%s", p->vertex_shader_path, c);
-		fsCompileFree(c);
+		fsFree(c);
 		return false;
 	}
 	
 	printf("##### emitted vertex shader:\n\n%s\n\n", c);
 	p->glsl_vertex_shader_source = strdup(c);
-	fsCompileFree(c);
+	fsFree(c);
 	
-	fsCompileFunslangFragment((char*)p->fragment_shader_path, &success, &p->num_fragment_uniforms, &p->num_fragment_varyings, &c);
+	fsCompileFragment((char*)p->fragment_shader_path, &success, &p->num_fragment_uniforms, &p->num_fragment_varyings, &c);
 
 	if (!success)
 	{
 		printf("error in <%s>:\n%s", p->fragment_shader_path, c);
-		fsCompileFree(c);
+		fsFree(c);
 		return false;
 	}
 	
 	printf("##### emitted fragment shader:\n\n%s\n\n", c);
 	p->glsl_fragment_shader_source = strdup(c);
-	fsCompileFree(c);
+	fsFree(c);
 	
 	return fsCompileGLSL(p);
 }
