@@ -9,7 +9,7 @@ lib: *.hs
 	ghc $(GHCFLAGS) -c LibFunslang_stub.c
 
 standalone: *.hs
-	ghc $(GHCFLAGS) --make Main
+	ghc $(GHCFLAGS) -osuf prof.o -hisuf prof.hi -prof -auto-all --make Main
 
 Parser.hs: Parser.y
 	happy -g -c -i Parser.y
