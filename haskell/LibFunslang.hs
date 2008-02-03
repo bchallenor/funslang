@@ -1,4 +1,6 @@
 {-# OPTIONS -ffi #-}
+
+-- Exports the compiler to C.
 module LibFunslang where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
@@ -8,43 +10,60 @@ import Foreign.C
 
 import System.Directory
 import Representation
-import Emit
+import Pretty
 import Compiler
 
--- The following functions export the compiler to C.
 
-fsCompile :: ShaderKind -> CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-fsCompile sk path_cstr success_ptr num_uniforms_ptr num_varyings_ptr emit_cstr_ptr = do
-  path <- peekCString path_cstr
-  exists <- doesFileExist path
-  if exists
+fsCompile :: CString -> CString -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+fsCompile v_path_cstr f_path_cstr err_cstr_ptr v_type_cstr_ptr v_num_uniforms_ptr v_num_varyings_ptr v_emit_cstr_ptr f_type_cstr_ptr f_num_uniforms_ptr f_num_varyings_ptr f_emit_cstr_ptr = do
+  v_path <- peekCString v_path_cstr
+  f_path <- peekCString f_path_cstr
+  
+  v_exists <- doesFileExist v_path
+  f_exists <- doesFileExist f_path
+  
+  if not v_exists || not f_exists
     then do
-      h <- openFile path ReadMode
-      bs <- ByteString.hGetContents h
-      case compile sk bs of
-        Right (_, _, _, si, g) -> do
-          emit_cstr <- newCString $ emit sk si g
-          poke success_ptr True
-          poke num_uniforms_ptr $ fromIntegral $ num_uniforms si
-          poke num_varyings_ptr $ fromIntegral $ num_varyings si
-          poke emit_cstr_ptr emit_cstr
-          hClose h
-        Left msg -> do
-          msg_cstr <- newCString msg
-          poke success_ptr False
-          poke emit_cstr_ptr msg_cstr
-          hClose h
+      err_cstr <- newCString "file does not exist"
+      poke err_cstr_ptr err_cstr
+      
     else do
-      msg_cstr <- newCString $ "file <" ++ path ++ "> does not exist"
-      poke success_ptr False
-      poke emit_cstr_ptr msg_cstr
+      v_h <- openFile v_path ReadMode
+      v_src <- ByteString.hGetContents v_h
+      
+      f_h <- openFile f_path ReadMode
+      f_src <- ByteString.hGetContents f_h
+      
+      case compile v_src f_src of
+        Right (v_type, v_si, _, v_emit, f_type, f_si, _, f_emit) -> do
+          
+          poke v_num_uniforms_ptr $ fromIntegral $ num_uniforms v_si
+          poke v_num_varyings_ptr $ fromIntegral $ num_varyings v_si
+          v_emit_cstr <- newCString v_emit
+          poke v_emit_cstr_ptr v_emit_cstr
+          v_type_cstr <- newCString $ prettyType v_type
+          poke v_type_cstr_ptr v_type_cstr
+          
+          poke f_num_uniforms_ptr $ fromIntegral $ num_uniforms f_si
+          poke f_num_varyings_ptr $ fromIntegral $ num_varyings f_si
+          f_emit_cstr <- newCString f_emit
+          poke f_emit_cstr_ptr f_emit_cstr
+          f_type_cstr <- newCString $ prettyType f_type
+          poke f_type_cstr_ptr f_type_cstr
+          
+          poke err_cstr_ptr nullPtr
+          
+          hClose v_h
+          hClose f_h
+          
+        Left msg -> do
+          
+          err_cstr <- newCString msg
+          poke err_cstr_ptr err_cstr
+          
+          hClose v_h
+          hClose f_h
 
-fsCompileVertex :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-fsCompileVertex = fsCompile ShaderKindVertex
 
-fsCompileFragment :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-fsCompileFragment = fsCompile ShaderKindFragment
-
-foreign export ccall "fsCompileVertex" fsCompileVertex :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-foreign export ccall "fsCompileFragment" fsCompileFragment :: CString -> Ptr Bool -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-foreign export ccall "fsFree" free :: Ptr a -> IO ()
+foreign export ccall "_fsCompile" fsCompile :: CString -> CString -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+foreign export ccall "_fsFree" free :: Ptr a -> IO ()

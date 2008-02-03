@@ -58,36 +58,40 @@ bool fsCompileGLSL(FSprogram* p)
 
 bool fsCompile(FSprogram* p)
 {
-	bool success;
-	char* c;
+	char* err;
+	char* v_type;
+	char* f_type;
+	char* v_glsl_src;
+	char* f_glsl_src;
 	
-	fsCompileVertex((char*)p->vertex_shader_path, &success, &p->num_vertex_uniforms, &p->num_vertex_varyings, &c);
+	_fsCompile(
+		(char*)p->vertex_shader_path,
+		(char*)p->fragment_shader_path,
+		&err,
+		&v_type, &p->num_vertex_uniforms, &p->num_vertex_varyings, &v_glsl_src,
+		&f_type, &p->num_fragment_uniforms, &p->num_fragment_varyings, &f_glsl_src
+	);
 	
-	if (!success)
+	if (err)
 	{
-		printf("error in <%s>:\n%s", p->vertex_shader_path, c);
-		fsFree(c);
+		fprintf(stderr, "%s", err);
+		_fsFree(err);
 		return false;
 	}
-	
-	printf("##### emitted vertex shader:\n\n%s\n\n", c);
-	p->glsl_vertex_shader_source = strdup(c);
-	fsFree(c);
-	
-	fsCompileFragment((char*)p->fragment_shader_path, &success, &p->num_fragment_uniforms, &p->num_fragment_varyings, &c);
-
-	if (!success)
+	else
 	{
-		printf("error in <%s>:\n%s", p->fragment_shader_path, c);
-		fsFree(c);
-		return false;
+		printf("##### emitted vertex shader:\n\n%s\n\n%s\n\n", v_type, v_glsl_src);
+		p->glsl_vertex_shader_source = strdup(v_glsl_src);
+		_fsFree(v_type);
+		_fsFree(v_glsl_src);
+		
+		printf("##### emitted fragment shader:\n\n%s\n\n%s\n\n", f_type, f_glsl_src);
+		p->glsl_fragment_shader_source = strdup(f_glsl_src);
+		_fsFree(f_type);
+		_fsFree(f_glsl_src);
+		
+		return fsCompileGLSL(p);
 	}
-	
-	printf("##### emitted fragment shader:\n\n%s\n\n", c);
-	p->glsl_fragment_shader_source = strdup(c);
-	fsFree(c);
-	
-	return fsCompileGLSL(p);
 }
 
 void fsSetVertexUniforms(FSprogram* p, const GLfloat* data)

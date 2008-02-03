@@ -104,14 +104,11 @@ interpretExprAsShader sk env e t =
       ngo <- case (sk, result_type) of
         -- Vertex shader: (Real 4, 'a)
         (ShaderKindVertex, TypeTuple [TypeArray TypeReal (DimFix 4), output_type]) -> countOutputs output_type
-        -- Vertex shader: error
-        (ShaderKindVertex, _) -> throwError "vertex shader has correct kind, but incorrect return type"
         -- Fragment shader: Real 4
         (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return 0
         -- Fragment shader: (Bool, Real 4)
         (ShaderKindFragment, TypeTuple [TypeBool, TypeArray TypeReal (DimFix 4)]) -> return 0
-        -- Fragment shader: error
-        (ShaderKindFragment, _) -> throwError "fragment shader has correct kind, but incorrect return type"
+        _ -> error "unknown shader type passed to interpreter"
       
       -- Interpret the expression to create a closure.
       ValueFun f1 <- interpretExpr env e

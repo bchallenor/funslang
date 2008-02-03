@@ -3,7 +3,7 @@
 -- The principal type function, however, is based on that in the Types course
 -- by Prof. Andrew M. Pitts.
 
-module Typing(inferExprType, Scheme(..), SchemeEnv, fvType) where
+module Typing(inferExprType, Scheme(..), SchemeEnv, fvType, runTI, mgu, applySubstType) where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -18,8 +18,7 @@ import Representation
 -- The type inference function. This is the main function for this module.
 inferExprType :: SchemeEnv -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either String (Type, ([TypeVarRef], [DimVarRef]))
 inferExprType gamma e vrefs = do
-  let (a,vrefs') = runState (runErrorT $ principalType gamma e) vrefs
-  (s,t) <- a
+  ((_,t), vrefs') <- runTI (principalType gamma e) vrefs
   return (t, vrefs')
 
 
@@ -27,8 +26,11 @@ inferExprType gamma e vrefs = do
 -- and can return errors (use throwError).
 type TI a = ErrorT String (State ([TypeVarRef], [DimVarRef])) a
 
---runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> (Either String a, ([TypeVarRef], [DimVarRef]))
---runTI ti state = runState (runErrorT ti) state
+runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> Either String (a, ([TypeVarRef], [DimVarRef]))
+runTI ti vrefs = do
+  let (a,vrefs') = runState (runErrorT ti) vrefs
+  r <- a
+  return (r, vrefs')
 
 
 -- Take a fresh type variable.
@@ -231,7 +233,7 @@ principalType gamma a@(ExprApp e1 e2) = do
 
 principalType gamma a@(ExprArray es) = do
   alpha <- freshTypeVar -- the type of elements of the array
-  (s1, s1gamma) <- Foldable.foldrM (
+  (s1, _) <- Foldable.foldrM (
     \ e (s1, s1gamma) -> do
       (s2, t2) <- principalType s1gamma e
       s3 <- mgu t2 (applySubstType s1 alpha)
@@ -241,7 +243,7 @@ principalType gamma a@(ExprArray es) = do
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
 principalType gamma a@(ExprTuple es) = do
-  (s1, s1gamma, ts1) <- Foldable.foldrM (
+  (s1, _, ts1) <- Foldable.foldrM (
     \ e (s1, s1gamma, ts1) -> do
       (s2, t2) <- principalType s1gamma e
       return (s2 `composeSubst` s1, applySubstSchemeEnv s2 s1gamma, t2:ts1)
@@ -265,7 +267,7 @@ principalType gamma a@(ExprLet p e1 e2) = do
   (t1', bindings) <- inferPattType p
   -- we should remove any mapping for the identifiers in p, because we're going to shadow them,
   -- and we don't want existing defs to stop us from generalizing their free variables
-  let gamma_shadowed = Map.differenceWithKey (\ident _ _ -> Nothing) gamma bindings
+  let gamma_shadowed = Map.differenceWithKey (\_ _ _ -> Nothing) gamma bindings
   let s1gamma_shadowed = applySubstSchemeEnv s1 gamma_shadowed
   s2 <- mgu t1 t1'
   let s2s1gamma_shadowed = applySubstSchemeEnv s2 s1gamma_shadowed
@@ -337,6 +339,6 @@ inferPattType a@(PattTuple ps (Just t)) = do
     ) ([], Map.empty) ps
   s <- mgu t (TypeTuple acc_ts)
   return (applySubstType s t, Map.map (applySubstType s) acc_m)
-inferPattType p@(PattTuple ps Nothing) = do
+inferPattType (PattTuple ps Nothing) = do
   t <- freshTypeVar
   inferPattType $ PattTuple ps (Just t)
