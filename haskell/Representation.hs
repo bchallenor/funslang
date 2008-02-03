@@ -3,6 +3,7 @@ module Representation where
 import qualified Data.Map as Map
 import qualified Data.List as List
 import Control.Monad.State
+import Control.Monad.Error
 
 
 data ShaderKind
@@ -21,14 +22,15 @@ data ShaderTextureInput
   deriving (Show, Eq)
 
 
-data ShaderInputOutput
-  = ShaderInputOutput
+data ShaderState
+  = ShaderState
   {
     num_uniforms :: !Int,
     num_textures :: !Int,
     num_varyings :: !Int,
     textures :: ![ShaderTextureInput],
-    num_generic_outputs :: !Int -- not including position, color etc
+    num_generic_outputs :: !Int, -- not including position, color etc
+    num_nodes :: !Int -- node count so that new ones get unique IDs
   }
   
   deriving (Show, Eq)
@@ -449,6 +451,53 @@ data DFSample -- these are internal to a texture sampling gadget
   deriving (Show, Eq, Ord)
 
 
+-- The interpreter monad holds fresh numbers,
+-- and can return errors (use throwError).
+type InterpretM a = ErrorT String (State ShaderState) a
+
+runInterpretM :: InterpretM a -> ShaderState -> Either String (a, ShaderState)
+runInterpretM vi i = do
+  let (a,i') = runState (runErrorT vi) i
+  r <- a
+  return (r, i')
+
+freshUniform :: InterpretM Int
+freshUniform = do
+  s <- get
+  let i = num_uniforms s
+  put s{num_uniforms = i+1}
+  return i
+
+freshTexture :: (Int -> ShaderTextureInput) -> InterpretM Int
+freshTexture f = do
+  s <- get
+  let i = num_textures s
+  let ts = textures s
+  put s{num_textures = i+1, textures = (f i) : ts}
+  return i
+
+freshVarying :: InterpretM Int
+freshVarying = do
+  s <- get
+  let i = num_varyings s
+  put s{num_varyings = i+1}
+  return i
+
+freshGenericOutput :: InterpretM ()
+freshGenericOutput = do
+  s <- get
+  let i = num_generic_outputs s
+  put s{num_generic_outputs = i+1}
+  return ()
+
+freshNode :: InterpretM Int
+freshNode = do
+  s <- get
+  let i = num_nodes s
+  put s{num_nodes = i+1}
+  return i
+
+
 data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit
   | ValueDFReal !DFReal
@@ -459,7 +508,7 @@ data Value -- can't derive Show or Eq due to those pesky closures
   | ValueTextureCube !Int
   | ValueArray ![Value]
   | ValueTuple ![Value]
-  | ValueFun !(Value -> Either String Value) -- might raise exception
+  | ValueFun !(Value -> InterpretM Value) -- might raise exception
 
 unValueDFReal :: Value -> DFReal
 unValueDFReal (ValueDFReal df) = df

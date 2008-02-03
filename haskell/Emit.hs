@@ -19,7 +19,7 @@ import Dataflow
 
 
 
-emit :: ShaderKind -> ShaderInputOutput -> DFGraph -> String
+emit :: ShaderKind -> ShaderState -> DFGraph -> String
 emit sk si (g, result_ns, mnv, mvn) =
   let vs = topSort g in
     unlines $
@@ -113,7 +113,7 @@ emitFunAssign mnv d f args = emitStrAssign (emitNameDF mnv d) (emitStrFun f $ ma
 
 
 -- Emits uniforms declaration.
-emitUniformsDecl :: ShaderKind -> ShaderInputOutput -> String
+emitUniformsDecl :: ShaderKind -> ShaderState -> String
 emitUniformsDecl sk si =
   let n = num_uniforms si in
     if n <= 0
@@ -121,7 +121,7 @@ emitUniformsDecl sk si =
       else "uniform float " ++ emitNameUniform sk n ++ ";"
 
 -- Emits varying declarations (for both input and output).
-emitVaryingsDecls :: ShaderKind -> ShaderInputOutput -> [String]
+emitVaryingsDecls :: ShaderKind -> ShaderState -> [String]
 emitVaryingsDecls ShaderKindVertex si = emitVaryingsDecls' ShaderKindVertex (num_varyings si) ++ emitVaryingsDecls' ShaderKindFragment (num_generic_outputs si)
 emitVaryingsDecls ShaderKindFragment si = emitVaryingsDecls' ShaderKindFragment (num_varyings si)
 
@@ -139,7 +139,7 @@ emitVaryingsDecls'' sk num_total num_packed acc =
           emitVaryingsDecls'' sk num_total (num_packed + num_now) (decl : acc)
 
 -- Emits texture declarations.
-emitTextureDecls :: ShaderInputOutput -> [String]
+emitTextureDecls :: ShaderState -> [String]
 emitTextureDecls si = map emitTextureDecl (textures si)
 
 emitTextureDecl :: ShaderTextureInput -> String
@@ -149,7 +149,7 @@ emitTextureDecl (ShaderTextureInput3D i) = "uniform sampler3D " ++ emitNameTextu
 emitTextureDecl (ShaderTextureInputCube i) = "uniform samplerCube " ++ emitNameTexture i ++ ";"
 
 -- Emits all relevant global declarations.
-emitGlobalDecls :: ShaderKind -> ShaderInputOutput -> [String]
+emitGlobalDecls :: ShaderKind -> ShaderState -> [String]
 emitGlobalDecls sk si = emitUniformsDecl sk si : emitTextureDecls si ++ emitVaryingsDecls sk si
 
 -- Emits temporary declarations.
@@ -169,7 +169,7 @@ emitTempDecl t xs = concat $ t : " " : List.intersperse ", " xs ++ [";"]
 
 
 -- Emits the operation represented by a DF.
-emitNode :: (ShaderKind, ShaderInputOutput, Map.Map DF Vertex) -> DF -> String
+emitNode :: (ShaderKind, ShaderState, Map.Map DF Vertex) -> DF -> String
 
 emitNode (_, _, mnv) n@(DFReal (DFRealLiteral d)) = emitStrAssign (emitNameDF mnv n) $ show d
 emitNode (sk, si, mnv) n@(DFReal (DFRealVarying i)) = emitStrAssign (emitNameDF mnv n) $ emitNameVarying sk (num_varyings si) i
@@ -236,7 +236,7 @@ emitNode (_, _, mnv) n@(DFSample (DFSampleCube i p q r)) = emitStrAssign (emitNa
 
 
 -- Emits copy out code to save results.
-emitCopyOut :: ShaderKind -> ShaderInputOutput -> Map.Map DF Vertex -> [DF] -> [String]
+emitCopyOut :: ShaderKind -> ShaderState -> Map.Map DF Vertex -> [DF] -> [String]
 emitCopyOut ShaderKindVertex si mnv (x:y:z:w : output_varyings) =
   (emitStrAssign "gl_Position" $ "vec4(" ++ emitNameDF mnv x ++ ", " ++ emitNameDF mnv y ++ ", " ++ emitNameDF mnv z ++ ", " ++ emitNameDF mnv w ++ ")") :
   zipWith (\n i -> emitStrAssign (emitNameVarying ShaderKindFragment (num_generic_outputs si) i) (emitNameDF mnv n)) output_varyings [0..]

@@ -26,29 +26,30 @@ data Fixity
 -- - a map from library identifiers to values;
 -- - the subsequent list of fresh variable references, given that some were used
 --   in constructing the type schemes of the library functions.
-library :: (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]))
+-- - the number of dataflow nodes used by the library
+library :: (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]), Int)
 library =
   let wrapmsg ident msg = "in constructing library function <" ++ ident ++ ">: " ++ msg in
   
   let { base = List.foldl' (
-    \ (gamma, env, vrefs) (_, ident, tstr, _, _, _, v) ->
+    \ (gamma, env, vrefs, i) (_, ident, tstr, _, _, _, v) ->
       case parseType vrefs (ByteString.pack tstr) of
         Right (t, vrefs') ->
           let sigma = Scheme (fvType t) t in
-            (Map.insert ident sigma gamma, Map.insert ident v env, vrefs')
+            (Map.insert ident sigma gamma, Map.insert ident v env, vrefs', i)
         Left msg -> error $ wrapmsg ident msg
-  ) (Map.empty, Map.empty, initFreshVarRefs) libraryBase } in
+  ) (Map.empty, Map.empty, initFreshVarRefs, 0) libraryBase } in
   
   List.foldl' (
-    \ (gamma, env, vrefs) (_, ident, _, _, estr) ->
+    \ (gamma, env, vrefs, i) (_, ident, _, _, estr) ->
       case parseExpr vrefs (ByteString.pack estr) of
         Right (e, vrefs') ->
           case inferExprType gamma e vrefs' of
             Right (t, vrefs'') ->
-              case interpretExpr env e of
-                Right v ->
+              case interpretExpr env e i of
+                Right (v, i') ->
                   let sigma = Scheme (fvType t) t in
-                  (Map.insert ident sigma gamma, Map.insert ident v env, vrefs'')
+                  (Map.insert ident sigma gamma, Map.insert ident v env, vrefs'', i')
                 Left msg -> error $ wrapmsg ident msg
             Left msg -> error $ wrapmsg ident msg
         Left msg -> error $ wrapmsg ident msg
@@ -58,7 +59,7 @@ library =
 -- Queries the library, for debugging purposes.
 queryTypeScheme :: String -> String
 queryTypeScheme ident =
-  let (gamma, _, _) = library in
+  let (gamma, _, _, _) = library in
     case Map.lookup ident gamma of
       Just sigma -> show sigma
       Nothing -> "not in library"
@@ -68,8 +69,8 @@ queryTypeScheme ident =
 
 liftRRB :: (Double -> Double -> Bool) -> (DFReal -> DFReal -> DFBool) -> Value
 liftRRB sop dop =
-  ValueFun $ \ (ValueDFReal df1) -> Right $
-    ValueFun $ \ (ValueDFReal df2) -> Right $
+  ValueFun $ \ (ValueDFReal df1) -> return $
+    ValueFun $ \ (ValueDFReal df2) -> return $
       liftRRB' sop dop df1 df2
 
 liftRRB' :: (Double -> Double -> Bool) -> (DFReal -> DFReal -> DFBool) -> DFReal -> DFReal -> Value
@@ -80,8 +81,8 @@ liftRRB' sop dop df1 df2 =
 
 liftRRR :: (Double -> Double -> Double) -> (DFReal -> DFReal -> DFReal) -> Value
 liftRRR sop dop =
-  ValueFun $ \ (ValueDFReal df1) -> Right $
-    ValueFun $ \ (ValueDFReal df2) -> Right $
+  ValueFun $ \ (ValueDFReal df1) -> return $
+    ValueFun $ \ (ValueDFReal df2) -> return $
       liftRRR' sop dop df1 df2
 
 liftRRR' :: (Double -> Double -> Double) -> (DFReal -> DFReal -> DFReal) -> DFReal -> DFReal -> Value
@@ -92,8 +93,8 @@ liftRRR' sop dop df1 df2 =
 
 liftBBB :: (Bool -> Bool -> Bool) -> (DFBool -> DFBool -> DFBool) -> Value
 liftBBB sop dop =
-  ValueFun $ \ (ValueDFBool df1) -> Right $
-    ValueFun $ \ (ValueDFBool df2) -> Right $
+  ValueFun $ \ (ValueDFBool df1) -> return $
+    ValueFun $ \ (ValueDFBool df2) -> return $
       liftBBB' sop dop df1 df2
 
 liftBBB' :: (Bool -> Bool -> Bool) -> (DFBool -> DFBool -> DFBool) -> DFBool -> DFBool -> Value
@@ -104,14 +105,14 @@ liftBBB' sop dop df1 df2 =
 
 liftRR :: (Double -> Double) -> (DFReal -> DFReal) -> Value
 liftRR sop dop =
-  ValueFun $ \ (ValueDFReal df) -> Right $
+  ValueFun $ \ (ValueDFReal df) -> return $
     case df of
       DFRealLiteral l -> ValueDFReal $ DFRealLiteral $ sop l
       _ -> ValueDFReal $ dop df
 
 liftBB :: (Bool -> Bool) -> (DFBool -> DFBool) -> Value
 liftBB sop dop =
-  ValueFun $ \ (ValueDFBool df) -> Right $
+  ValueFun $ \ (ValueDFBool df) -> return $
     case df of
       DFBoolLiteral l -> ValueDFBool $ DFBoolLiteral $ sop l
       _ -> ValueDFBool $ dop df
@@ -121,25 +122,25 @@ liftBB sop dop =
 
 valueFun_map :: Value
 valueFun_map =
-  ValueFun $ \ (ValueFun f) -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray as) -> do
       vs <- mapM f as
       return $ ValueArray vs
 
 valueFun_foldl :: Value
 valueFun_foldl =
-  ValueFun $ \ (ValueFun f) -> Right $
-    ValueFun $ \ va -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
+    ValueFun $ \ va -> return $
       ValueFun $ \ (ValueArray vbs) ->
         valueFun_foldl' f va vbs
 
 valueFun_foldl1 :: Value
 valueFun_foldl1 =
-  ValueFun $ \ (ValueFun f) -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray (vb:vbs)) ->
       valueFun_foldl' f vb vbs
 
-valueFun_foldl' :: (Value -> Either String Value) -> Value -> [Value] -> Either String Value
+valueFun_foldl' :: (Value -> InterpretM Value) -> Value -> [Value] -> InterpretM Value
 valueFun_foldl' _ z [] = return z
 valueFun_foldl' f z (x:xs) = do
   ValueFun fz <- f z
@@ -148,18 +149,18 @@ valueFun_foldl' f z (x:xs) = do
 
 valueFun_foldr :: Value
 valueFun_foldr =
-  ValueFun $ \ (ValueFun f) -> Right $
-    ValueFun $ \ vb -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
+    ValueFun $ \ vb -> return $
       ValueFun $ \ (ValueArray vas) ->
         valueFun_foldr' f vb vas
 
 valueFun_foldr1 :: Value
 valueFun_foldr1 =
-  ValueFun $ \ (ValueFun f) -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray (va:vas)) ->
       valueFun_foldr' f va vas
 
-valueFun_foldr' :: (Value -> Either String Value) -> Value -> [Value] -> Either String Value
+valueFun_foldr' :: (Value -> InterpretM Value) -> Value -> [Value] -> InterpretM Value
 valueFun_foldr' _ z [] = return z
 valueFun_foldr' f z (x:xs) = do
   z' <- valueFun_foldr' f z xs
@@ -168,14 +169,14 @@ valueFun_foldr' f z (x:xs) = do
 
 valueFun_unroll :: Value
 valueFun_unroll =
-  ValueFun $ \ (ValueFun f) -> Right $
-    ValueFun $ \ (ValueDFReal dfn) -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
+    ValueFun $ \ (ValueDFReal dfn) -> return $
       ValueFun $ \ z ->
         case dfn of
           DFRealLiteral n -> valueFun_unroll' f (floor n) z
           _ -> throwError $ "in function 'unroll', n must be statically determinable"
 
-valueFun_unroll' :: (Value -> Either String Value) -> Int -> Value -> Either String Value
+valueFun_unroll' :: (Value -> InterpretM Value) -> Int -> Value -> InterpretM Value
 valueFun_unroll' _ 0 z = return z
 valueFun_unroll' f n z = do
   fz <- f z
@@ -183,13 +184,13 @@ valueFun_unroll' f n z = do
 
 valueFun_zipWith :: Value
 valueFun_zipWith =
-  ValueFun $ \ (ValueFun f) -> Right $
-    ValueFun $ \ (ValueArray as) -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
+    ValueFun $ \ (ValueArray as) -> return $
       ValueFun $ \ (ValueArray bs) -> do
         vs <- valueFun_zipWith' f as bs
         return $ ValueArray vs
 
-valueFun_zipWith' :: (Value -> Either String Value) -> [Value] -> [Value] -> Either String [Value]
+valueFun_zipWith' :: (Value -> InterpretM Value) -> [Value] -> [Value] -> InterpretM [Value]
 valueFun_zipWith' z (a:as) (b:bs) = do
   ValueFun za <- z a
   zab <- za b
@@ -199,14 +200,14 @@ valueFun_zipWith' _ _ _ = return []
 
 valueFun_zipWith3 :: Value
 valueFun_zipWith3 =
-  ValueFun $ \ (ValueFun f) -> Right $
-    ValueFun $ \ (ValueArray as) -> Right $
-      ValueFun $ \ (ValueArray bs) -> Right $
+  ValueFun $ \ (ValueFun f) -> return $
+    ValueFun $ \ (ValueArray as) -> return $
+      ValueFun $ \ (ValueArray bs) -> return $
         ValueFun $ \ (ValueArray cs) -> do
           vs <- valueFun_zipWith3' f as bs cs
           return $ ValueArray vs
 
-valueFun_zipWith3' :: (Value -> Either String Value) -> [Value] -> [Value] -> [Value] -> Either String [Value]
+valueFun_zipWith3' :: (Value -> InterpretM Value) -> [Value] -> [Value] -> [Value] -> InterpretM [Value]
 valueFun_zipWith3' z (a:as) (b:bs) (c:cs) = do
   ValueFun za <- z a
   ValueFun zab <- za b
@@ -220,7 +221,7 @@ valueFun_zipWith3' _ _ _ _= return []
 
 valueSample1D :: Value
 valueSample1D =
-  ValueFun $ \ (ValueTexture1D i) -> Right $
+  ValueFun $ \ (ValueTexture1D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x]) -> do
     let submit = DFSample1D i x
     return $ ValueArray [
@@ -232,7 +233,7 @@ valueSample1D =
 
 valueSample2D :: Value
 valueSample2D =
-  ValueFun $ \ (ValueTexture2D i) -> Right $
+  ValueFun $ \ (ValueTexture2D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y]) -> do
     let submit = DFSample2D i x y
     return $ ValueArray [
@@ -244,7 +245,7 @@ valueSample2D =
 
 valueSample3D :: Value
 valueSample3D =
-  ValueFun $ \ (ValueTexture3D i) -> Right $
+  ValueFun $ \ (ValueTexture3D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
     let submit = DFSample3D i x y z
     return $ ValueArray [
@@ -256,7 +257,7 @@ valueSample3D =
 
 valueSampleCube :: Value
 valueSampleCube =
-  ValueFun $ \ (ValueTextureCube i) -> Right $
+  ValueFun $ \ (ValueTextureCube i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
     let submit = DFSampleCube i x y z
     return $ ValueArray [
@@ -271,7 +272,7 @@ valueSampleCube =
 
 valueSubscript :: Value
 valueSubscript =
-  ValueFun $ \ (ValueArray vs) -> Right $
+  ValueFun $ \ (ValueArray vs) -> return $
     ValueFun $ \ (ValueDFReal sub) -> do
       let len = length vs
       case sub of
@@ -287,10 +288,10 @@ valueSubscript =
 
 valueEqual :: Value
 valueEqual =
-  ValueFun $ \ v1 -> Right $
+  ValueFun $ \ v1 -> return $
     ValueFun $ \ v2 -> valueEqual' v1 v2
 
-valueEqual' :: Value -> Value -> Either String Value
+valueEqual' :: Value -> Value -> InterpretM Value
 valueEqual' (ValueUnit) (ValueUnit) = return $ ValueDFBool $ DFBoolLiteral True
 valueEqual' (ValueDFReal df1) (ValueDFReal df2) = return $ liftRRB' (==) DFBoolEqualReal df1 df2
 valueEqual' (ValueDFBool df1) (ValueDFBool df2) = return $ liftBBB' (==) DFBoolEqualBool df1 df2
@@ -309,10 +310,10 @@ valueEqual' _ _ = undefined
 
 valueNotEqual :: Value
 valueNotEqual =
-  ValueFun $ \ v1 -> Right $
+  ValueFun $ \ v1 -> return $
     ValueFun $ \ v2 -> valueNotEqual' v1 v2
 
-valueNotEqual' :: Value -> Value -> Either String Value
+valueNotEqual' :: Value -> Value -> InterpretM Value
 valueNotEqual' (ValueUnit) (ValueUnit) = return $ ValueDFBool $ DFBoolLiteral False
 valueNotEqual' (ValueDFReal df1) (ValueDFReal df2) = return $ liftRRB' (/=) DFBoolNotEqualReal df1 df2
 valueNotEqual' (ValueDFBool df1) (ValueDFBool df2) = return $ liftBBB' (/=) DFBoolNotEqualBool df1 df2
@@ -333,7 +334,7 @@ valueNotEqual' _ _ = undefined
 -- Transpose function.
 valueTranspose :: Value
 valueTranspose =
-  ValueFun $ \ (ValueArray outer) -> Right $
+  ValueFun $ \ (ValueArray outer) -> return $
     ValueArray $ map ValueArray $ List.transpose $ map (\(ValueArray inner) -> inner) outer
 
 

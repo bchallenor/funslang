@@ -15,62 +15,75 @@ type ValueEnv = Map.Map String Value
 
 -- The inner interpreter function.
 -- Returns the value, or on error, a message explaining the error and the expression that triggered it.
-interpretExpr :: ValueEnv -> Expr -> Either String Value
+interpretExpr :: ValueEnv -> Expr -> Int -> Either String (Value, Int)
+interpretExpr env e i = do
+  (v, s) <- runInterpretM (interpretExpr' env e) ShaderState{
+    num_uniforms = 0,
+    num_textures = 0,
+    num_varyings = 0,
+    textures = [],
+    num_generic_outputs = 0,
+    num_nodes = i
+    }
+  return (v, num_nodes s)
 
-interpretExpr _ (ExprUnitLiteral) = return ValueUnit
 
-interpretExpr _ (ExprRealLiteral b) = return $ ValueDFReal $ DFRealLiteral b
+interpretExpr' :: ValueEnv -> Expr -> InterpretM Value
 
-interpretExpr _ (ExprBoolLiteral b) = return $ ValueDFBool $ DFBoolLiteral b
+interpretExpr' _ (ExprUnitLiteral) = return ValueUnit
 
-interpretExpr env a@(ExprVar ident) =
+interpretExpr' _ (ExprRealLiteral b) = return $ ValueDFReal $ DFRealLiteral b
+
+interpretExpr' _ (ExprBoolLiteral b) = return $ ValueDFBool $ DFBoolLiteral b
+
+interpretExpr' env a@(ExprVar ident) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   case Map.lookup ident env of
     Just v -> return v
     Nothing -> throwError $ "variable <" ++ ident ++ "> undefined"
 
-interpretExpr env a@(ExprApp e1 e2) =
+interpretExpr' env a@(ExprApp e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  ValueFun f <- interpretExpr env e1
-  v <- interpretExpr env e2
+  ValueFun f <- interpretExpr' env e1
+  v <- interpretExpr' env e2
   f v
 
-interpretExpr env a@(ExprArray es) =
+interpretExpr' env a@(ExprArray es) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  vs <- mapM (interpretExpr env) es
+  vs <- mapM (interpretExpr' env) es
   return $ ValueArray vs
 
-interpretExpr env a@(ExprTuple es) =
+interpretExpr' env a@(ExprTuple es) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  vs <- mapM (interpretExpr env) es
+  vs <- mapM (interpretExpr' env) es
   return $ ValueTuple vs
 
-interpretExpr env a@(ExprIf eb e1 e2) =
+interpretExpr' env a@(ExprIf eb e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  ValueDFBool dfb <- interpretExpr env eb
-  v1 <- interpretExpr env e1
-  v2 <- interpretExpr env e2
+  ValueDFBool dfb <- interpretExpr' env eb
+  v1 <- interpretExpr' env e1
+  v2 <- interpretExpr' env e2
   if v1 == v2
     then return v1 -- optimize out if both branches are the same
     else case dfb of
       DFBoolLiteral b -> return $ if b then v1 else v2 -- optimize out if condition statically known
       _ -> conditionalize dfb v1 v2 -- runtime condition and runtime values
 
-interpretExpr env a@(ExprLet p e1 e2) =
+interpretExpr' env a@(ExprLet p e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  v1 <- interpretExpr env e1
+  v1 <- interpretExpr' env e1
   let env' = env `Map.union` matchPattern p v1
-  v2 <- interpretExpr env' e2
+  v2 <- interpretExpr' env' e2
   return v2
 
-interpretExpr env a@(ExprLambda p e) =
+interpretExpr' env a@(ExprLambda p e) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  return $ ValueFun (\v -> let env' = env `Map.union` matchPattern p v in interpretExpr env' e)
+  return $ ValueFun (\v -> let env' = env `Map.union` matchPattern p v in interpretExpr' env' e)
 
 
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
 -- so that the resulting value is either the first or second value according to the condition.
-conditionalize :: DFBool -> Value -> Value -> Either String Value
+conditionalize :: DFBool -> Value -> Value -> InterpretM Value
 conditionalize _ (ValueUnit) (ValueUnit) = return ValueUnit
 conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = return $ ValueDFReal $ DFRealCond dfb df1 df2
 conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = return $ ValueDFBool $ DFBoolCond dfb df1 df2
@@ -95,139 +108,121 @@ matchPattern (PattTuple _ _) _ = undefined
 
 
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
-interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Either String (Value, ShaderInputOutput)
-interpretExprAsShader sk env e t =
+interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Int -> Either String (Value, ShaderState)
+interpretExprAsShader sk env e t i = do
+  (v, s) <- runInterpretM (interpretExprAsShader' sk env e t) ShaderState{
+    num_uniforms = 0,
+    num_textures = 0,
+    num_varyings = 0,
+    textures = [],
+    num_generic_outputs = 0,
+    num_nodes = i
+    }
+  return (v, s)
+
+interpretExprAsShader' :: ShaderKind -> ValueEnv -> Expr -> Type -> InterpretM Value
+interpretExprAsShader' sk env e t =
   flip catchError (\s -> throwError $ s ++ "\nin expression with type: " ++ prettyType t) $ do
   case t of
     TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type result_type)) -> do
       -- Count the number of outputs.
-      ngo <- case (sk, result_type) of
+      case (sk, result_type) of
         -- Vertex shader: (Real 4, 'a)
         (ShaderKindVertex, TypeTuple [TypeArray TypeReal (DimFix 4), output_type]) -> countOutputs output_type
         -- Fragment shader: Real 4
-        (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return 0
+        (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return ()
         -- Fragment shader: (Bool, Real 4)
-        (ShaderKindFragment, TypeTuple [TypeBool, TypeArray TypeReal (DimFix 4)]) -> return 0
+        (ShaderKindFragment, TypeTuple [TypeBool, TypeArray TypeReal (DimFix 4)]) -> return ()
         _ -> error "unknown shader type passed to interpreter"
       
       -- Interpret the expression to create a closure.
-      ValueFun f1 <- interpretExpr env e
+      ValueFun f1 <- interpretExpr' env e
       
       -- Count the number of uniforms, create a dummy variable to represent them, and apply closure.
-      (uniform_value, nu) <- dummyUniformValue uniform_type
+      uniform_value <- dummyUniformValue uniform_type
       ValueFun f2 <- f1 uniform_value
       
       -- Count the number of textures, create a dummy variable to represent them, and apply closure.
-      (texture_value, nt, ts) <- dummyTextureValue texture_type
+      texture_value <- dummyTextureValue texture_type
       ValueFun f3 <- f2 texture_value
       
       -- Count the number of varyings, create a dummy variable to represent them, and apply closure.
-      (varying_value, nv) <- dummyVaryingValue varying_type
-      v <- f3 varying_value
-      
-      return (v, ShaderInputOutput{num_uniforms = nu, num_textures = nt, num_varyings = nv, textures = ts, num_generic_outputs = ngo})
+      varying_value <- dummyVaryingValue varying_type
+      f3 varying_value
       
     _ -> throwError "shader does not have correct kind"
 
 
 -- Returns a dummy value and the number of uniforms.
-dummyUniformValue :: Type -> Either String (Value, Int)
-dummyUniformValue t = do
-  let (a, i') = runState (runErrorT $ dummyUniformValue' t) 0
-  v <- a
-  return (v, i')
-
-dummyUniformValue' :: Type -> ErrorT String (State Int) Value
-dummyUniformValue' (TypeUnit) =
+dummyUniformValue :: Type -> InterpretM Value
+dummyUniformValue (TypeUnit) =
   return ValueUnit
-dummyUniformValue' (TypeReal) = do
-  i <- get
-  put (i+1)
+dummyUniformValue (TypeReal) = do
+  i <- freshUniform
   return $ ValueDFReal $ DFRealUniform i
-dummyUniformValue' (TypeBool) = do
-  i <- get
-  put (i+1)
+dummyUniformValue (TypeBool) = do
+  i <- freshUniform
   return $ ValueDFBool $ DFBoolUniform i
-dummyUniformValue' (TypeArray t (DimFix d)) = do
-  vs <- replicateM (fromIntegral d) (dummyUniformValue' t)
+dummyUniformValue (TypeArray t (DimFix d)) = do
+  vs <- replicateM (fromIntegral d) (dummyUniformValue t)
   return $ ValueArray vs
-dummyUniformValue' (TypeTuple ts) = do
-  vs <- mapM dummyUniformValue' ts
+dummyUniformValue (TypeTuple ts) = do
+  vs <- mapM dummyUniformValue ts
   return $ ValueTuple vs
-dummyUniformValue' t = throwError $ "shader uniform arguments cannot have type <" ++ prettyType t ++ ">"
+dummyUniformValue t = throwError $ "shader uniform arguments cannot have type <" ++ prettyType t ++ ">"
 
 
 -- Returns a dummy value and the number of textures.
-dummyTextureValue :: Type -> Either String (Value, Int, [ShaderTextureInput])
-dummyTextureValue t = do
-  let (a, (i, ts)) = runState (runErrorT $ dummyTextureValue' t) (0, [])
-  v <- a
-  return (v, i, ts)
-
-dummyTextureValue' :: Type -> ErrorT String (State (Int, [ShaderTextureInput])) Value
-dummyTextureValue' (TypeUnit) =
+dummyTextureValue :: Type -> InterpretM Value
+dummyTextureValue (TypeUnit) =
   return ValueUnit
-dummyTextureValue' (TypeTexture1D) = do
-  (i, ts) <- get
-  put (i+1, (ShaderTextureInput1D i) : ts)
+dummyTextureValue (TypeTexture1D) = do
+  i <- freshTexture ShaderTextureInput1D
   return $ ValueTexture1D i
-dummyTextureValue' (TypeTexture2D) = do
-  (i, ts) <- get
-  put (i+1, (ShaderTextureInput2D i) : ts)
+dummyTextureValue (TypeTexture2D) = do
+  i <- freshTexture ShaderTextureInput2D
   return $ ValueTexture2D i
-dummyTextureValue' (TypeTexture3D) = do
-  (i, ts) <- get
-  put (i+1, (ShaderTextureInput3D i) : ts)
+dummyTextureValue (TypeTexture3D) = do
+  i <- freshTexture ShaderTextureInput3D
   return $ ValueTexture3D i
-dummyTextureValue' (TypeTextureCube) = do
-  (i, ts) <- get
-  put (i+1, (ShaderTextureInputCube i) : ts)
+dummyTextureValue (TypeTextureCube) = do
+  i <- freshTexture ShaderTextureInputCube
   return $ ValueTextureCube i
-dummyTextureValue' (TypeArray t (DimFix d)) = do
-  vs <- replicateM (fromIntegral d) (dummyTextureValue' t)
+dummyTextureValue (TypeArray t (DimFix d)) = do
+  vs <- replicateM (fromIntegral d) (dummyTextureValue t)
   return $ ValueArray vs
-dummyTextureValue' (TypeTuple ts) = do
-  vs <- mapM dummyTextureValue' ts
+dummyTextureValue (TypeTuple ts) = do
+  vs <- mapM dummyTextureValue ts
   return $ ValueTuple vs
-dummyTextureValue' t = throwError $ "shader texture arguments cannot have type <" ++ prettyType t ++ ">"
+dummyTextureValue t = throwError $ "shader texture arguments cannot have type <" ++ prettyType t ++ ">"
 
 
 -- Returns a dummy value and the number of varyings.
-dummyVaryingValue :: Type -> Either String (Value, Int)
-dummyVaryingValue t = do
-  let (a, i') = runState (runErrorT $ dummyVaryingValue' t) 0
-  v <- a
-  return (v, i')
-
-dummyVaryingValue' :: Type -> ErrorT String (State Int) Value
-dummyVaryingValue' (TypeUnit) =
+dummyVaryingValue :: Type -> InterpretM Value
+dummyVaryingValue (TypeUnit) =
   return ValueUnit
-dummyVaryingValue' (TypeReal) = do
-  i <- get
-  put (i+1)
+dummyVaryingValue (TypeReal) = do
+  i <- freshVarying
   return $ ValueDFReal $ DFRealVarying i
-dummyVaryingValue' (TypeBool) = do
-  i <- get
-  put (i+1)
+dummyVaryingValue (TypeBool) = do
+  i <- freshVarying
   return $ ValueDFBool $ DFBoolVarying i
-dummyVaryingValue' (TypeArray t (DimFix d)) = do
-  vs <- replicateM (fromIntegral d) (dummyVaryingValue' t)
+dummyVaryingValue (TypeArray t (DimFix d)) = do
+  vs <- replicateM (fromIntegral d) (dummyVaryingValue t)
   return $ ValueArray vs
-dummyVaryingValue' (TypeTuple ts) = do
-  vs <- mapM dummyVaryingValue' ts
+dummyVaryingValue (TypeTuple ts) = do
+  vs <- mapM dummyVaryingValue ts
   return $ ValueTuple vs
-dummyVaryingValue' t = throwError $ "shader varying arguments cannot have type <" ++ prettyType t ++ ">"
+dummyVaryingValue t = throwError $ "shader varying arguments cannot have type <" ++ prettyType t ++ ">"
 
 
 -- Counts the number of outputs in the given output type.
-countOutputs :: Type -> Either String Int
-countOutputs (TypeUnit) = return 0
-countOutputs (TypeReal) = return 1
-countOutputs (TypeBool) = return 1
-countOutputs (TypeArray t (DimFix d)) = do
-  n <- countOutputs t
-  return $ fromIntegral d * n
-countOutputs (TypeTuple ts) = do
-  ns <- mapM (countOutputs) ts
-  return $ sum ns
+countOutputs :: Type -> InterpretM ()
+countOutputs (TypeUnit) = return ()
+countOutputs (TypeReal) = freshGenericOutput
+countOutputs (TypeBool) = freshGenericOutput
+countOutputs (TypeArray t (DimFix d)) =
+  replicateM_ (fromIntegral d) (countOutputs t)
+countOutputs (TypeTuple ts) =
+  mapM_ countOutputs ts
 countOutputs t = throwError $ "shader output cannot have type <" ++ prettyType t ++ ">"
