@@ -92,8 +92,8 @@ int main(int argc, char** argv)
 
 	// Init shaders.
 	FSprogram p;
-	p.vertex_shader_path = "brick.vp";
-	p.fragment_shader_path = "brick.fp";
+	p.vertex_shader_path = "../funslang/brick.vp";
+	p.fragment_shader_path = "../funslang/brick.fp";
 	if (!initShaders(&p, brickVertexUniforms, brickFragmentUniforms, brickVertexVaryings)) return 1;
 
 	// Enter main loop.
