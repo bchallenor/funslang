@@ -1,0 +1,6 @@
+% Vertex shader for drawing Julia sets
+% Author: Ben Challenor
+% Based on Julia.vert (GLSL) by 3Dlabs
+
+\()()(p). (p, (strip p, 1.0))
+
