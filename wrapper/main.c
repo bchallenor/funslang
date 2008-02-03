@@ -9,6 +9,20 @@
 #define WINDOW_W 500
 #define WINDOW_H 500
 
+const GLfloat testVertexUniforms[44] =
+{
+	1.0, 0.0, 0.0, 0.0, // mvm
+	0.0, 1.0, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.0, 0.0, 0.0, 1.0
+};
+const GLfloat testVertexVaryings[3*8] =
+{
+	0.0, 0.0, 0.0, 1.0,   1,0,0,1,
+	1.0, 0.0, 0.0, 1.0,   0,1,0,1,
+	0.5, 1.0, 0.0, 1.0,   0,0,1,1
+};
+
 const GLfloat brickVertexUniforms[44] =
 {
 	0.0, 0.0, 5.0, // LightPosition
@@ -34,7 +48,7 @@ const GLfloat brickFragmentUniforms[10] =
 	0.3, 0.15, // BrickSize
 	0.85, 0.90 // BrickPct
 };
-const GLfloat brickVertexVaryings[7*4] =
+const GLfloat brickVertexVaryings[3*7] =
 {
 	0.0, 0.0, 0.0, 1.0,   0.0, 0.0, 1.0,
 	1.0, 0.0, 0.0, 1.0,   0.0, 0.0, 1.0,
@@ -92,9 +106,16 @@ int main(int argc, char** argv)
 
 	// Init shaders.
 	FSprogram p;
+#if 1
+	p.vertex_shader_path = "../funslang/test.vp";
+	p.fragment_shader_path = "../funslang/test.fp";
+	if (!initShaders(&p, testVertexUniforms, NULL, testVertexVaryings)) return 1;
+#endif
+#if 0
 	p.vertex_shader_path = "../funslang/brick.vp";
 	p.fragment_shader_path = "../funslang/brick.fp";
 	if (!initShaders(&p, brickVertexUniforms, brickFragmentUniforms, brickVertexVaryings)) return 1;
+#endif
 
 	// Enter main loop.
 	glutMainLoop();
