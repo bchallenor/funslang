@@ -373,7 +373,7 @@ data DF
   | DFBool !DFBool
   | DFSample !DFSample
   
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 
 type DFID = Int -- unique number for node
@@ -418,7 +418,7 @@ data DFReal
   | DFRealGetTexB !DFID !DFSample
   | DFRealGetTexA !DFID !DFSample
 
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 
 data DFBool
@@ -442,7 +442,7 @@ data DFBool
   | DFBoolOr !DFID !DFBool !DFBool
   | DFBoolNot !DFID !DFBool
 
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 
 data DFSample -- these are internal to a texture sampling gadget
@@ -451,7 +451,7 @@ data DFSample -- these are internal to a texture sampling gadget
   | DFSample3D !DFID !Int !DFReal !DFReal !DFReal
   | DFSampleCube !DFID !Int !DFReal !DFReal !DFReal
 
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 
 -- The interpreter monad holds fresh numbers,
