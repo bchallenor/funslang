@@ -376,77 +376,80 @@ data DF
   deriving (Show, Eq, Ord)
 
 
+type DFID = Int -- unique number for node
+
+
 data DFReal
-  = DFRealLiteral !Double
-  | DFRealVarying !Int -- the global scalar index among the varyings
-  | DFRealUniform !Int -- the global scalar index among the uniforms
+  = DFRealLiteral !DFID !Double
+  | DFRealVarying !DFID !Int -- the global scalar index among the varyings
+  | DFRealUniform !DFID !Int -- the global scalar index among the uniforms
   --
-  | DFRealCond !DFBool !DFReal !DFReal
+  | DFRealCond !DFID !DFBool !DFReal !DFReal
   --
-  | DFRealAdd !DFReal !DFReal
-  | DFRealSub !DFReal !DFReal
-  | DFRealMul !DFReal !DFReal
-  | DFRealDiv !DFReal !DFReal
-  | DFRealNeg !DFReal
-  | DFRealRcp !DFReal
-  | DFRealRsq !DFReal
-  | DFRealAbs !DFReal
-  | DFRealMin !DFReal !DFReal
-  | DFRealMax !DFReal !DFReal
-  | DFRealFloor !DFReal
-  | DFRealCeiling !DFReal
-  | DFRealRound !DFReal
-  | DFRealTruncate !DFReal
-  | DFRealFract !DFReal
-  | DFRealExp !DFReal
-  | DFRealExp2 !DFReal
-  | DFRealLog !DFReal
-  | DFRealLog2 !DFReal
-  | DFRealPow !DFReal !DFReal
-  | DFRealSin !DFReal
-  | DFRealCos !DFReal
-  | DFRealTan !DFReal
-  | DFRealASin !DFReal
-  | DFRealACos !DFReal
-  | DFRealATan !DFReal
+  | DFRealAdd !DFID !DFReal !DFReal
+  | DFRealSub !DFID !DFReal !DFReal
+  | DFRealMul !DFID !DFReal !DFReal
+  | DFRealDiv !DFID !DFReal !DFReal
+  | DFRealNeg !DFID !DFReal
+  | DFRealRcp !DFID !DFReal
+  | DFRealRsq !DFID !DFReal
+  | DFRealAbs !DFID !DFReal
+  | DFRealMin !DFID !DFReal !DFReal
+  | DFRealMax !DFID !DFReal !DFReal
+  | DFRealFloor !DFID !DFReal
+  | DFRealCeiling !DFID !DFReal
+  | DFRealRound !DFID !DFReal
+  | DFRealTruncate !DFID !DFReal
+  | DFRealFract !DFID !DFReal
+  | DFRealExp !DFID !DFReal
+  | DFRealExp2 !DFID !DFReal
+  | DFRealLog !DFID !DFReal
+  | DFRealLog2 !DFID !DFReal
+  | DFRealPow !DFID !DFReal !DFReal
+  | DFRealSin !DFID !DFReal
+  | DFRealCos !DFID !DFReal
+  | DFRealTan !DFID !DFReal
+  | DFRealASin !DFID !DFReal
+  | DFRealACos !DFID !DFReal
+  | DFRealATan !DFID !DFReal
   --
-  | DFRealGetTexR !DFSample
-  | DFRealGetTexG !DFSample
-  | DFRealGetTexB !DFSample
-  | DFRealGetTexA !DFSample
+  | DFRealGetTexR !DFID !DFSample
+  | DFRealGetTexG !DFID !DFSample
+  | DFRealGetTexB !DFID !DFSample
+  | DFRealGetTexA !DFID !DFSample
 
   deriving (Show, Eq, Ord)
 
 
 data DFBool
-  = DFBoolLiteral !Bool
-  | DFBoolVarying !Int -- the global scalar index among the varyings
-  | DFBoolUniform !Int -- the global scalar index among the uniforms
+  = DFBoolLiteral !DFID !Bool
+  | DFBoolVarying !DFID !Int -- the global scalar index among the varyings
+  | DFBoolUniform !DFID !Int -- the global scalar index among the uniforms
   --
-  | DFBoolCond !DFBool !DFBool !DFBool
+  | DFBoolCond !DFID !DFBool !DFBool !DFBool
   --
-  | DFBoolLessThan !DFReal !DFReal
-  | DFBoolLessThanEqual !DFReal !DFReal
-  | DFBoolGreaterThan !DFReal !DFReal
-  | DFBoolGreaterThanEqual !DFReal !DFReal
+  | DFBoolLessThan !DFID !DFReal !DFReal
+  | DFBoolLessThanEqual !DFID !DFReal !DFReal
+  | DFBoolGreaterThan !DFID !DFReal !DFReal
+  | DFBoolGreaterThanEqual !DFID !DFReal !DFReal
   --
-  | DFBoolEqualReal !DFReal !DFReal
-  | DFBoolNotEqualReal !DFReal !DFReal
-  | DFBoolEqualBool !DFBool !DFBool
-  | DFBoolNotEqualBool !DFBool !DFBool
+  | DFBoolEqualReal !DFID !DFReal !DFReal
+  | DFBoolNotEqualReal !DFID !DFReal !DFReal
+  | DFBoolEqualBool !DFID !DFBool !DFBool
+  | DFBoolNotEqualBool !DFID !DFBool !DFBool
   --
-  | DFBoolAnd !DFBool !DFBool
-  | DFBoolOr !DFBool !DFBool
-  | DFBoolNot !DFBool
+  | DFBoolAnd !DFID !DFBool !DFBool
+  | DFBoolOr !DFID !DFBool !DFBool
+  | DFBoolNot !DFID !DFBool
 
   deriving (Show, Eq, Ord)
 
 
 data DFSample -- these are internal to a texture sampling gadget
-  = DFSample1D !Int !DFReal -- texture image unit, coords
-  | DFSample2D !Int !DFReal !DFReal
-  | DFSample3D !Int !DFReal !DFReal !DFReal
-  | DFSampleCube !Int !DFReal !DFReal !DFReal
+  = DFSample1D !DFID !Int !DFReal -- texture image unit, coords
+  | DFSample2D !DFID !Int !DFReal !DFReal
+  | DFSample3D !DFID !Int !DFReal !DFReal !DFReal
+  | DFSampleCube !DFID !Int !DFReal !DFReal !DFReal
 
   deriving (Show, Eq, Ord)
 

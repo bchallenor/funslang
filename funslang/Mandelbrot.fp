@@ -4,13 +4,13 @@
 
 let MAX_ITERATIONS = 50 in
 
-\ (Zoom, Xcenter, Ycenter, InnerColor, OuterColor1, OuterColor2, Creal, Cimag) .
+\ (Zoom, Xcenter, Ycenter, InnerColor, OuterColor1, OuterColor2) .
 \ () .
 \ ([Xpos, Ypos], LightIntensity) .
 
 % starting values
-let r = Xpos * Zoom + Xcenter in
-let i = Ypos * Zoom + Ycenter in
+let Creal = Xpos * Zoom + Xcenter in
+let Cimag = Ypos * Zoom + Ycenter in
 
 % iteration function
 let f (r, i, iter) =
@@ -20,7 +20,7 @@ let f (r, i, iter) =
     if l2 < 4 then (rnew, inew, iter+1) else (r, i, iter) in
 
 % iterate
-let (rnew, inew, iter) = unroll f MAX_ITERATIONS (r, i, 0) in
+let (rnew, inew, iter) = unroll f MAX_ITERATIONS (0, 0, 0) in
 
 let basecolor =
   if iter == MAX_ITERATIONS

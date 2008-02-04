@@ -55,6 +55,40 @@ const GLfloat brickVertexVaryings[3*7] =
 	0.5, 1.0, 0.0, 1.0,   0.0, 0.0, 1.0,
 };
 
+const GLfloat juliaFragmentUniforms[14] =
+{
+	2, // Zoom
+	0, // Xcenter
+	0, // Ycenter
+	0, 0, 0, // InnerColor
+	1, 1, 1, // OuterColor1
+	0, 0, 1, // OuterColor2
+	-0.4, // Creal
+	0.6, // Cimag
+};
+const GLfloat juliaVertexVaryings[3*4] =
+{
+	-1.0, -1.0, 0.0, 1.0,
+	1.0, -1.0, 0.0, 1.0,
+	0.0, 1.0, 0.0, 1.0,
+};
+
+const GLfloat mandelbrotFragmentUniforms[12] =
+{
+	2, // Zoom
+	0, // Xcenter
+	0, // Ycenter
+	0, 0, 0, // InnerColor
+	1, 1, 1, // OuterColor1
+	0, 0, 1, // OuterColor2
+};
+const GLfloat mandelbrotVertexVaryings[3*4] =
+{
+	-1.0, -1.0, 0.0, 1.0,
+	1.0, -1.0, 0.0, 1.0,
+	0.0, 1.0, 0.0, 1.0,
+};
+
 void render(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -106,7 +140,7 @@ int main(int argc, char** argv)
 
 	// Init shaders.
 	FSprogram p;
-#if 1
+#if 0
 	p.vertex_shader_path = "../funslang/test.vp";
 	p.fragment_shader_path = "../funslang/test.fp";
 	if (!initShaders(&p, testVertexUniforms, NULL, testVertexVaryings)) return 1;
@@ -115,6 +149,16 @@ int main(int argc, char** argv)
 	p.vertex_shader_path = "../funslang/brick.vp";
 	p.fragment_shader_path = "../funslang/brick.fp";
 	if (!initShaders(&p, brickVertexUniforms, brickFragmentUniforms, brickVertexVaryings)) return 1;
+#endif
+#if 0
+	p.vertex_shader_path = "../funslang/Julia.vp";
+	p.fragment_shader_path = "../funslang/Julia.fp";
+	if (!initShaders(&p, NULL, juliaFragmentUniforms, juliaVertexVaryings)) return 1;
+#endif
+#if 1
+	p.vertex_shader_path = "../funslang/Mandelbrot.vp";
+	p.fragment_shader_path = "../funslang/Mandelbrot.fp";
+	if (!initShaders(&p, NULL, mandelbrotFragmentUniforms, mandelbrotVertexVaryings)) return 1;
 #endif
 
 	// Enter main loop.

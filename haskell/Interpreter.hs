@@ -10,83 +10,78 @@ import Pretty
 
 
 -- The environment of values as being interpreted.
-type ValueEnv = Map.Map String Value
+type ValueEnv = Map.Map String (InterpretM Value)
 
 
 -- The inner interpreter function.
 -- Returns the value, or on error, a message explaining the error and the expression that triggered it.
-interpretExpr :: ValueEnv -> Expr -> Int -> Either String (Value, Int)
-interpretExpr env e i = do
-  (v, s) <- runInterpretM (interpretExpr' env e) ShaderState{
-    num_uniforms = 0,
-    num_textures = 0,
-    num_varyings = 0,
-    textures = [],
-    num_generic_outputs = 0,
-    num_nodes = i
-    }
-  return (v, num_nodes s)
+interpretExpr :: ValueEnv -> Expr -> InterpretM Value
 
+interpretExpr _ (ExprUnitLiteral) = return ValueUnit
 
-interpretExpr' :: ValueEnv -> Expr -> InterpretM Value
+interpretExpr _ (ExprRealLiteral b) = do
+  n <- freshNode
+  return $ ValueDFReal $ DFRealLiteral n b
 
-interpretExpr' _ (ExprUnitLiteral) = return ValueUnit
+interpretExpr _ (ExprBoolLiteral b) =  do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n b
 
-interpretExpr' _ (ExprRealLiteral b) = return $ ValueDFReal $ DFRealLiteral b
-
-interpretExpr' _ (ExprBoolLiteral b) = return $ ValueDFBool $ DFBoolLiteral b
-
-interpretExpr' env a@(ExprVar ident) =
+interpretExpr env a@(ExprVar ident) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   case Map.lookup ident env of
-    Just v -> return v
+    Just v -> v
     Nothing -> throwError $ "variable <" ++ ident ++ "> undefined"
 
-interpretExpr' env a@(ExprApp e1 e2) =
+interpretExpr env a@(ExprApp e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  ValueFun f <- interpretExpr' env e1
-  v <- interpretExpr' env e2
+  ValueFun f <- interpretExpr env e1
+  v <- interpretExpr env e2
   f v
 
-interpretExpr' env a@(ExprArray es) =
+interpretExpr env a@(ExprArray es) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  vs <- mapM (interpretExpr' env) es
+  vs <- mapM (interpretExpr env) es
   return $ ValueArray vs
 
-interpretExpr' env a@(ExprTuple es) =
+interpretExpr env a@(ExprTuple es) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  vs <- mapM (interpretExpr' env) es
+  vs <- mapM (interpretExpr env) es
   return $ ValueTuple vs
 
-interpretExpr' env a@(ExprIf eb e1 e2) =
+interpretExpr env a@(ExprIf eb e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  ValueDFBool dfb <- interpretExpr' env eb
-  v1 <- interpretExpr' env e1
-  v2 <- interpretExpr' env e2
+  ValueDFBool dfb <- interpretExpr env eb
+  v1 <- interpretExpr env e1
+  v2 <- interpretExpr env e2
   if v1 == v2
     then return v1 -- optimize out if both branches are the same
     else case dfb of
-      DFBoolLiteral b -> return $ if b then v1 else v2 -- optimize out if condition statically known
+      DFBoolLiteral _ b -> return $ if b then v1 else v2 -- optimize out if condition statically known
       _ -> conditionalize dfb v1 v2 -- runtime condition and runtime values
 
-interpretExpr' env a@(ExprLet p e1 e2) =
+interpretExpr env a@(ExprLet p e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  v1 <- interpretExpr' env e1
+  v1 <- interpretExpr env e1
   let env' = env `Map.union` matchPattern p v1
-  v2 <- interpretExpr' env' e2
+  v2 <- interpretExpr env' e2
   return v2
 
-interpretExpr' env a@(ExprLambda p e) =
+interpretExpr env a@(ExprLambda p e) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  return $ ValueFun (\v -> let env' = env `Map.union` matchPattern p v in interpretExpr' env' e)
+  return $ ValueFun (\v -> let env' = env `Map.union` matchPattern p v in interpretExpr env' e)
 
 
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
 -- so that the resulting value is either the first or second value according to the condition.
 conditionalize :: DFBool -> Value -> Value -> InterpretM Value
 conditionalize _ (ValueUnit) (ValueUnit) = return ValueUnit
-conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = return $ ValueDFReal $ DFRealCond dfb df1 df2
-conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = return $ ValueDFBool $ DFBoolCond dfb df1 df2
+conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) =  do
+  n <- freshNode
+  return $ ValueDFReal $ DFRealCond n dfb df1 df2
+conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) =  do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolCond n dfb df1 df2
 conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM (conditionalize dfb) vs1 vs2
   return $ ValueArray vs
@@ -100,7 +95,7 @@ conditionalize _ _ _ = throwError $ "if expression would violate run time model"
 matchPattern :: Patt -> Value -> ValueEnv
 matchPattern (PattWild _) _ = Map.empty
 matchPattern (PattUnit _) _ = Map.empty
-matchPattern (PattVar ident _) v = Map.singleton ident v
+matchPattern (PattVar ident _) v = Map.singleton ident (return v)
 matchPattern (PattArray ps _) (ValueArray vs) = List.foldl1' Map.union (zipWith matchPattern ps vs)
 matchPattern (PattArray _ _) _ = undefined
 matchPattern (PattTuple ps _) (ValueTuple vs) = List.foldl1' Map.union (zipWith matchPattern ps vs)
@@ -108,15 +103,15 @@ matchPattern (PattTuple _ _) _ = undefined
 
 
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
-interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Int -> Either String (Value, ShaderState)
-interpretExprAsShader sk env e t i = do
+interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Either String (Value, ShaderState)
+interpretExprAsShader sk env e t = do
   (v, s) <- runInterpretM (interpretExprAsShader' sk env e t) ShaderState{
     num_uniforms = 0,
     num_textures = 0,
     num_varyings = 0,
     textures = [],
     num_generic_outputs = 0,
-    num_nodes = i
+    num_nodes = 0
     }
   return (v, s)
 
@@ -136,7 +131,7 @@ interpretExprAsShader' sk env e t =
         _ -> error "unknown shader type passed to interpreter"
       
       -- Interpret the expression to create a closure.
-      ValueFun f1 <- interpretExpr' env e
+      ValueFun f1 <- interpretExpr env e
       
       -- Count the number of uniforms, create a dummy variable to represent them, and apply closure.
       uniform_value <- dummyUniformValue uniform_type
@@ -159,10 +154,12 @@ dummyUniformValue (TypeUnit) =
   return ValueUnit
 dummyUniformValue (TypeReal) = do
   i <- freshUniform
-  return $ ValueDFReal $ DFRealUniform i
+  n <- freshNode
+  return $ ValueDFReal $ DFRealUniform n i
 dummyUniformValue (TypeBool) = do
   i <- freshUniform
-  return $ ValueDFBool $ DFBoolUniform i
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolUniform n i
 dummyUniformValue (TypeArray t (DimFix d)) = do
   vs <- replicateM (fromIntegral d) (dummyUniformValue t)
   return $ ValueArray vs
@@ -203,10 +200,12 @@ dummyVaryingValue (TypeUnit) =
   return ValueUnit
 dummyVaryingValue (TypeReal) = do
   i <- freshVarying
-  return $ ValueDFReal $ DFRealVarying i
+  n <- freshNode
+  return $ ValueDFReal $ DFRealVarying n i
 dummyVaryingValue (TypeBool) = do
   i <- freshVarying
-  return $ ValueDFBool $ DFBoolVarying i
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolVarying n i
 dummyVaryingValue (TypeArray t (DimFix d)) = do
   vs <- replicateM (fromIntegral d) (dummyVaryingValue t)
   return $ ValueArray vs

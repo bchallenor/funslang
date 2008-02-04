@@ -5,8 +5,8 @@ GHCFLAGS=-Wall
 all: lib standalone
 
 lib: *.hs
-	ghc $(GHCFLAGS) -c --make LibFunslang
-	ghc $(GHCFLAGS) -c LibFunslang_stub.c
+	ghc $(GHCFLAGS) -osuf notprof.o -hisuf notprof.hi -c --make LibFunslang
+	ghc $(GHCFLAGS) -osuf notprof.o -hisuf notprof.hi -c LibFunslang_stub.c
 
 standalone: *.hs
 	ghc $(GHCFLAGS) -osuf prof.o -hisuf prof.hi -prof -auto-all --make Main

@@ -26,31 +26,27 @@ data Fixity
 -- - a map from library identifiers to values;
 -- - the subsequent list of fresh variable references, given that some were used
 --   in constructing the type schemes of the library functions.
--- - the number of dataflow nodes used by the library
-library :: (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]), Int)
+library :: (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]))
 library =
   let wrapmsg ident msg = "in constructing library function <" ++ ident ++ ">: " ++ msg in
   
   let { base = List.foldl' (
-    \ (gamma, env, vrefs, i) (_, ident, tstr, _, _, _, v) ->
+    \ (gamma, env, vrefs) (_, ident, tstr, _, _, _, v) ->
       case parseType vrefs (ByteString.pack tstr) of
         Right (t, vrefs') ->
           let sigma = Scheme (fvType t) t in
-            (Map.insert ident sigma gamma, Map.insert ident v env, vrefs', i)
+            (Map.insert ident sigma gamma, Map.insert ident v env, vrefs')
         Left msg -> error $ wrapmsg ident msg
-  ) (Map.empty, Map.empty, initFreshVarRefs, 0) libraryBase } in
+  ) (Map.empty, Map.empty, initFreshVarRefs) libraryBase } in
   
   List.foldl' (
-    \ (gamma, env, vrefs, i) (_, ident, _, _, estr) ->
+    \ (gamma, env, vrefs) (_, ident, _, _, estr) ->
       case parseExpr vrefs (ByteString.pack estr) of
         Right (e, vrefs') ->
           case inferExprType gamma e vrefs' of
             Right (t, vrefs'') ->
-              case interpretExpr env e i of
-                Right (v, i') ->
-                  let sigma = Scheme (fvType t) t in
-                  (Map.insert ident sigma gamma, Map.insert ident v env, vrefs'', i')
-                Left msg -> error $ wrapmsg ident msg
+              let sigma = Scheme (fvType t) t in
+                (Map.insert ident sigma gamma, Map.insert ident (interpretExpr env e) env, vrefs'')
             Left msg -> error $ wrapmsg ident msg
         Left msg -> error $ wrapmsg ident msg
   ) base libraryDerived
@@ -59,7 +55,7 @@ library =
 -- Queries the library, for debugging purposes.
 queryTypeScheme :: String -> String
 queryTypeScheme ident =
-  let (gamma, _, _, _) = library in
+  let (gamma, _, _) = library in
     case Map.lookup ident gamma of
       Just sigma -> show sigma
       Nothing -> "not in library"
@@ -67,75 +63,82 @@ queryTypeScheme ident =
 
 -- Lift functions; take a static and a dynamic operator.
 
-liftRRB :: (Double -> Double -> Bool) -> (DFReal -> DFReal -> DFBool) -> Value
-liftRRB sop dop =
+liftRRB :: (Double -> Double -> Bool) -> (Int -> DFReal -> DFReal -> DFBool) -> InterpretM Value
+liftRRB sop dop = return $
   ValueFun $ \ (ValueDFReal df1) -> return $
-    ValueFun $ \ (ValueDFReal df2) -> return $
+    ValueFun $ \ (ValueDFReal df2) ->
       liftRRB' sop dop df1 df2
 
-liftRRB' :: (Double -> Double -> Bool) -> (DFReal -> DFReal -> DFBool) -> DFReal -> DFReal -> Value
-liftRRB' sop dop df1 df2 =
+liftRRB' :: (Double -> Double -> Bool) -> (Int -> DFReal -> DFReal -> DFBool) -> DFReal -> DFReal -> InterpretM Value
+liftRRB' sop dop df1 df2 = do
+  n <- freshNode
   case (df1, df2) of
-    (DFRealLiteral l1, DFRealLiteral l2) -> ValueDFBool $ DFBoolLiteral $ sop l1 l2
-    _ -> ValueDFBool $ dop df1 df2
+    (DFRealLiteral _ l1, DFRealLiteral _ l2) -> return $ ValueDFBool $ DFBoolLiteral n $ sop l1 l2
+    _ -> return $ ValueDFBool $ dop n df1 df2
 
-liftRRR :: (Double -> Double -> Double) -> (DFReal -> DFReal -> DFReal) -> Value
-liftRRR sop dop =
+liftRRR :: (Double -> Double -> Double) -> (Int -> DFReal -> DFReal -> DFReal) -> InterpretM Value
+liftRRR sop dop = return $
   ValueFun $ \ (ValueDFReal df1) -> return $
-    ValueFun $ \ (ValueDFReal df2) -> return $
+    ValueFun $ \ (ValueDFReal df2) ->
       liftRRR' sop dop df1 df2
 
-liftRRR' :: (Double -> Double -> Double) -> (DFReal -> DFReal -> DFReal) -> DFReal -> DFReal -> Value
-liftRRR' sop dop df1 df2 =
+liftRRR' :: (Double -> Double -> Double) -> (Int -> DFReal -> DFReal -> DFReal) -> DFReal -> DFReal -> InterpretM Value
+liftRRR' sop dop df1 df2 = do
+  n <- freshNode
   case (df1, df2) of
-    (DFRealLiteral l1, DFRealLiteral l2) -> ValueDFReal $ DFRealLiteral $ sop l1 l2
-    _ -> ValueDFReal $ dop df1 df2
+    (DFRealLiteral _ l1, DFRealLiteral _ l2) -> return $ ValueDFReal $ DFRealLiteral n $ sop l1 l2
+    _ -> return $ ValueDFReal $ dop n df1 df2
 
-liftBBB :: (Bool -> Bool -> Bool) -> (DFBool -> DFBool -> DFBool) -> Value
-liftBBB sop dop =
+liftBBB :: (Bool -> Bool -> Bool) -> (Int -> DFBool -> DFBool -> DFBool) -> InterpretM Value
+liftBBB sop dop = return $
   ValueFun $ \ (ValueDFBool df1) -> return $
-    ValueFun $ \ (ValueDFBool df2) -> return $
+    ValueFun $ \ (ValueDFBool df2) ->
       liftBBB' sop dop df1 df2
 
-liftBBB' :: (Bool -> Bool -> Bool) -> (DFBool -> DFBool -> DFBool) -> DFBool -> DFBool -> Value
-liftBBB' sop dop df1 df2 =
+liftBBB' :: (Bool -> Bool -> Bool) -> (Int -> DFBool -> DFBool -> DFBool) -> DFBool -> DFBool -> InterpretM Value
+liftBBB' sop dop df1 df2 = do
+  n <- freshNode
   case (df1, df2) of
-    (DFBoolLiteral l1, DFBoolLiteral l2) -> ValueDFBool $ DFBoolLiteral $ sop l1 l2
-    _ -> ValueDFBool $ dop df1 df2
+    (DFBoolLiteral _ l1, DFBoolLiteral _ l2) -> return $ ValueDFBool $ DFBoolLiteral n $ sop l1 l2
+    _ -> return $ ValueDFBool $ dop n df1 df2
 
-liftRR :: (Double -> Double) -> (DFReal -> DFReal) -> Value
-liftRR sop dop =
-  ValueFun $ \ (ValueDFReal df) -> return $
-    case df of
-      DFRealLiteral l -> ValueDFReal $ DFRealLiteral $ sop l
-      _ -> ValueDFReal $ dop df
+liftRR :: (Double -> Double) -> (Int -> DFReal -> DFReal) -> InterpretM Value
+liftRR sop dop = do
+  n <- freshNode
+  return $
+    ValueFun $ \ (ValueDFReal df) ->
+      case df of
+        DFRealLiteral _ l -> return $ ValueDFReal $ DFRealLiteral n $ sop l
+        _ -> return $ ValueDFReal $ dop n df
 
-liftBB :: (Bool -> Bool) -> (DFBool -> DFBool) -> Value
-liftBB sop dop =
-  ValueFun $ \ (ValueDFBool df) -> return $
-    case df of
-      DFBoolLiteral l -> ValueDFBool $ DFBoolLiteral $ sop l
-      _ -> ValueDFBool $ dop df
+liftBB :: (Bool -> Bool) -> (Int -> DFBool -> DFBool) -> InterpretM Value
+liftBB sop dop = do
+  n <- freshNode
+  return $
+    ValueFun $ \ (ValueDFBool df) ->
+      case df of
+        DFBoolLiteral _ l -> return $ ValueDFBool $ DFBoolLiteral n $ sop l
+        _ -> return $ ValueDFBool $ dop n df
 
 
 -- Higher order functions.
 
-valueFun_map :: Value
-valueFun_map =
+valueFun_map :: InterpretM Value
+valueFun_map = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray as) -> do
       vs <- mapM f as
       return $ ValueArray vs
 
-valueFun_foldl :: Value
-valueFun_foldl =
+valueFun_foldl :: InterpretM Value
+valueFun_foldl = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ va -> return $
       ValueFun $ \ (ValueArray vbs) ->
         valueFun_foldl' f va vbs
 
-valueFun_foldl1 :: Value
-valueFun_foldl1 =
+valueFun_foldl1 :: InterpretM Value
+valueFun_foldl1 = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray (vb:vbs)) ->
       valueFun_foldl' f vb vbs
@@ -147,15 +150,15 @@ valueFun_foldl' f z (x:xs) = do
   fzx <- fz x
   valueFun_foldl' f fzx xs
 
-valueFun_foldr :: Value
-valueFun_foldr =
+valueFun_foldr :: InterpretM Value
+valueFun_foldr = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ vb -> return $
       ValueFun $ \ (ValueArray vas) ->
         valueFun_foldr' f vb vas
 
-valueFun_foldr1 :: Value
-valueFun_foldr1 =
+valueFun_foldr1 :: InterpretM Value
+valueFun_foldr1 = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray (va:vas)) ->
       valueFun_foldr' f va vas
@@ -167,23 +170,23 @@ valueFun_foldr' f z (x:xs) = do
   ValueFun fx <- f x
   fx z'
 
-valueFun_unroll :: Value
-valueFun_unroll =
+valueFun_unroll :: InterpretM Value
+valueFun_unroll = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueDFReal dfn) -> return $
       ValueFun $ \ z ->
         case dfn of
-          DFRealLiteral n -> valueFun_unroll' f (floor n) z
-          _ -> throwError $ "in function 'unroll', n must be statically determinable"
+          DFRealLiteral _ i -> valueFun_unroll' f (floor i) z
+          _ -> throwError $ "in function 'unroll', i must be statically determinable"
 
 valueFun_unroll' :: (Value -> InterpretM Value) -> Int -> Value -> InterpretM Value
 valueFun_unroll' _ 0 z = return z
-valueFun_unroll' f n z = do
+valueFun_unroll' f i z = do
   fz <- f z
-  valueFun_unroll' f (n-1) fz
+  valueFun_unroll' f (i-1) fz
 
-valueFun_zipWith :: Value
-valueFun_zipWith =
+valueFun_zipWith :: InterpretM Value
+valueFun_zipWith = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray as) -> return $
       ValueFun $ \ (ValueArray bs) -> do
@@ -198,8 +201,8 @@ valueFun_zipWith' z (a:as) (b:bs) = do
   return $ zab:zabs
 valueFun_zipWith' _ _ _ = return []
 
-valueFun_zipWith3 :: Value
-valueFun_zipWith3 =
+valueFun_zipWith3 :: InterpretM Value
+valueFun_zipWith3 = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueArray as) -> return $
       ValueFun $ \ (ValueArray bs) -> return $
@@ -219,64 +222,84 @@ valueFun_zipWith3' _ _ _ _= return []
 
 -- Texture functions.
 
-valueSample1D :: Value
-valueSample1D =
+valueSample1D :: InterpretM Value
+valueSample1D = return $
   ValueFun $ \ (ValueTexture1D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x]) -> do
-    let submit = DFSample1D i x
+    n <- freshNode
+    nr <- freshNode
+    ng <- freshNode
+    nb <- freshNode
+    na <- freshNode
+    let submit = DFSample1D n i x
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDFReal $ DFRealGetTexR nr submit,
+      ValueDFReal $ DFRealGetTexG ng submit,
+      ValueDFReal $ DFRealGetTexB nb submit,
+      ValueDFReal $ DFRealGetTexA na submit
       ]
 
-valueSample2D :: Value
-valueSample2D =
+valueSample2D :: InterpretM Value
+valueSample2D = return $
   ValueFun $ \ (ValueTexture2D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y]) -> do
-    let submit = DFSample2D i x y
+    n <- freshNode
+    nr <- freshNode
+    ng <- freshNode
+    nb <- freshNode
+    na <- freshNode
+    let submit = DFSample2D n i x y
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDFReal $ DFRealGetTexR nr submit,
+      ValueDFReal $ DFRealGetTexG ng submit,
+      ValueDFReal $ DFRealGetTexB nb submit,
+      ValueDFReal $ DFRealGetTexA na submit
       ]
 
-valueSample3D :: Value
-valueSample3D =
+valueSample3D :: InterpretM Value
+valueSample3D = return $
   ValueFun $ \ (ValueTexture3D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
-    let submit = DFSample3D i x y z
+    n <- freshNode
+    nr <- freshNode
+    ng <- freshNode
+    nb <- freshNode
+    na <- freshNode
+    let submit = DFSample3D n i x y z
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDFReal $ DFRealGetTexR nr submit,
+      ValueDFReal $ DFRealGetTexG ng submit,
+      ValueDFReal $ DFRealGetTexB nb submit,
+      ValueDFReal $ DFRealGetTexA na submit
       ]
 
-valueSampleCube :: Value
-valueSampleCube =
+valueSampleCube :: InterpretM Value
+valueSampleCube = return $
   ValueFun $ \ (ValueTextureCube i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
-    let submit = DFSampleCube i x y z
+    n <- freshNode
+    nr <- freshNode
+    ng <- freshNode
+    nb <- freshNode
+    na <- freshNode
+    let submit = DFSampleCube n i x y z
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR submit,
-      ValueDFReal $ DFRealGetTexG submit,
-      ValueDFReal $ DFRealGetTexB submit,
-      ValueDFReal $ DFRealGetTexA submit
+      ValueDFReal $ DFRealGetTexR nr submit,
+      ValueDFReal $ DFRealGetTexG ng submit,
+      ValueDFReal $ DFRealGetTexB nb submit,
+      ValueDFReal $ DFRealGetTexA na submit
       ]
 
 
 -- Subscript.
 
-valueSubscript :: Value
-valueSubscript =
+valueSubscript :: InterpretM Value
+valueSubscript = return $
   ValueFun $ \ (ValueArray vs) -> return $
     ValueFun $ \ (ValueDFReal sub) -> do
       let len = length vs
       case sub of
-        DFRealLiteral d -> do
+        DFRealLiteral _ d -> do
           let idx = floor d
           if 0 <= idx && idx < len
             then return $ vs!!idx
@@ -286,60 +309,88 @@ valueSubscript =
 
 -- Equality and inequality functions.
 
-valueEqual :: Value
-valueEqual =
+valueEqual :: InterpretM Value
+valueEqual = return $
   ValueFun $ \ v1 -> return $
     ValueFun $ \ v2 -> valueEqual' v1 v2
 
 valueEqual' :: Value -> Value -> InterpretM Value
-valueEqual' (ValueUnit) (ValueUnit) = return $ ValueDFBool $ DFBoolLiteral True
-valueEqual' (ValueDFReal df1) (ValueDFReal df2) = return $ liftRRB' (==) DFBoolEqualReal df1 df2
-valueEqual' (ValueDFBool df1) (ValueDFBool df2) = return $ liftBBB' (==) DFBoolEqualBool df1 df2
-valueEqual' (ValueTexture1D i) (ValueTexture1D i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
-valueEqual' (ValueTexture2D i) (ValueTexture2D i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
-valueEqual' (ValueTexture3D i) (ValueTexture3D i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
-valueEqual' (ValueTextureCube i) (ValueTextureCube i') = return $ ValueDFBool $ DFBoolLiteral $ i == i'
+valueEqual' (ValueUnit) (ValueUnit) = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n True
+valueEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (==) DFBoolEqualReal df1 df2
+valueEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (==) DFBoolEqualBool df1 df2
+valueEqual' (ValueTexture1D i) (ValueTexture1D i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
+valueEqual' (ValueTexture2D i) (ValueTexture2D i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
+valueEqual' (ValueTexture3D i) (ValueTexture3D i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
+valueEqual' (ValueTextureCube i) (ValueTextureCube i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
 valueEqual' (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM valueEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (&&) DFBoolAnd) x y) $ map unValueDFBool vs
+  let (dfb:dfbs) = map unValueDFBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
+  return $ ValueDFBool dfb'
 valueEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   vs <- zipWithM valueEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (&&) DFBoolAnd) x y) $ map unValueDFBool vs
+  let (dfb:dfbs) = map unValueDFBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
+  return $ ValueDFBool dfb'
 valueEqual' (ValueFun _) (ValueFun _) = throwError $ "equality expression would violate run time model"
 valueEqual' _ _ = undefined
 
-valueNotEqual :: Value
-valueNotEqual =
+valueNotEqual :: InterpretM Value
+valueNotEqual = return $
   ValueFun $ \ v1 -> return $
     ValueFun $ \ v2 -> valueNotEqual' v1 v2
 
 valueNotEqual' :: Value -> Value -> InterpretM Value
-valueNotEqual' (ValueUnit) (ValueUnit) = return $ ValueDFBool $ DFBoolLiteral False
-valueNotEqual' (ValueDFReal df1) (ValueDFReal df2) = return $ liftRRB' (/=) DFBoolNotEqualReal df1 df2
-valueNotEqual' (ValueDFBool df1) (ValueDFBool df2) = return $ liftBBB' (/=) DFBoolNotEqualBool df1 df2
-valueNotEqual' (ValueTexture1D i) (ValueTexture1D i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
-valueNotEqual' (ValueTexture2D i) (ValueTexture2D i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
-valueNotEqual' (ValueTexture3D i) (ValueTexture3D i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
-valueNotEqual' (ValueTextureCube i) (ValueTextureCube i') = return $ ValueDFBool $ DFBoolLiteral $ i /= i'
+valueNotEqual' (ValueUnit) (ValueUnit) = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n False
+valueNotEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (/=) DFBoolNotEqualReal df1 df2
+valueNotEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (/=) DFBoolNotEqualBool df1 df2
+valueNotEqual' (ValueTexture1D i) (ValueTexture1D i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
+valueNotEqual' (ValueTexture2D i) (ValueTexture2D i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
+valueNotEqual' (ValueTexture3D i) (ValueTexture3D i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
+valueNotEqual' (ValueTextureCube i) (ValueTextureCube i') = do
+  n <- freshNode
+  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
 valueNotEqual' (ValueArray vs1) (ValueArray vs2) = do
-  vs <- zipWithM valueNotEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (||) DFBoolOr) x y) $ map unValueDFBool vs
+  vs <- zipWithM valueEqual' vs1 vs2
+  let (dfb:dfbs) = map unValueDFBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
+  return $ ValueDFBool dfb'
 valueNotEqual' (ValueTuple vs1) (ValueTuple vs2) = do
-  vs <- zipWithM valueNotEqual' vs1 vs2
-  return $ ValueDFBool $ List.foldl1' (\x y -> unValueDFBool $ (liftBBB' (||) DFBoolOr) x y) $ map unValueDFBool vs
+  vs <- zipWithM valueEqual' vs1 vs2
+  let (dfb:dfbs) = map unValueDFBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
+  return $ ValueDFBool dfb'
 valueNotEqual' (ValueFun _) (ValueFun _) = throwError $ "inequality expression would violate run time model"
 valueNotEqual' _ _ = undefined
 
 
 -- Transpose function.
-valueTranspose :: Value
-valueTranspose =
+valueTranspose :: InterpretM Value
+valueTranspose = return $
   ValueFun $ \ (ValueArray outer) -> return $
     ValueArray $ map ValueArray $ List.transpose $ map (\(ValueArray inner) -> inner) outer
 
 
 -- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
-libraryBase :: [(Fixity, String, String, String, Bool, [String], Value)]
+libraryBase :: [(Fixity, String, String, String, Bool, [String], InterpretM Value)]
 libraryBase = [
   (Prefix, show OpScalarNeg, "Real -> Real", "scalar negate (as desugared from \"-\")", False, ["x"], liftRR (negate) DFRealNeg),
   (Prefix, show OpNot, "Bool -> Bool", "logical not", False, ["x"], liftBB (not) DFBoolNot),
@@ -365,7 +416,7 @@ libraryBase = [
   (Prefix, "unroll", "('a -> 'a) -> Real -> 'a -> 'a", "apply f n times to z (n must be statically determinable)", False, ["f", "n", "z"], valueFun_unroll),
   (Prefix, "zipWith", "('a -> 'b -> 'c) -> 'a 'n -> 'b 'n -> 'c 'n", "general zip over 2 arrays", False, ["f", "as", "bs"], valueFun_zipWith),
   (Prefix, "zipWith3", "('a -> 'b -> 'c -> 'd) -> 'a 'n -> 'b 'n -> 'c 'n -> 'd 'n", "general zip over 3 arrays", False, ["f", "as", "bs", "cs"], valueFun_zipWith3),
-  (Prefix, "pi", "Real", "pi", False, [], ValueDFReal $ DFRealLiteral pi),
+  (Prefix, "pi", "Real", "pi", False, [], do n <- freshNode; return $ ValueDFReal $ DFRealLiteral n pi),
   (Prefix, "sin", "Real -> Real", "sine (radians)", False, ["a"], liftRR sin DFRealSin),
   (Prefix, "cos", "Real -> Real", "cosine (radians)", False, ["a"], liftRR cos DFRealCos),
   (Prefix, "tan", "Real -> Real", "tangent (radians)", False, ["a"], liftRR tan DFRealTan),

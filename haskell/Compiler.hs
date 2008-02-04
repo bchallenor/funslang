@@ -36,7 +36,7 @@ attemptUnification' t1 vrefs type_strs (type_str:type_strs_left) =
 compile :: ByteString.ByteString -> ByteString.ByteString -> Either String (Type, ShaderState, DFGraph, String, Type, ShaderState, DFGraph, String)
 compile vertex_src fragment_src = do
   -- Init the library.
-  let (gamma, env, var_refs_1, num_nodes_library) = library
+  let (gamma, env, var_refs_1) = library
   
   -- Parse vertex shader and infer type.
   (vertex_expr, var_refs_2) <- parseExpr var_refs_1 vertex_src
@@ -66,10 +66,10 @@ compile vertex_src fragment_src = do
               let fragment_type'' = applySubstType s fragment_type'
               
               -- Interpret shaders to dataflow graph form.
-              (vertex_value, vertex_info) <- interpretExprAsShader ShaderKindVertex env vertex_expr vertex_type'' num_nodes_library
-              let vertex_graph = dependencyGraph vertex_value
-              (fragment_value, fragment_info) <- interpretExprAsShader ShaderKindFragment env fragment_expr fragment_type'' num_nodes_library
-              let fragment_graph = dependencyGraph fragment_value
+              (vertex_value, vertex_info) <- interpretExprAsShader ShaderKindVertex env vertex_expr vertex_type''
+              let vertex_graph = dependencyGraph vertex_value vertex_info
+              (fragment_value, fragment_info) <- interpretExprAsShader ShaderKindFragment env fragment_expr fragment_type''
+              let fragment_graph = dependencyGraph fragment_value fragment_info
               
               return (
                 vertex_type'', vertex_info, vertex_graph, emit ShaderKindVertex vertex_info vertex_graph,

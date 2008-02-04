@@ -35,7 +35,6 @@ dump sk t si g emitted = do
   putStrLn $ prettyType t
   putStrLn $ "inputs: " ++ show si
   putStrLn "outputting graphviz..."
-  hFlush stdout
   success <- graphvizCompile g (show sk) "png"
   putStrLn $ show success
   putStrLn $ emitted
