@@ -6,8 +6,8 @@
 
 #include "funslang.h"
 
-#define WINDOW_W 500
-#define WINDOW_H 500
+#define WINDOW_W 1000
+#define WINDOW_H 1000
 
 const GLfloat testVertexUniforms[44] =
 {
