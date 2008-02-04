@@ -1,4 +1,4 @@
-% Fragment shader for drawing Julia sets
+% Fragment shader for drawing Mandelbrot sets
 % Author: Ben Challenor
 % Based on Julia.frag (GLSL) by 3Dlabs
 
