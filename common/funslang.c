@@ -96,6 +96,8 @@ bool fsCompile(FSprogram* p)
 
 void fsSetVertexUniforms(FSprogram* p, const GLfloat* data)
 {
+	if (!data) return;
+	
 	if (p->num_vertex_uniforms > 0)
 	{
 		glUniform1fv(p->loc_vertex_uniforms, p->num_vertex_uniforms, data);
@@ -104,6 +106,8 @@ void fsSetVertexUniforms(FSprogram* p, const GLfloat* data)
 
 void fsSetFragmentUniforms(FSprogram* p, const GLfloat* data)
 {
+	if (!data) return;
+	
 	if (p->num_fragment_uniforms > 0)
 	{
 		glUniform1fv(p->loc_fragment_uniforms, p->num_fragment_uniforms, data);
@@ -114,6 +118,8 @@ void fsSetVertexVaryings(FSprogram* p, const GLfloat* data)
 {
 	int num_packed;
 	int num_total = p->num_vertex_varyings;
+	
+	if (!data) return;
 	
 	for (num_packed = 0; num_packed < num_total; num_packed += MAX_PACKING_SIZE)
 	{
