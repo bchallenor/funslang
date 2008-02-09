@@ -1,6 +1,44 @@
-% Vertex shader for drawing Mandelbrot sets
+% Vertex shader to perform standard transforms
+% and pass coordinates to fragment shader.
 % Author: Ben Challenor
-% Based on Julia.vert (GLSL) by 3Dlabs
 
-\()()(p). (p, (p!![0,1], 1.0))
+let getRotX a =
+  let s = sin a in
+  let c = cos a in
+    [ [ 1,  0,  0, 0],
+      [ 0,  c, -s, 0],
+      [ 0,  s,  c, 0],
+      [ 0,  0,  0, 1] ] in
+
+let getRotY a =
+  let s = sin a in
+  let c = cos a in
+    [ [ c,  0,  s, 0],
+      [ 0,  1,  0, 0],
+      [-s,  0,  c, 0],
+      [ 0,  0,  0, 1] ] in
+
+let getRotZ a =
+  let s = sin a in
+  let c = cos a in
+    [ [ c, -s,  0, 0],
+      [ s,  c,  0, 0],
+      [ 0,  0,  1, 0],
+      [ 0,  0,  0, 1] ] in
+
+let lookAt from to up =
+  let n = normalize $ from -- to in
+  let u = normalize $ up `cross` n in
+  let v = n `cross` u in
+      [ [u!0, u!1, u!2, -(from `dot` u)],
+        [v!0, v!1, v!2, -(from `dot` v)],
+        [n!0, n!1, n!2, -(from `dot` n)],
+        [0, 0, 0, 1] ] in
+
+\(proj, model, rotx, roty, rotz, from, to, up)()(p).
+
+let view = lookAt from to up in
+let rot = getRotZ rotz # (getRotY roty # getRotX rotx) in
+  
+  (proj #. view #. rot #. model #. pad p, (p!![0,1]))
 

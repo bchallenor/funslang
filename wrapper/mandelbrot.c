@@ -1,5 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#include <math.h>
 
 #include <GL/glew.h>
 #include <GL/glut.h>
@@ -9,111 +11,231 @@
 #define WINDOW_W 1000
 #define WINDOW_H 1000
 
-const GLfloat testVertexUniforms[44] =
+GLfloat g_ModelMatrixFaceA[4][4] =
 {
-	1.0, 0.0, 0.0, 0.0, // mvm
-	0.0, 1.0, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0,
-	0.0, 0.0, 0.0, 1.0
+	{ 1,  0,  0,  0},
+	{ 0,  1,  0,  0},
+	{ 0,  0,  1,  0},
+	{ 0,  0,  0,  1},
 };
-const GLfloat testVertexVaryings[3*8] =
+GLfloat g_ModelMatrixFaceB[4][4] =
 {
-	0.0, 0.0, 0.0, 1.0,   1,0,0,1,
-	1.0, 0.0, 0.0, 1.0,   0,1,0,1,
-	0.5, 1.0, 0.0, 1.0,   0,0,1,1
+	{ 0,  0, -1,  0},
+	{ 0,  1,  0,  0},
+	{ 1,  0,  0,  0},
+	{ 0,  0,  0,  1},
 };
-
-const GLfloat brickVertexUniforms[44] =
+GLfloat g_ModelMatrixFaceC[4][4] =
 {
-	0.0, 0.0, 5.0, // LightPosition
-	
-	1.0, 0.0, 0.0, 0.0, // mvm
-	0.0, 1.0, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0,
-	0.0, 0.0, 0.0, 1.0,
-	
-	1.0, 0.0, 0.0, 0.0, // pm
-	0.0, 1.0, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0,
-	0.0, 0.0, 0.0, 1.0,
-	
-	1.0, 0.0, 0.0, // nm
-	0.0, 1.0, 0.0,
-	0.0, 0.0, 1.0
+	{-1,  0,  0,  0},
+	{ 0,  1,  0,  0},
+	{ 0,  0, -1,  0},
+	{ 0,  0,  0,  1},
 };
-const GLfloat brickFragmentUniforms[10] =
+GLfloat g_ModelMatrixFaceD[4][4] =
 {
-	1.0, 0.3, 0.2, // BrickColor
-	0.85, 0.86, 0.84, // MortarColor
-	0.3, 0.15, // BrickSize
-	0.85, 0.90 // BrickPct
-};
-const GLfloat brickVertexVaryings[3*7] =
-{
-	0.0, 0.0, 0.0, 1.0,   0.0, 0.0, 1.0,
-	1.0, 0.0, 0.0, 1.0,   0.0, 0.0, 1.0,
-	0.5, 1.0, 0.0, 1.0,   0.0, 0.0, 1.0,
+	{ 0,  0,  1,  0},
+	{ 0,  1,  0,  0},
+	{-1,  0,  0,  0},
+	{ 0,  0,  0,  1},
 };
 
-const GLfloat juliaFragmentUniforms[14] =
+GLfloat g_ModelMatrixFaceE[4][4] =
 {
-	2, // Zoom
-	0, // Xcenter
-	0, // Ycenter
-	0, 0, 0, // InnerColor
-	1, 1, 1, // OuterColor1
-	0, 0, 1, // OuterColor2
-	-0.4, // Creal
-	0.6, // Cimag
+	{ 1,  0,  0,  0},
+	{ 0,  0,  1,  0},
+	{ 0, -1,  0,  0},
+	{ 0,  0,  0,  1},
 };
-const GLfloat juliaVertexVaryings[3*4] =
+GLfloat g_ModelMatrixFaceF[4][4] =
 {
-	-1.0, -1.0, 0.0, 1.0,
-	1.0, -1.0, 0.0, 1.0,
-	0.0, 1.0, 0.0, 1.0,
+	{ 1,  0,  0,  0},
+	{ 0,  0, -1,  0},
+	{ 0,  1,  0,  0},
+	{ 0,  0,  0,  1},
 };
 
-const GLfloat mandelbrotFragmentUniforms[12] =
+const GLfloat g_vv[4*3] =
 {
-	2, // Zoom
-	0, // Xcenter
-	0, // Ycenter
-	0, 0, 0, // InnerColor
-	1, 1, 1, // OuterColor1
-	0, 0, 1, // OuterColor2
+	-1, -1, +1,
+	+1, -1, +1,
+	+1, +1, +1,
+	-1, +1, +1,
 };
-const GLfloat mandelbrotVertexVaryings[3*4] =
+
+
+typedef struct
 {
-	-1.0, -1.0, 0.0, 1.0,
-	1.0, -1.0, 0.0, 1.0,
-	0.0, 1.0, 0.0, 1.0,
+	float proj[4][4];
+	float model[4][4];
+	float rotx;
+	float roty;
+	float rotz;
+	float from[3];
+	float to[3];
+	float up[3];
+} VertexUniforms;
+
+VertexUniforms g_vu =
+{
+	{
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+	},
+	{
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+	},
+	0,
+	0,
+	0,
+	{1.5,1.5,1.5},
+	{0,0,0},
+	{0,1,0},
 };
+
+typedef struct
+{
+	float Zoom;
+	float Xcenter;
+	float Ycenter;
+	float InnerColor[3];
+	float OuterColor1[3];
+	float OuterColor2[3];
+} FragmentUniforms;
+
+FragmentUniforms g_fu =
+{
+	2,
+	0,
+	0,
+	{0, 0, 0},
+	{1, 0.5, 0},
+	{1, 0, 0},
+};
+
+
+int g_FrameNumThisTick = 0, g_TickTime = 0, g_Time, g_TimeDelta;
+double g_PhaseDelta;
+
+bool g_IsRotatingX = false;
+bool g_IsRotatingY = false;
+bool g_IsRotatingZ = false;
+bool g_IsZooming = false;
+
+FSprogram g_Program;
+
+
+void updateFPS(void)
+{
+	g_FrameNumThisTick++;
+	
+	int t = glutGet(GLUT_ELAPSED_TIME);
+	g_TimeDelta = g_Time - t;
+	g_PhaseDelta = 2 * M_PI * g_TimeDelta / 1000.0;
+	g_Time = t;
+	
+	int timeThisTick = g_Time - g_TickTime;
+	
+	if (timeThisTick > 1000)
+	{
+		printf("FPS:%4.2f\n", (g_FrameNumThisTick * 1000.0) / timeThisTick);
+		
+		g_TickTime = g_Time;
+		g_FrameNumThisTick = 0;
+	}
+}
+
+void key(unsigned char key, int x, int y)
+{
+	switch (key)
+	{
+		case 'i':
+			g_IsRotatingX = !g_IsRotatingX;
+			return;
+		case 'j':
+			g_IsRotatingY = !g_IsRotatingY;
+			return;
+		case 'k':
+			g_IsRotatingZ = !g_IsRotatingZ;
+			return;
+		case 'z':
+			g_IsZooming = !g_IsZooming;
+			return;
+	}
+}
 
 void render(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
-	glLoadIdentity();
-	glDrawArrays(GL_TRIANGLES, 0, 3);
-
+	memcpy(g_vu.model, g_ModelMatrixFaceA, 16 * sizeof(GLfloat));
+	fsSetVertexUniforms(&g_Program, (GLfloat*)&g_vu);
+	fsSetFragmentUniforms(&g_Program, (GLfloat*)&g_fu);
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	memcpy(g_vu.model, g_ModelMatrixFaceB, 16 * sizeof(GLfloat));
+	fsSetVertexUniforms(&g_Program, (GLfloat*)&g_vu);
+	fsSetFragmentUniforms(&g_Program, (GLfloat*)&g_fu);
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	memcpy(g_vu.model, g_ModelMatrixFaceC, 16 * sizeof(GLfloat));
+	fsSetVertexUniforms(&g_Program, (GLfloat*)&g_vu);
+	fsSetFragmentUniforms(&g_Program, (GLfloat*)&g_fu);
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	memcpy(g_vu.model, g_ModelMatrixFaceD, 16 * sizeof(GLfloat));
+	fsSetVertexUniforms(&g_Program, (GLfloat*)&g_vu);
+	fsSetFragmentUniforms(&g_Program, (GLfloat*)&g_fu);
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	memcpy(g_vu.model, g_ModelMatrixFaceE, 16 * sizeof(GLfloat));
+	fsSetVertexUniforms(&g_Program, (GLfloat*)&g_vu);
+	fsSetFragmentUniforms(&g_Program, (GLfloat*)&g_fu);
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	memcpy(g_vu.model, g_ModelMatrixFaceF, 16 * sizeof(GLfloat));
+	fsSetVertexUniforms(&g_Program, (GLfloat*)&g_vu);
+	fsSetFragmentUniforms(&g_Program, (GLfloat*)&g_fu);
+	glDrawArrays(GL_QUADS, 0, 4);
+	
 	glutSwapBuffers();
 }
 
-// Assumes paths already set.
-bool initShaders(FSprogram* p, const GLfloat* vertexUniforms, const GLfloat* fragmentUniforms, const GLfloat* vertexVaryings)
+void frame(void)
 {
-	// Compile shaders.
-	if (!fsCompile(p)) return false;
+	updateFPS();
 	
-	// Activate shaders.
-	glUseProgram(p->glsl_program);
-
-	// Set shader data.
-	fsSetVertexUniforms(p, vertexUniforms);
-	fsSetFragmentUniforms(p, fragmentUniforms);
-	fsSetVertexVaryings(p, vertexVaryings);
+	if (g_IsRotatingX)
+	{
+		static double phase = 0;
+		phase += g_PhaseDelta / 4;
+		g_vu.rotx = phase;
+	}
+	if (g_IsRotatingY)
+	{
+		static double phase = 0;
+		phase += g_PhaseDelta / 4;
+		g_vu.roty = phase;
+	}
+	if (g_IsRotatingZ)
+	{
+		static double phase = 0;
+		phase += g_PhaseDelta / 4;
+		g_vu.rotz = phase;
+	}
+	if (g_IsZooming)
+	{
+		static double phase = 0;
+		phase += 2 * M_PI * g_TimeDelta / 1000.0;
+		g_fu.Zoom = 1.1 + 0.9 * cos(phase);
+	}
 	
-	return true;
+	render();
 }
 
 
@@ -134,32 +256,27 @@ int main(int argc, char** argv)
 		printf("OpenGL 2.0 is required!");
 		return 1;
 	}
+	
+	// Enable back-face culling.
+	glEnable(GL_CULL_FACE);
 
+	// Steal projection matrix from GL.
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(60.0, 1.0, 1.0, 10.0);
+	glGetFloatv(GL_PROJECTION_MATRIX, (GLfloat*)&g_vu.proj);
+	
+	// Init shaders.
+	g_Program.vertex_shader_path = "../funslang/Mandelbrot.vp";
+	g_Program.fragment_shader_path = "../funslang/Mandelbrot.fp";
+	if (!fsCompile(&g_Program)) return 1;
+	glUseProgram(g_Program.glsl_program);
+	fsSetVertexVaryings(&g_Program, (GLfloat*)&g_vv);
+	
 	// Set up GLUT callbacks.
 	glutDisplayFunc(render);
-
-	// Init shaders.
-	FSprogram p;
-#if 0
-	p.vertex_shader_path = "../funslang/test.vp";
-	p.fragment_shader_path = "../funslang/test.fp";
-	if (!initShaders(&p, testVertexUniforms, NULL, testVertexVaryings)) return 1;
-#endif
-#if 0
-	p.vertex_shader_path = "../funslang/brick.vp";
-	p.fragment_shader_path = "../funslang/brick.fp";
-	if (!initShaders(&p, brickVertexUniforms, brickFragmentUniforms, brickVertexVaryings)) return 1;
-#endif
-#if 0
-	p.vertex_shader_path = "../funslang/Julia.vp";
-	p.fragment_shader_path = "../funslang/Julia.fp";
-	if (!initShaders(&p, NULL, juliaFragmentUniforms, juliaVertexVaryings)) return 1;
-#endif
-#if 1
-	p.vertex_shader_path = "../funslang/Mandelbrot.vp";
-	p.fragment_shader_path = "../funslang/Mandelbrot.fp";
-	if (!initShaders(&p, NULL, mandelbrotFragmentUniforms, mandelbrotVertexVaryings)) return 1;
-#endif
+	glutIdleFunc(frame);
+	glutKeyboardFunc(key);
 
 	// Enter main loop.
 	glutMainLoop();
