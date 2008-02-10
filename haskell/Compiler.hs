@@ -66,9 +66,10 @@ compile vertex_src fragment_src = do
               let fragment_type'' = applySubstType s fragment_type'
               
               -- Interpret shaders to dataflow graph form.
-              (vertex_value, vertex_info) <- interpretExprAsShader ShaderKindVertex env vertex_expr vertex_type''
+              let info_init = ShaderState{num_uniforms = 0, num_textures = 0, num_varyings = 0, textures = [], num_generic_outputs = 0, num_nodes = 0}
+              (vertex_value, vertex_info) <- interpretExprAsShader ShaderKindVertex env vertex_expr vertex_type'' info_init
               let vertex_graph = dependencyGraph vertex_value vertex_info
-              (fragment_value, fragment_info) <- interpretExprAsShader ShaderKindFragment env fragment_expr fragment_type''
+              (fragment_value, fragment_info) <- interpretExprAsShader ShaderKindFragment env fragment_expr fragment_type'' info_init{num_textures = num_textures vertex_info, textures = textures vertex_info}
               let fragment_graph = dependencyGraph fragment_value fragment_info
               
               return (

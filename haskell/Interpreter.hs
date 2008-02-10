@@ -103,16 +103,9 @@ matchPattern (PattTuple _ _) _ = undefined
 
 
 -- Creates dummy values to give to the shader lambda expression, and then runs it.
-interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> Either String (Value, ShaderState)
-interpretExprAsShader sk env e t = do
-  (v, s) <- runInterpretM (interpretExprAsShader' sk env e t) ShaderState{
-    num_uniforms = 0,
-    num_textures = 0,
-    num_varyings = 0,
-    textures = [],
-    num_generic_outputs = 0,
-    num_nodes = 0
-    }
+interpretExprAsShader :: ShaderKind -> ValueEnv -> Expr -> Type -> ShaderState -> Either String (Value, ShaderState)
+interpretExprAsShader sk env e t si = do
+  (v, s) <- runInterpretM (interpretExprAsShader' sk env e t) si
   return (v, s)
 
 interpretExprAsShader' :: ShaderKind -> ValueEnv -> Expr -> Type -> InterpretM Value

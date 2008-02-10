@@ -14,8 +14,8 @@ import Pretty
 import Compiler
 
 
-fsCompile :: CString -> CString -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
-fsCompile v_path_cstr f_path_cstr err_cstr_ptr v_type_cstr_ptr v_num_uniforms_ptr v_num_varyings_ptr v_emit_cstr_ptr f_type_cstr_ptr f_num_uniforms_ptr f_num_varyings_ptr f_emit_cstr_ptr = do
+fsCompile :: CString -> CString -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CInt -> IO ()
+fsCompile v_path_cstr f_path_cstr err_cstr_ptr v_type_cstr_ptr v_num_uniforms_ptr v_num_varyings_ptr v_emit_cstr_ptr f_type_cstr_ptr f_num_uniforms_ptr f_num_varyings_ptr f_emit_cstr_ptr num_textures_ptr = do
   v_path <- peekCString v_path_cstr
   f_path <- peekCString f_path_cstr
   
@@ -51,6 +51,8 @@ fsCompile v_path_cstr f_path_cstr err_cstr_ptr v_type_cstr_ptr v_num_uniforms_pt
           f_type_cstr <- newCString $ prettyType f_type
           poke f_type_cstr_ptr f_type_cstr
           
+          poke num_textures_ptr $ fromIntegral $ num_textures f_si
+          
           poke err_cstr_ptr nullPtr
           
           hClose v_h
@@ -65,5 +67,5 @@ fsCompile v_path_cstr f_path_cstr err_cstr_ptr v_type_cstr_ptr v_num_uniforms_pt
           hClose f_h
 
 
-foreign export ccall "_fsCompile" fsCompile :: CString -> CString -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO ()
+foreign export ccall "_fsCompile" fsCompile :: CString -> CString -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CInt -> IO ()
 foreign export ccall "_fsFree" free :: Ptr a -> IO ()
