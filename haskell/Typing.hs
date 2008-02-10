@@ -282,7 +282,8 @@ principalType gamma a@(ExprLambda p e) = do
   (t1, m) <- inferPattType p
   -- generalize over nothing when converting to type schemes
   let params = Map.map (Scheme emptyVarRefs) m
-  (s, t2) <- principalType (gamma `Map.union` params) e
+  -- it is critical that Map.union prefers its first argument
+  (s, t2) <- principalType (params `Map.union` gamma) e
   return (s, TypeFun (applySubstType s t1) t2)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 

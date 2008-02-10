@@ -63,13 +63,15 @@ interpretExpr env a@(ExprIf eb e1 e2) =
 interpretExpr env a@(ExprLet p e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   v1 <- interpretExpr env e1
-  let env' = env `Map.union` matchPattern p v1
+  -- it is critical that Map.union prefers its first argument
+  let env' = matchPattern p v1 `Map.union` env
   v2 <- interpretExpr env' e2
   return v2
 
 interpretExpr env a@(ExprLambda p e) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  return $ ValueFun (\v -> let env' = env `Map.union` matchPattern p v in interpretExpr env' e)
+  -- it is critical that Map.union prefers its first argument
+  return $ ValueFun (\v -> let env' = matchPattern p v `Map.union` env in interpretExpr env' e)
 
 
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
