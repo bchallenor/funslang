@@ -1,9 +1,12 @@
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "funslang.h"
 #include "LibFunslang_stub.h"
+
+#include "jpeglib.h"
 
 #define MAX_PACKING_SIZE 4
 
@@ -69,7 +72,8 @@ bool fsCompile(FSprogram* p)
 		(char*)p->fragment_shader_path,
 		&err,
 		&v_type, &p->num_vertex_uniforms, &p->num_vertex_varyings, &v_glsl_src,
-		&f_type, &p->num_fragment_uniforms, &p->num_fragment_varyings, &f_glsl_src
+		&f_type, &p->num_fragment_uniforms, &p->num_fragment_varyings, &f_glsl_src,
+		&p->num_textures
 	);
 	
 	if (err)
@@ -129,6 +133,97 @@ void fsSetVertexVaryings(FSprogram* p, const GLfloat* data)
 		glVertexAttribPointer(loc, num_now, GL_FLOAT, 0, num_total * sizeof(GLfloat), &data[num_packed]);
 		glEnableVertexAttribArray(loc);
 	}
+}
+
+void fsSetTextureImageUnits(FSprogram* p)
+{
+	int tex_image_unit;
+	
+	for (tex_image_unit = 0; tex_image_unit < p->num_textures; tex_image_unit++)
+	{
+		int loc;
+		char tbuf[128];
+		
+		snprintf(tbuf, 128, "Tex%d", tex_image_unit);
+		loc = glGetUniformLocation(p->glsl_program, tbuf);
+		glUniform1i(loc, tex_image_unit);
+	}
+}
+
+// Loads JPG pixel data from file to byte array in RGB order.
+unsigned char* _fsLoadJPG(const char* fn, unsigned int* width, unsigned int* height)
+{
+	struct jpeg_decompress_struct cinfo;
+	struct jpeg_error_mgr jerr;
+	FILE* f;
+	unsigned char* data;
+	int row_stride;
+	
+	cinfo.err = jpeg_std_error(&jerr);
+	jpeg_create_decompress(&cinfo);
+	
+	f = fopen(fn, "rb");
+	if (!f)
+	{
+		fprintf(stderr, "can't open %s\n", fn);
+		return NULL;
+	}
+	jpeg_stdio_src(&cinfo, f);
+	
+	jpeg_read_header(&cinfo, TRUE);
+	cinfo.out_color_space = JCS_RGB; // force RGB output, even for grayscale images
+	
+	jpeg_start_decompress(&cinfo);
+	
+	row_stride = cinfo.output_width * cinfo.output_components;
+	
+	data = malloc(row_stride * cinfo.output_height * sizeof(data[0]));
+	if (!data)
+	{
+		fprintf(stderr, "can't allocate enough memory for %s\n", fn);
+		return NULL;
+	}
+	
+	while (cinfo.output_scanline < cinfo.output_height)
+	{
+		JSAMPROW row_pointer[1];
+		row_pointer[0] = &data[cinfo.output_scanline * row_stride];
+		jpeg_read_scanlines(&cinfo, row_pointer, 1);
+	}
+	
+	jpeg_finish_decompress(&cinfo);
+	
+	jpeg_destroy_decompress(&cinfo);
+	
+	fclose(f);
+	
+	*width = cinfo.output_width;
+	*height = cinfo.output_height;
+	
+	return data;
+}
+
+GLuint fsLoadTexture2D(const char* fn)
+{	
+	unsigned char* data;
+	unsigned int width;
+	unsigned int height;
+	GLuint tex_name;
+	
+	data = _fsLoadJPG(fn, &width, &height); // todo: png
+	if (!data) return 0;
+	
+	glGenTextures(1, &tex_name);
+	
+	glBindTexture(GL_TEXTURE_2D, tex_name);
+	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	
+	free(data);
+	
+	return tex_name;
 }
 
 void fsInit(int* argc, char*** argv)

@@ -13,6 +13,8 @@ typedef struct
 	int num_fragment_uniforms;
 	int num_fragment_varyings;
 	
+	int num_textures;
+	
 	GLchar* glsl_vertex_shader_source;
 	GLchar* glsl_fragment_shader_source;
 	GLuint glsl_program;
@@ -21,10 +23,25 @@ typedef struct
 } FSprogram;
 
 void fsInit(int* argc, char*** argv);
+void fsExit(void);
+
+// Funslang compilation.
+// Requires p->vertex_shader_path and p->fragment_shader_path to be set.
+// The rest of p can be uninitialized.
 bool fsCompile(FSprogram* p);
+
+// Shader data initialization.
 void fsSetVertexUniforms(FSprogram* p, const GLfloat* data);
 void fsSetFragmentUniforms(FSprogram* p, const GLfloat* data);
 void fsSetVertexVaryings(FSprogram* p, const GLfloat* data);
-void fsExit(void);
+
+// Shader texture image unit assignment.
+void fsSetTextureImageUnits(FSprogram* p);
+
+// Loads texture from file and assigns it new name (using glGenTextures).
+// Creates mipmap and enables trilinear filtering.
+// Automatically chooses between JPG and PNG formats.
+// Returns name, or 0 on error (note 0 is not a valid GL texture name).
+GLuint fsLoadTexture2D(const char* fn);
 
 #endif // FUNSLANG_H
