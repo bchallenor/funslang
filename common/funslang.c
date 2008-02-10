@@ -3,10 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "png.h"
+#include "jpeglib.h"
+
 #include "funslang.h"
 #include "LibFunslang_stub.h"
-
-#include "jpeglib.h"
 
 #define MAX_PACKING_SIZE 4
 
@@ -203,6 +204,11 @@ unsigned char* _fsLoadJPG(const char* fn, unsigned int* width, unsigned int* hei
 	return data;
 }
 
+// Loads PNG pixel data from file to byte array in RGB order.
+unsigned char* _fsLoadPNG(const char* fn, unsigned int* width, unsigned int* height)
+{
+}
+
 GLuint fsLoadTexture2D(const char* fn)
 {	
 	unsigned char* data;
@@ -210,7 +216,7 @@ GLuint fsLoadTexture2D(const char* fn)
 	unsigned int height;
 	GLuint tex_name;
 	
-	data = _fsLoadJPG(fn, &width, &height); // todo: png
+	data = _fsLoadPNG(fn, &width, &height); // todo: png vs jpg
 	if (!data) return 0;
 	
 	glGenTextures(1, &tex_name);
