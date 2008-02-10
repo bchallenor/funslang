@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "png.h"
-#include "jpeglib.h"
-
 #include "funslang.h"
 #include "LibFunslang_stub.h"
+
+//#include "png.h"
+#include "jpeglib.h"
 
 #define MAX_PACKING_SIZE 4
 
@@ -204,10 +204,77 @@ unsigned char* _fsLoadJPG(const char* fn, unsigned int* width, unsigned int* hei
 	return data;
 }
 
-// Loads PNG pixel data from file to byte array in RGB order.
-unsigned char* _fsLoadPNG(const char* fn, unsigned int* width, unsigned int* height)
+#if 0 // this is not ready
+unsigned char* read_png(FILE *fp)  /* file is already open */
 {
+   png_structp png_ptr;
+   png_infop info_ptr;
+   png_uint_32 width, height;
+   int bit_depth, color_type, interlace_type;
+
+   /* Create and initialize the png_struct with the desired error handler
+    * functions.  If you want to use the default stderr and longjump method,
+    * you can supply NULL for the last three parameters.  We also supply the
+    * the compiler header file version, so that we know if the application
+    * was compiled with a compatible version of the library.  REQUIRED
+    */
+   png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+
+   if (png_ptr == NULL)
+   {
+      fclose(fp);
+      return NULL;
+   }
+
+   /* Allocate/initialize the memory for image information.  REQUIRED. */
+   info_ptr = png_create_info_struct(png_ptr);
+   if (info_ptr == NULL)
+   {
+      fclose(fp);
+      png_destroy_read_struct(&png_ptr, NULL, NULL);
+      return NULL;
+   }
+
+   /* Set error handling if you are using the setjmp/longjmp method (this is
+    * the normal method of doing things with libpng).  REQUIRED unless you
+    * set up your own error handlers in the png_create_read_struct() earlier.
+    */
+
+   if (setjmp(png_jmpbuf(png_ptr)))
+   {
+      /* Free all of the memory associated with the png_ptr and info_ptr */
+      png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+      fclose(fp);
+      /* If we get here, we had a problem reading the file */
+      return NULL;
+   }
+
+   /* One of the following I/O initialization methods is REQUIRED */
+   /* Set up the input control if you are using standard C streams */
+   png_init_io(png_ptr, fp);
+
+   /*
+    * If you have enough memory to read in the entire image at once,
+    * and you need to specify only transforms that can be controlled
+    * with one of the PNG_TRANSFORM_* bits (this presently excludes
+    * dithering, filling, setting background, and doing gamma
+    * adjustment), then you can read the entire image (including
+    * pixels) into the info structure with this call:
+    */
+   png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND, NULL);
+
+   /* At this point you have read the entire image */
+
+   /* clean up after the read, and free any memory allocated - REQUIRED */
+   png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+
+   /* close the file */
+   fclose(fp);
+
+   /* that's it */
+   return (OK);
 }
+#endif
 
 GLuint fsLoadTexture2D(const char* fn)
 {	
@@ -216,7 +283,7 @@ GLuint fsLoadTexture2D(const char* fn)
 	unsigned int height;
 	GLuint tex_name;
 	
-	data = _fsLoadPNG(fn, &width, &height); // todo: png vs jpg
+	data = _fsLoadJPG(fn, &width, &height);
 	if (!data) return 0;
 	
 	glGenTextures(1, &tex_name);
