@@ -6,7 +6,7 @@ let MAX_ITERATIONS = 50 in
 
 \ (Zoom, Xcenter, Ycenter, InnerColor, OuterColor1, OuterColor2, Creal, Cimag) .
 \ () .
-\ ([Xpos, Ypos], LightIntensity) .
+\ ([Xpos, Ypos]) .
 
 % starting values
 let r = Xpos * Zoom + Xcenter in
@@ -27,6 +27,4 @@ let basecolor =
     then InnerColor
     else zipWith (mix (iter / MAX_ITERATIONS)) OuterColor1 OuterColor2  in
 
-let litcolor = basecolor **. LightIntensity in
-
-  pad litcolor
+  pad basecolor

@@ -2,5 +2,5 @@
 % Author: Ben Challenor
 % Based on Julia.vert (GLSL) by 3Dlabs
 
-\()()(p). (p, (p!![0,1], 1.0))
+\()()(p). (p, (p!![0,1]))
 
