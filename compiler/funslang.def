@@ -1,0 +1,9 @@
+EXPORTS
+fsInit
+fsExit
+fsCompile
+fsSetVertexUniforms
+fsSetFragmentUniforms
+fsSetVertexVaryings
+fsSetTextureImageUnits
+fsLoadTexture2D
