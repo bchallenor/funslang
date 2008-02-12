@@ -27,5 +27,5 @@ clean:
 
 install:
 	mkdir -p ../common/lib
-	cp -pf bin/funslang.dll ../common/bin/funslang.dll
-	cp -pf bin/funslang.dll.a ../common/lib/funslang.lib
+	cp -f bin/funslang.dll ../common/bin/funslang.dll
+	cp -f bin/funslang.lib ../common/lib/funslang.lib
