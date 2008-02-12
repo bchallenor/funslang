@@ -3,8 +3,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#define FUNSLANG_BUILDING_DLL
 #include "funslang.h"
+
+#ifdef __GLASGOW_HASKELL__
 #include "LibFunslang_stub.h"
+extern void __stginit_LibFunslang(void);
+#endif
 
 //#include "png.h"
 #include "jpeglib.h"
@@ -302,6 +307,9 @@ GLuint fsLoadTexture2D(const char* fn)
 void fsInit(int* argc, char*** argv)
 {
 	hs_init(argc, argv);
+#ifdef __GLASGOW_HASKELL__
+	hs_add_root(__stginit_LibFunslang);
+#endif
 }
 
 void fsExit(void)
