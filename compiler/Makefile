@@ -23,7 +23,7 @@ Lexer.hs: Lexer.x
 	alex -g Lexer.x
 
 clean:
-	-$(RM) bin/notprof/* bin/prof/* bin/*.exe bin/*.manifest bin/*.dll bin/*.a
+	-$(RM) bin/notprof/*.* bin/prof/*.* bin/*.*
 
 install:
 	mkdir -p ../common/lib
