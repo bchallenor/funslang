@@ -5,15 +5,15 @@ GHCFLAGS=-Wall
 all: Parser.hs Lexer.hs lib standalone
 
 lib: *.hs
-	mkdir -p bin/notprof
+	-mkdir bin\notprof
 	ghc $(GHCFLAGS) -odir bin/notprof -hidir bin/notprof -c --make LibFunslang
 	ghc $(GHCFLAGS) -odir bin/notprof -c *.c -I../common/include -Iinclude
 	ghc $(GHCFLAGS) -static -shared -o bin/funslang.dll funslang.def bin/notprof/*.o -package containers -package mtl -package fgl -package bytestring -package directory -package process -lopengl32 -Llib -ljpeg -L../common/bin -lglew32 -lglut32
-	$(RM) bin/funslang.dll.a
-	lib /machine:i386 /def:funslang.def /out:bin/funslang.lib
+	-del /Q bin\funslang.dll.a
+	lib /machine:i386 /def:funslang.def /out:bin\funslang.lib
 
 standalone: *.hs
-	mkdir -p bin/prof
+	-mkdir bin\prof
 	ghc $(GHCFLAGS) -o bin/Main.exe -odir bin/prof -hidir bin/prof -prof -auto-all --make Main
 
 Parser.hs: Parser.y
@@ -23,9 +23,9 @@ Lexer.hs: Lexer.x
 	alex -g Lexer.x
 
 clean:
-	-$(RM) bin/notprof/*.* bin/prof/*.* bin/*.*
+	-del /Q bin\notprof\*.* bin\prof\*.* bin\*.*
 
 install:
-	mkdir -p ../common/lib
-	cp -f bin/funslang.dll ../common/bin/funslang.dll
-	cp -f bin/funslang.lib ../common/lib/funslang.lib
+	-mkdir ..\common\lib
+	copy /Y bin\funslang.dll ..\common\bin\funslang.dll
+	copy /Y bin\funslang.lib ..\common\lib\funslang.lib

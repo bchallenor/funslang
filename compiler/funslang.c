@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,7 +15,7 @@ extern void __stginit_LibFunslang(void);
 
 #define MAX_PACKING_SIZE 4
 
-bool fsCompileGLSL(FSprogram* p)
+FS_BOOL fsCompileGLSL(FSprogram* p)
 {
 	GLuint glvs, glfs, glp;
 	int i;
@@ -45,7 +44,7 @@ bool fsCompileGLSL(FSprogram* p)
 	glValidateProgram(glp);
 	GLint validate_status;
 	glGetProgramiv(glp, GL_VALIDATE_STATUS, &validate_status);
-	if (GL_TRUE != validate_status) return false;
+	if (GL_TRUE != validate_status) return FS_FALSE;
 
 #if 1
 #define LOG_SIZE 8096
@@ -62,10 +61,10 @@ bool fsCompileGLSL(FSprogram* p)
 	p->loc_vertex_uniforms = glGetUniformLocation(glp, "VertexUniforms");
 	p->loc_fragment_uniforms = glGetUniformLocation(glp, "FragmentUniforms");
 	
-	return true;
+	return FS_TRUE;
 }
 
-bool fsCompile(FSprogram* p)
+FS_BOOL fsCompile(FSprogram* p)
 {
 	char* err;
 	char* v_type;
@@ -86,7 +85,7 @@ bool fsCompile(FSprogram* p)
 	{
 		fprintf(stderr, "%s", err);
 		_fsFree(err);
-		return false;
+		return FS_FALSE;
 	}
 	else
 	{
