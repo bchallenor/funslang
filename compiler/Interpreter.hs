@@ -78,19 +78,28 @@ interpretExpr env a@(ExprLambda p e) =
 -- so that the resulting value is either the first or second value according to the condition.
 conditionalize :: DFBool -> Value -> Value -> InterpretM Value
 conditionalize _ (ValueUnit) (ValueUnit) = return ValueUnit
-conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) =  do
+conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = do
   n <- freshNode
   return $ ValueDFReal $ DFRealCond n dfb df1 df2
-conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) =  do
+conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolCond n dfb df1 df2
+conditionalize _ (ValueTexture1D _) (ValueTexture1D _) = throwError "cannot delay texture choice until runtime"
+conditionalize _ (ValueTexture2D _) (ValueTexture2D _) = throwError "cannot delay texture choice until runtime"
+conditionalize _ (ValueTexture3D _) (ValueTexture3D _) = throwError "cannot delay texture choice until runtime"
+conditionalize _ (ValueTextureCube _) (ValueTextureCube _) = throwError "cannot delay texture choice until runtime"
 conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM (conditionalize dfb) vs1 vs2
   return $ ValueArray vs
 conditionalize dfb (ValueTuple vs1) (ValueTuple vs2) = do
   vs <- zipWithM (conditionalize dfb) vs1 vs2
   return $ ValueTuple vs
-conditionalize _ _ _ = throwError $ "if expression would violate run time model"
+conditionalize dfb (ValueFun f1) (ValueFun f2) = return $
+  ValueFun $ \ v -> do
+    v1 <- f1 v
+    v2 <- f2 v
+    conditionalize dfb v1 v2
+conditionalize _ _ _ = error "unexpected case in conditionalize"
 
 
 -- Match the pattern against the value to give a value environment.

@@ -342,7 +342,7 @@ valueEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueEqual' (ValueFun _) (ValueFun _) = throwError $ "equality expression would violate run time model"
+valueEqual' (ValueFun _) (ValueFun _) = throwError $ "equality is not defined on functions"
 valueEqual' _ _ = undefined
 
 valueNotEqual :: InterpretM Value
@@ -378,7 +378,7 @@ valueNotEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueNotEqual' (ValueFun _) (ValueFun _) = throwError $ "inequality expression would violate run time model"
+valueNotEqual' (ValueFun _) (ValueFun _) = throwError $ "inequality is not defined on functions"
 valueNotEqual' _ _ = undefined
 
 
