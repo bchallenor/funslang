@@ -42,11 +42,13 @@ FS_API void fsExit(void);
 FS_API FS_BOOL fsCompile(FSprogram* p);
 
 // Shader data initialization.
+// You _must_ ensure that p is active by calling glUseProgram(p->glsl_program) first.
 FS_API void fsSetVertexUniforms(FSprogram* p, const GLfloat* data);
 FS_API void fsSetFragmentUniforms(FSprogram* p, const GLfloat* data);
 FS_API void fsSetVertexVaryings(FSprogram* p, const GLfloat* data);
 
 // Shader texture image unit assignment.
+// You _must_ ensure that p is active by calling glUseProgram(p->glsl_program) first.
 FS_API void fsSetTextureImageUnits(FSprogram* p);
 
 // Loads texture from file and assigns it new name (using glGenTextures).

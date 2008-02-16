@@ -13,6 +13,7 @@ extern void __stginit_LibFunslang(void);
 //#include "png.h"
 #include "jpeglib.h"
 
+#define FS_TRACE 1
 #define MAX_PACKING_SIZE 4
 
 FS_BOOL fsCompileGLSL(FSprogram* p)
@@ -46,7 +47,7 @@ FS_BOOL fsCompileGLSL(FSprogram* p)
 	glGetProgramiv(glp, GL_VALIDATE_STATUS, &validate_status);
 	if (GL_TRUE != validate_status) return FS_FALSE;
 
-#if 1
+#ifdef FS_TRACE
 #define LOG_SIZE 8096
 	char logbuf[LOG_SIZE];
 	glGetShaderInfoLog(glvs, LOG_SIZE, NULL, logbuf);
@@ -106,7 +107,7 @@ FS_BOOL fsCompile(FSprogram* p)
 void fsSetVertexUniforms(FSprogram* p, const GLfloat* data)
 {
 	if (!data) return;
-	
+
 	if (p->num_vertex_uniforms > 0)
 	{
 		glUniform1fv(p->loc_vertex_uniforms, p->num_vertex_uniforms, data);
@@ -116,7 +117,7 @@ void fsSetVertexUniforms(FSprogram* p, const GLfloat* data)
 void fsSetFragmentUniforms(FSprogram* p, const GLfloat* data)
 {
 	if (!data) return;
-	
+
 	if (p->num_fragment_uniforms > 0)
 	{
 		glUniform1fv(p->loc_fragment_uniforms, p->num_fragment_uniforms, data);
@@ -143,7 +144,7 @@ void fsSetVertexVaryings(FSprogram* p, const GLfloat* data)
 void fsSetTextureImageUnits(FSprogram* p)
 {
 	int tex_image_unit;
-	
+
 	for (tex_image_unit = 0; tex_image_unit < p->num_textures; tex_image_unit++)
 	{
 		GLint loc;
@@ -151,7 +152,19 @@ void fsSetTextureImageUnits(FSprogram* p)
 		
 		snprintf(tbuf, 128, "Tex%d", tex_image_unit);
 		loc = glGetUniformLocation(p->glsl_program, tbuf);
-		glUniform1i(loc, tex_image_unit);
+		if (loc < 0)
+		{
+			// This is OK.
+			// The texture was declared by the compiler,
+			// but the GLSL program doesn't actually use it.
+#ifdef FS_TRACE
+			printf("<%s> not used by GLSL program\n");
+#endif
+		}
+		else
+		{
+			glUniform1i(loc, tex_image_unit);
+		}
 	}
 }
 
