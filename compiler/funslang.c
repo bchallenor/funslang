@@ -146,7 +146,7 @@ void fsSetTextureImageUnits(FSprogram* p)
 	
 	for (tex_image_unit = 0; tex_image_unit < p->num_textures; tex_image_unit++)
 	{
-		int loc;
+		GLint loc;
 		char tbuf[128];
 		
 		snprintf(tbuf, 128, "Tex%d", tex_image_unit);
