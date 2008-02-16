@@ -54,7 +54,8 @@ FS_API void fsSetTextureImageUnits(FSprogram* p);
 // Loads texture from file and assigns it new name (using glGenTextures).
 // Creates mipmap and enables trilinear filtering.
 // Currently only supports JPG.
-// Returns name, or 0 on error (note 0 is not a valid GL texture name).
+// Returns name, guaranteeing that the new texture is currently bound.
+// On error, returns 0 (note 0 is not a valid GL texture name).
 FS_API GLuint fsLoadTexture2D(const char* fn);
 
 #endif // FUNSLANG_H
