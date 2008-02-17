@@ -7,3 +7,4 @@ EXPORTS
   fsSetVertexVaryings
   fsSetTextureImageUnits
   fsLoadTexture2D
+  fsLoadJPG

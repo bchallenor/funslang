@@ -1,6 +1,7 @@
 #ifndef FUNSLANG_H
 #define FUNSLANG_H
 
+#include <stdlib.h>
 #include <GL/glew.h>
 
 #ifdef FUNSLANG_BUILDING_DLL
@@ -57,5 +58,9 @@ FS_API void fsSetTextureImageUnits(FSprogram* p);
 // Returns name, guaranteeing that the new texture is currently bound.
 // On error, returns 0 (note 0 is not a valid GL texture name).
 FS_API GLuint fsLoadTexture2D(const char* fn);
+
+// Loads JPG pixel data from file to byte array in RGB order.
+// Uses the given function to allocate memory.
+FS_API unsigned char* fsLoadJPG(const char* fn, void* (*alloc_pixel_buffer)(size_t), unsigned int* width, unsigned int* height);
 
 #endif // FUNSLANG_H

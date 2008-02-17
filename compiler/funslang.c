@@ -168,8 +168,7 @@ void fsSetTextureImageUnits(FSprogram* p)
 	}
 }
 
-// Loads JPG pixel data from file to byte array in RGB order.
-unsigned char* _fsLoadJPG(const char* fn, unsigned int* width, unsigned int* height)
+unsigned char* fsLoadJPG(const char* fn, void* (*alloc_pixel_buffer)(size_t), unsigned int* width, unsigned int* height)
 {
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -177,6 +176,12 @@ unsigned char* _fsLoadJPG(const char* fn, unsigned int* width, unsigned int* hei
 	unsigned char* data;
 	int row_stride;
 	
+	if (!alloc_pixel_buffer)
+	{
+		fprintf(stderr, "fsLoadJPG() given NULL allocator!\n");
+		return NULL;
+	}
+
 	cinfo.err = jpeg_std_error(&jerr);
 	jpeg_create_decompress(&cinfo);
 	
@@ -195,7 +200,7 @@ unsigned char* _fsLoadJPG(const char* fn, unsigned int* width, unsigned int* hei
 	
 	row_stride = cinfo.output_width * cinfo.output_components;
 	
-	data = malloc(row_stride * cinfo.output_height * sizeof(data[0]));
+	data = alloc_pixel_buffer(row_stride * cinfo.output_height * sizeof(data[0]));
 	if (!data)
 	{
 		fprintf(stderr, "can't allocate enough memory for %s\n", fn);
@@ -215,8 +220,8 @@ unsigned char* _fsLoadJPG(const char* fn, unsigned int* width, unsigned int* hei
 	
 	fclose(f);
 	
-	*width = cinfo.output_width;
-	*height = cinfo.output_height;
+	if (width) *width = cinfo.output_width;
+	if (height) *height = cinfo.output_height;
 	
 	return data;
 }
@@ -300,7 +305,7 @@ GLuint fsLoadTexture2D(const char* fn)
 	unsigned int height;
 	GLuint tex_name;
 	
-	data = _fsLoadJPG(fn, &width, &height);
+	data = fsLoadJPG(fn, malloc, &width, &height);
 	if (!data) return 0;
 	
 	glGenTextures(1, &tex_name);
