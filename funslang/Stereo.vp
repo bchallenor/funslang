@@ -1,0 +1,9 @@
+% Vertex shader for stereograms.
+% Takes coords relative to the window in the range [0,1].
+% Author: Ben Challenor
+
+\().
+\().
+\[wx, wy].
+
+  ([wx*2 - 1, wy*2 - 1, 0, 1], [wx, wy])
