@@ -103,22 +103,20 @@ liftBBB' sop dop df1 df2 = do
     _ -> return $ ValueDFBool $ dop n df1 df2
 
 liftRR :: (Double -> Double) -> (Int -> DFReal -> DFReal) -> InterpretM Value
-liftRR sop dop = do
-  n <- freshNode
-  return $
-    ValueFun $ \ (ValueDFReal df) ->
-      case df of
-        DFRealLiteral _ l -> return $ ValueDFReal $ DFRealLiteral n $ sop l
-        _ -> return $ ValueDFReal $ dop n df
+liftRR sop dop = return $
+  ValueFun $ \ (ValueDFReal df) -> do
+    n <- freshNode
+    case df of
+      DFRealLiteral _ l -> return $ ValueDFReal $ DFRealLiteral n $ sop l
+      _ -> return $ ValueDFReal $ dop n df
 
 liftBB :: (Bool -> Bool) -> (Int -> DFBool -> DFBool) -> InterpretM Value
-liftBB sop dop = do
-  n <- freshNode
-  return $
-    ValueFun $ \ (ValueDFBool df) ->
-      case df of
-        DFBoolLiteral _ l -> return $ ValueDFBool $ DFBoolLiteral n $ sop l
-        _ -> return $ ValueDFBool $ dop n df
+liftBB sop dop = return $
+  ValueFun $ \ (ValueDFBool df) -> do
+    n <- freshNode
+    case df of
+      DFBoolLiteral _ l -> return $ ValueDFBool $ DFBoolLiteral n $ sop l
+      _ -> return $ ValueDFBool $ dop n df
 
 
 -- Higher order functions.
