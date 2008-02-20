@@ -43,7 +43,7 @@ compile vertex_src fragment_src = do
   (vertex_type, var_refs_3) <- inferExprType gamma vertex_expr var_refs_2
   
   -- Unify type with expected type.
-  case attemptUnification vertex_type var_refs_3 ["'a -> 'b -> 'c -> (Real 4, 'd)"] of
+  case attemptUnification vertex_type var_refs_3 ["a -> b -> c -> (Real 4, d)"] of
     Left msg -> Left $ "vertex shader has incorrect type:\n" ++ msg
     Right (vertex_type', var_refs_4) -> do
       
@@ -52,7 +52,7 @@ compile vertex_src fragment_src = do
       (fragment_type, var_refs_6) <- inferExprType gamma fragment_expr var_refs_5
       
       -- Unify type with expected type.
-      case attemptUnification fragment_type var_refs_6 ["'a -> 'b -> 'c -> Real 4", "'a -> 'b -> 'c -> (Bool, Real 4)"] of
+      case attemptUnification fragment_type var_refs_6 ["a -> b -> c -> Real 4", "a -> b -> c -> (Bool, Real 4)"] of
         Left msg -> Left $ "fragment shader has incorrect type:\n" ++ msg
         Right (fragment_type', var_refs_7) -> do
           

@@ -26,7 +26,6 @@ import Lexer
   LITERAL_INT { TOK_LITERAL_INT $$ }
   LITERAL_FLOAT { TOK_LITERAL_FLOAT $$ }
   IDENTIFIER { TOK_IDENTIFIER $$ }
-  TYPE_VAR_DIM_VAR { TOK_TYPE_VAR_DIM_VAR $$ }
   COMMA { TOK_COMMA }
   RANGE_DOTS { TOK_RANGE_DOTS }
   LBRACKET { TOK_LBRACKET }
@@ -90,6 +89,10 @@ import Lexer
 
 %error { parseError } -- parseError :: Token -> P a
 
+%expect 1
+-- 1 S/R conflict: "\x::a y" as shift "\x::(a y)" or reduce "\(x::a) y".
+-- Shift, but cases like "\x::a y::b" will need disambiguating with brackets.
+
 %%
 
 --------------------------------------------------------------------------------
@@ -119,8 +122,8 @@ primary_ex_type :: { ExType }
   | TEXTURECUBE { ExTypeTextureCube }
   | primary_ex_type LITERAL_INT {% if $2 > 0 then return $ ExTypeArray $1 (ExDimFix $2) else failP $ "array dimension <" ++ show $2 ++ "> is invalid" }
   | LPAREN tuple_ex_type_inner RPAREN { ExTypeTuple (reverse $2) }
-  | TYPE_VAR_DIM_VAR { ExTypeVar $1 }
-  | primary_ex_type TYPE_VAR_DIM_VAR { ExTypeArray $1 (ExDimVar $2) }
+  | IDENTIFIER { ExTypeVar $1 }
+  | primary_ex_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
   | LPAREN ex_type RPAREN { $2 }
   ;
 

@@ -50,7 +50,6 @@ data Token
   | TOK_LITERAL_FLOAT !Double    -- better than machine precision
   --
   | TOK_IDENTIFIER !String
-  | TOK_TYPE_VAR_DIM_VAR !String
   --
   | TOK_COMMA
   | TOK_RANGE_DOTS
@@ -128,7 +127,7 @@ initFreshVarRefs = (map TypeVarRef [0..], map DimVarRef [0..])
 -- so they can be reused as often as you like.
 -- Thanks to oerjan on #haskell for this trick.
 initFreshVars :: ([String], [String])
-initFreshVars = (map ('\'':) $ [1..] >>= flip replicateM ['a'..'g'], map ('\'':) $ [1..] >>= flip replicateM ['m'..'z'])
+initFreshVars = ([1..] >>= flip replicateM ['a'..'g'], [1..] >>= flip replicateM ['m'..'z'])
 
 
 -- as dims appear externally (in source or pretty-printed form)
@@ -151,7 +150,7 @@ data ExType
   | ExTypeArray !ExType !ExDim
   | ExTypeTuple ![ExType]
   | ExTypeFun !ExType !ExType
-  | ExTypeVar !String -- including the apostrophe, e.g. "'a"
+  | ExTypeVar !String
   
   deriving (Show, Eq)
 
