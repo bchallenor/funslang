@@ -9,10 +9,13 @@ import Representation
 }
 
 
--- Regex classes.
+-- Character sets.
 $d = [0-9]
 $a = [a-zA-Z]
 $s = [\ \t\n\f\v\r]
+
+-- Regex macros.
+@ident = $a [$a $d _ ']*
 
 
 -- Token rules.
@@ -81,10 +84,10 @@ tokens :-
   "\"                       { \ (_, _, bs) len -> return $ TOK_LAMBDA }
   "."                       { \ (_, _, bs) len -> return $ TOK_LAMBDA_DOT }
   
-  "'" $a [$a $d _]*         { \ (_, _, bs) len -> return $ TOK_TYPE_VAR_DIM_VAR $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
+  "'" @ident                { \ (_, _, bs) len -> return $ TOK_TYPE_VAR_DIM_VAR $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
   
   -- this goes last as it should not take precedence over the keywords
-  $a [$a $d _]*             { \ (_, _, bs) len -> return $ TOK_IDENTIFIER $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
+  @ident                    { \ (_, _, bs) len -> return $ TOK_IDENTIFIER $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
 
 
 {
