@@ -21,9 +21,9 @@ typedef struct
 	float tileW;
 	float zNear, zFar;
 	float numDepthLevels;
-} FragmentUniforms;
+} StereoFragmentUniforms;
 
-FragmentUniforms g_FragmentUniforms =
+StereoFragmentUniforms g_StereoFragmentUniforms =
 {
 	WINDOW_W,
 	0, // to be set later
@@ -34,18 +34,23 @@ FragmentUniforms g_FragmentUniforms =
 typedef struct
 {
 	float x, y;
-} VertexVaryings;
+} StereoVertexVaryings;
+
+typedef struct
+{
+	float p[4];
+	float c[2];
+} TexmapVertexVaryings;
 
 int g_FrameNumThisTick = 0, g_TickTime = 0, g_Time, g_TimeDelta;
 double g_PhaseDelta;
-bool g_IsRotating = false, g_ShowDepthMap = false;
+bool g_IsRotating = false, g_ShowDepthMap = false, g_IsAnimated = false;
 
-FSprogram g_Program;
+FSprogram g_ProgramStereo, g_ProgramTexmap;
 
-unsigned char* g_TileData;
 unsigned int g_TileW;
 unsigned int g_TileH;
-GLuint g_DepthTexture, g_OutputTexture;
+GLuint g_DepthTexture, g_OutputTexture, g_TileTexture;
 
 
 void updateFPS(void)
@@ -80,11 +85,16 @@ void key(unsigned char key, int x, int y)
 		case 'd':
 			g_ShowDepthMap = !g_ShowDepthMap;
 			return;
+		case 'a':
+			g_IsAnimated = !g_IsAnimated;
+			return;
 	}
 }
 
 void render(void)
 {
+	float relativeW = (float)g_TileW / (float)WINDOW_W;
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Rotate and render model.
@@ -102,24 +112,48 @@ void render(void)
 	}
 
 	// Create depth texture from rendered scene.
-	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, g_DepthTexture);
 	glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, WINDOW_W, WINDOW_H);
 
-	// Load output texture (note that strip zero is already filled).
-	glActiveTexture(GL_TEXTURE1);
+	// Render strip zero of tile pattern.
+	{
+		static double tile_animation_offset = 0;
+		const double MAGIC_SPEED = 10;
+		if (g_IsAnimated) tile_animation_offset += (g_PhaseDelta*MAGIC_SPEED)/(2*M_PI);
+		{
+			TexmapVertexVaryings vs[4] =
+			{
+				{{-1+2*0,        -1,0,1}, {0+tile_animation_offset,0}},
+				{{-1+2*relativeW,-1,0,1}, {1+tile_animation_offset,0}},
+				{{-1+2*relativeW,+1,0,1}, {1+tile_animation_offset,(double)WINDOW_H/(double)g_TileH}},
+				{{-1+2*0,        +1,0,1}, {0+tile_animation_offset,(double)WINDOW_H/(double)g_TileH}},
+			};
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, g_TileTexture);
+			glUseProgram(g_ProgramTexmap.glsl_program);
+			fsSetVertexVaryings(&g_ProgramTexmap, (GLfloat*)vs);
+			glDrawArrays(GL_QUADS, 0, 4);
+		}
+	}
+	
+	// Save strip zero to the output texture.
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, g_OutputTexture);
+	glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, g_TileW, WINDOW_H);
 
 	// Render stereogram in strips of width "g_TileW".
-	glUseProgram(g_Program.glsl_program);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, g_DepthTexture);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, g_OutputTexture);
+	glUseProgram(g_ProgramStereo.glsl_program);
 	{
 		float xmin, xmax;
-		float w = (float)g_TileW / (float)WINDOW_W;
-		int s;
+		unsigned int s;
 
-		for (xmin = w, xmax = xmin + w; xmin < 1.0; xmin = xmax, xmax += w)
+		for (xmin = relativeW, xmax = xmin + relativeW; xmin < 1.0; xmin = xmax, xmax += relativeW)
 		{
-			VertexVaryings vs[4] =
+			StereoVertexVaryings vs[4] =
 			{
 				{xmin, 0},
 				{xmax, 0},
@@ -127,49 +161,30 @@ void render(void)
 				{xmin, 1},
 			};
 
-			s = xmin*WINDOW_W;
+			s = xmin * WINDOW_W;
 
-			fsSetVertexVaryings(&g_Program, (GLfloat*)vs);
+			fsSetVertexVaryings(&g_ProgramStereo, (GLfloat*)vs);
 			glDrawArrays(GL_QUADS, 0, 4);
 			glCopyTexSubImage2D(GL_TEXTURE_2D, 0, s, 0, s, 0, WINDOW_W - s < g_TileW ? WINDOW_W - s : g_TileW, WINDOW_H);
 		}
 	}
 
-	// Render the final texture.
-	{
-		glUseProgram(0);
-		glActiveTexture(GL_TEXTURE0);
-		if (g_ShowDepthMap)
-		{
-			glBindTexture(GL_TEXTURE_2D, g_DepthTexture);
-		}
-		else
-		{
-			glBindTexture(GL_TEXTURE_2D, g_OutputTexture);
-		}
-		glEnable(GL_TEXTURE_2D);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // todo
 
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		glLoadIdentity();
-		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glLoadIdentity();
-		glBegin(GL_QUADS);
+	// Render the final output texture.
+	{
+		TexmapVertexVaryings vs[4] =
 		{
-			glTexCoord2f(0.0, 0.0);
-			glVertex2d(-1.0, -1.0);
-			glTexCoord2f(1.0, 0.0);
-			glVertex2d(1.0, -1.0);
-			glTexCoord2f(1.0, 1.0);
-			glVertex2d(1.0, 1.0);
-			glTexCoord2f(0.0, 1.0);
-			glVertex2d(-1.0, 1.0);
-		}
-		glEnd();
-		glPopMatrix();
-		glMatrixMode(GL_MODELVIEW);
-		glPopMatrix();
+			{{-1,-1,0,1}, {0,0}},
+			{{+1,-1,0,1}, {1,0}},
+			{{+1,+1,0,1}, {1,1}},
+			{{-1,+1,0,1}, {0,1}},
+		};
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, g_ShowDepthMap ? g_DepthTexture : g_OutputTexture);
+		glUseProgram(g_ProgramTexmap.glsl_program);
+		fsSetVertexVaryings(&g_ProgramTexmap, (GLfloat*)vs);
+		glDrawArrays(GL_QUADS, 0, 4);
 	}
 	
 	glutSwapBuffers();
@@ -203,12 +218,13 @@ int main(int argc, char** argv)
 	
 	// Enable the depth buffer!
 	glEnable(GL_DEPTH_TEST);
+	// Allow overdraw.
 	glDepthFunc(GL_LEQUAL);
 
 	// Set projection matrix for non-Funslang render pass.
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, WINDOW_W / WINDOW_H, g_FragmentUniforms.zNear, g_FragmentUniforms.zFar);
+	gluPerspective(60.0, WINDOW_W / WINDOW_H, g_StereoFragmentUniforms.zNear, g_StereoFragmentUniforms.zFar);
 
 	// Set view matrix.
 	glMatrixMode(GL_MODELVIEW);
@@ -233,30 +249,33 @@ int main(int argc, char** argv)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WINDOW_W, WINDOW_H, 0, GL_RGB, GL_FLOAT, NULL);
 
-	// Load tile image into strip zero of output texture.
-	//g_TileData = fsLoadJPG("com.bencloward.textures.brick15.jpg", malloc, &g_TileW, &g_TileH);
-	g_TileData = fsLoadJPG("com.rhythm.randomTile128.jpg", malloc, &g_TileW, &g_TileH);
-	{
-		unsigned int y, r, h;
-		for (y = 0; y < WINDOW_H; y += g_TileH)
-		{
-			r = WINDOW_H - y;
-			h = r > g_TileH ? g_TileH : r;
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, g_TileW, h, GL_RGB, GL_UNSIGNED_BYTE, g_TileData);
-		}
-	}
+	// Init tile texture.
+	// "com.bencloward.textures.brick15.jpg"
+	g_TileTexture = fsLoadTexture2D("com.rhythm.randomTile128.jpg", &g_TileW, &g_TileH); // todo, check NULL
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	// Init shaders.
-	g_Program.vertex_shader_path = "../../funslang/stereo.vp";
-	g_Program.fragment_shader_path = "../../funslang/stereo.fp";
-	if (!fsCompile(&g_Program)) exit(1);
-	glUseProgram(g_Program.glsl_program);
-	fsSetVertexUniforms(&g_Program, NULL);
-	g_FragmentUniforms.tileW = g_TileW;
-	g_FragmentUniforms.numDepthLevels = g_TileW/3;
-	fsSetFragmentUniforms(&g_Program, (GLfloat*)&g_FragmentUniforms);
-	fsSetTextureImageUnits(&g_Program);
+	g_ProgramStereo.vertex_shader_path = "../../funslang/Stereo.vp";
+	g_ProgramStereo.fragment_shader_path = "../../funslang/Stereo.fp";
+	if (!fsCompile(&g_ProgramStereo)) exit(1);
+	glUseProgram(g_ProgramStereo.glsl_program);
+	fsSetVertexUniforms(&g_ProgramStereo, NULL);
+	g_StereoFragmentUniforms.tileW = g_TileW;
+	g_StereoFragmentUniforms.numDepthLevels = g_TileW/3;
+	fsSetFragmentUniforms(&g_ProgramStereo, (GLfloat*)&g_StereoFragmentUniforms);
+	fsSetTextureImageUnits(&g_ProgramStereo);
 
+	g_ProgramTexmap.vertex_shader_path = "../../funslang/Texmap.vp";
+	g_ProgramTexmap.fragment_shader_path = "../../funslang/Texmap.fp";
+	if (!fsCompile(&g_ProgramTexmap)) exit(1);
+	glUseProgram(g_ProgramTexmap.glsl_program);
+	fsSetVertexUniforms(&g_ProgramTexmap, NULL);
+	fsSetFragmentUniforms(&g_ProgramTexmap, NULL);
+	fsSetTextureImageUnits(&g_ProgramTexmap);
+	
 	// Set up GLUT callbacks.
 	glutDisplayFunc(render);
 	glutIdleFunc(frame);

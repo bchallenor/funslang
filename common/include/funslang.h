@@ -57,10 +57,10 @@ FS_API void fsSetTextureImageUnits(FSprogram* p);
 // Currently only supports JPG.
 // Returns name, guaranteeing that the new texture is currently bound.
 // On error, returns 0 (note 0 is not a valid GL texture name).
-FS_API GLuint fsLoadTexture2D(const char* fn);
+FS_API GLuint fsLoadTexture2D(const char* fn, unsigned int* width, unsigned int* height);
 
 // Loads JPG pixel data from file to byte array in RGB order.
 // Uses the given function to allocate memory.
-FS_API unsigned char* fsLoadJPG(const char* fn, void* (*alloc_pixel_buffer)(size_t), unsigned int* width, unsigned int* height);
+FS_API unsigned char* fsLoadJPG(void* (*alloc_pixel_buffer)(size_t), const char* fn, unsigned int* width, unsigned int* height);
 
 #endif // FUNSLANG_H

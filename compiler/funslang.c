@@ -168,7 +168,7 @@ void fsSetTextureImageUnits(FSprogram* p)
 	}
 }
 
-unsigned char* fsLoadJPG(const char* fn, void* (*alloc_pixel_buffer)(size_t), unsigned int* width, unsigned int* height)
+unsigned char* fsLoadJPG(void* (*alloc_pixel_buffer)(size_t), const char* fn, unsigned int* width, unsigned int* height)
 {
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -298,14 +298,17 @@ unsigned char* read_png(FILE *fp)  /* file is already open */
 }
 #endif
 
-GLuint fsLoadTexture2D(const char* fn)
+GLuint fsLoadTexture2D(const char* fn, unsigned int* width, unsigned int* height)
 {	
 	unsigned char* data;
-	unsigned int width;
-	unsigned int height;
+	unsigned int scratch[2];
 	GLuint tex_name;
 	
-	data = fsLoadJPG(fn, malloc, &width, &height);
+	// Allocate some space to store width and height if none was provided.
+	if (!width) width = &scratch[0];
+	if (!height) height = &scratch[1];
+
+	data = fsLoadJPG(malloc, fn, width, height);
 	if (!data) return 0;
 	
 	glGenTextures(1, &tex_name);
@@ -314,7 +317,7 @@ GLuint fsLoadTexture2D(const char* fn)
 	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, *width, *height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 	
 	free(data);
 	
