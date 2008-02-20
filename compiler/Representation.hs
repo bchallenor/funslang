@@ -60,7 +60,6 @@ data Token
   | TOK_BACKTICK
   | TOK_WILDCARD
   --
-  | TOK_OP_NOT
   | TOK_OP_SUBSCRIPT
   | TOK_OP_SWIZZLE
   | TOK_OP_SCALAR_ADD
@@ -298,7 +297,6 @@ data Patt
 data Operator
   = OpScalarNeg
   | OpVectorNeg
-  | OpNot
   --
   | OpSubscript
   | OpSwizzle
@@ -332,7 +330,6 @@ instance Show Operator where
 
   show OpScalarNeg = "negate"
   show OpVectorNeg = "negates"
-  show OpNot = "~"
   --
   show OpSubscript = "!"
   show OpSwizzle = "!!"

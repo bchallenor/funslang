@@ -219,8 +219,8 @@ valueFun_zipWith3' _ _ _ _= return []
 
 -- Texture functions.
 
-valueSample1D :: InterpretM Value
-valueSample1D = return $
+valueFun_sample1D :: InterpretM Value
+valueFun_sample1D = return $
   ValueFun $ \ (ValueTexture1D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x]) -> do
     n <- freshNode
@@ -236,8 +236,8 @@ valueSample1D = return $
       ValueDFReal $ DFRealGetTexA na submit
       ]
 
-valueSample2D :: InterpretM Value
-valueSample2D = return $
+valueFun_sample2D :: InterpretM Value
+valueFun_sample2D = return $
   ValueFun $ \ (ValueTexture2D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y]) -> do
     n <- freshNode
@@ -253,8 +253,8 @@ valueSample2D = return $
       ValueDFReal $ DFRealGetTexA na submit
       ]
 
-valueSample3D :: InterpretM Value
-valueSample3D = return $
+valueFun_sample3D :: InterpretM Value
+valueFun_sample3D = return $
   ValueFun $ \ (ValueTexture3D i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
     n <- freshNode
@@ -270,8 +270,8 @@ valueSample3D = return $
       ValueDFReal $ DFRealGetTexA na submit
       ]
 
-valueSampleCube :: InterpretM Value
-valueSampleCube = return $
+valueFun_sampleCube :: InterpretM Value
+valueFun_sampleCube = return $
   ValueFun $ \ (ValueTextureCube i) -> return $
     ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
     n <- freshNode
@@ -290,8 +290,8 @@ valueSampleCube = return $
 
 -- Subscript.
 
-valueSubscript :: InterpretM Value
-valueSubscript = return $
+valueFun_OpSubscript :: InterpretM Value
+valueFun_OpSubscript = return $
   ValueFun $ \ (ValueArray vs) -> return $
     ValueFun $ \ (ValueDFReal sub) -> do
       let len = length vs
@@ -306,82 +306,82 @@ valueSubscript = return $
 
 -- Equality and inequality functions.
 
-valueEqual :: InterpretM Value
-valueEqual = return $
+valueFun_OpEqual :: InterpretM Value
+valueFun_OpEqual = return $
   ValueFun $ \ v1 -> return $
-    ValueFun $ \ v2 -> valueEqual' v1 v2
+    ValueFun $ \ v2 -> valueFun_OpEqual' v1 v2
 
-valueEqual' :: Value -> Value -> InterpretM Value
-valueEqual' (ValueUnit) (ValueUnit) = do
+valueFun_OpEqual' :: Value -> Value -> InterpretM Value
+valueFun_OpEqual' (ValueUnit) (ValueUnit) = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n True
-valueEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (==) DFBoolEqualReal df1 df2
-valueEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (==) DFBoolEqualBool df1 df2
-valueEqual' (ValueTexture1D i) (ValueTexture1D i') = do
+valueFun_OpEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (==) DFBoolEqualReal df1 df2
+valueFun_OpEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (==) DFBoolEqualBool df1 df2
+valueFun_OpEqual' (ValueTexture1D i) (ValueTexture1D i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i == i'
-valueEqual' (ValueTexture2D i) (ValueTexture2D i') = do
+valueFun_OpEqual' (ValueTexture2D i) (ValueTexture2D i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i == i'
-valueEqual' (ValueTexture3D i) (ValueTexture3D i') = do
+valueFun_OpEqual' (ValueTexture3D i) (ValueTexture3D i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i == i'
-valueEqual' (ValueTextureCube i) (ValueTextureCube i') = do
+valueFun_OpEqual' (ValueTextureCube i) (ValueTextureCube i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i == i'
-valueEqual' (ValueArray vs1) (ValueArray vs2) = do
-  vs <- zipWithM valueEqual' vs1 vs2
+valueFun_OpEqual' (ValueArray vs1) (ValueArray vs2) = do
+  vs <- zipWithM valueFun_OpEqual' vs1 vs2
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueEqual' (ValueTuple vs1) (ValueTuple vs2) = do
-  vs <- zipWithM valueEqual' vs1 vs2
+valueFun_OpEqual' (ValueTuple vs1) (ValueTuple vs2) = do
+  vs <- zipWithM valueFun_OpEqual' vs1 vs2
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueEqual' (ValueFun _) (ValueFun _) = throwError $ "equality is not defined on functions"
-valueEqual' _ _ = undefined
+valueFun_OpEqual' (ValueFun _) (ValueFun _) = throwError $ "equality is not defined on functions"
+valueFun_OpEqual' _ _ = undefined
 
-valueNotEqual :: InterpretM Value
-valueNotEqual = return $
+valueFun_OpNotEqual :: InterpretM Value
+valueFun_OpNotEqual = return $
   ValueFun $ \ v1 -> return $
-    ValueFun $ \ v2 -> valueNotEqual' v1 v2
+    ValueFun $ \ v2 -> valueFun_OpNotEqual' v1 v2
 
-valueNotEqual' :: Value -> Value -> InterpretM Value
-valueNotEqual' (ValueUnit) (ValueUnit) = do
+valueFun_OpNotEqual' :: Value -> Value -> InterpretM Value
+valueFun_OpNotEqual' (ValueUnit) (ValueUnit) = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n False
-valueNotEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (/=) DFBoolNotEqualReal df1 df2
-valueNotEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (/=) DFBoolNotEqualBool df1 df2
-valueNotEqual' (ValueTexture1D i) (ValueTexture1D i') = do
+valueFun_OpNotEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (/=) DFBoolNotEqualReal df1 df2
+valueFun_OpNotEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (/=) DFBoolNotEqualBool df1 df2
+valueFun_OpNotEqual' (ValueTexture1D i) (ValueTexture1D i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
-valueNotEqual' (ValueTexture2D i) (ValueTexture2D i') = do
+valueFun_OpNotEqual' (ValueTexture2D i) (ValueTexture2D i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
-valueNotEqual' (ValueTexture3D i) (ValueTexture3D i') = do
+valueFun_OpNotEqual' (ValueTexture3D i) (ValueTexture3D i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
-valueNotEqual' (ValueTextureCube i) (ValueTextureCube i') = do
+valueFun_OpNotEqual' (ValueTextureCube i) (ValueTextureCube i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
-valueNotEqual' (ValueArray vs1) (ValueArray vs2) = do
-  vs <- zipWithM valueEqual' vs1 vs2
+valueFun_OpNotEqual' (ValueArray vs1) (ValueArray vs2) = do
+  vs <- zipWithM valueFun_OpEqual' vs1 vs2
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueNotEqual' (ValueTuple vs1) (ValueTuple vs2) = do
-  vs <- zipWithM valueEqual' vs1 vs2
+valueFun_OpNotEqual' (ValueTuple vs1) (ValueTuple vs2) = do
+  vs <- zipWithM valueFun_OpEqual' vs1 vs2
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueNotEqual' (ValueFun _) (ValueFun _) = throwError $ "inequality is not defined on functions"
-valueNotEqual' _ _ = undefined
+valueFun_OpNotEqual' (ValueFun _) (ValueFun _) = throwError $ "inequality is not defined on functions"
+valueFun_OpNotEqual' _ _ = undefined
 
 
 -- Transpose function.
-valueTranspose :: InterpretM Value
-valueTranspose = return $
+valueFun_tx :: InterpretM Value
+valueFun_tx = return $
   ValueFun $ \ (ValueArray outer) -> return $
     ValueArray $ map ValueArray $ List.transpose $ map (\(ValueArray inner) -> inner) outer
 
@@ -390,8 +390,8 @@ valueTranspose = return $
 libraryBase :: [(Fixity, String, String, String, Bool, [String], InterpretM Value)]
 libraryBase = [
   (Prefix, show OpScalarNeg, "Real -> Real", "scalar negate (as desugared from \"-\")", False, ["x"], liftRR (negate) DFRealNeg),
-  (Prefix, show OpNot, "Bool -> Bool", "logical not", False, ["x"], liftBB (not) DFBoolNot),
-  (InfixL, show OpSubscript, "a n -> Real -> a", "subscript", False, ["as", "n"], valueSubscript),
+  (Prefix, "not", "Bool -> Bool", "logical not", False, ["x"], liftBB (not) DFBoolNot),
+  (InfixL, show OpSubscript, "a n -> Real -> a", "subscript", False, ["as", "n"], valueFun_OpSubscript),
   (InfixL, show OpScalarAdd, "Real -> Real -> Real", "scalar add", False, ["x", "y"], liftRRR (+) DFRealAdd),
   (InfixL, show OpScalarSub, "Real -> Real -> Real", "scalar sub", False, ["x", "y"], liftRRR (-) DFRealSub),
   (InfixL, show OpScalarMul, "Real -> Real -> Real", "scalar mul", False, ["x", "y"], liftRRR (*) DFRealMul),
@@ -400,11 +400,11 @@ libraryBase = [
   (InfixN, show OpLessThanEqual, "Real -> Real -> Bool", "less than or equal", False, ["x", "y"], liftRRB (<=) DFBoolLessThanEqual),
   (InfixN, show OpGreaterThan, "Real -> Real -> Bool", "greater than", False, ["x", "y"], liftRRB (>) DFBoolGreaterThan),
   (InfixN, show OpGreaterThanEqual, "Real -> Real -> Bool", "greater than or equal", False, ["x", "y"], liftRRB (>=) DFBoolGreaterThanEqual),
-  (InfixN, show OpEqual, "a -> a -> Bool", "equality", False, ["x", "y"], valueEqual),
-  (InfixN, show OpNotEqual, "a -> a -> Bool", "inequality", False, ["x", "y"], valueNotEqual),
+  (InfixN, show OpEqual, "a -> a -> Bool", "equality", False, ["x", "y"], valueFun_OpEqual),
+  (InfixN, show OpNotEqual, "a -> a -> Bool", "inequality", False, ["x", "y"], valueFun_OpNotEqual),
   (InfixL, show OpAnd, "Bool -> Bool -> Bool", "logical and", False, ["x", "y"], liftBBB (&&) DFBoolAnd),
   (InfixL, show OpOr, "Bool -> Bool -> Bool", "logical or", False, ["x", "y"], liftBBB (||) DFBoolOr),
-  (Prefix, "tx", "a p q -> a q p", "transpose", False, ["x"], valueTranspose),
+  (Prefix, "tx", "a p q -> a q p", "transpose", False, ["x"], valueFun_tx),
   (Prefix, "map", "(a -> b) -> a n -> b n", "map function onto array", False, ["f", "as"], valueFun_map),
   (Prefix, "foldl", "(a -> a -> b) -> a -> b n -> a", "left fold", False, ["f", "z", "bs"], valueFun_foldl),
   (Prefix, "foldl1", "(a -> a -> a) -> a n -> a", "left fold without initial accumulator", False, ["f", "as"], valueFun_foldl1),
@@ -434,10 +434,10 @@ libraryBase = [
   (Prefix, "fract", "Real -> Real", "fractional part", False, ["x"], liftRR (snd . (properFraction :: Double -> (Integer, Double))) DFRealFract),
   (Prefix, "min", "Real -> Real -> Real", "minimum", False, ["x", "y"], liftRRR min DFRealMin),
   (Prefix, "max", "Real -> Real -> Real", "maximum", False, ["x", "y"], liftRRR max DFRealMax),
-  (Prefix, "sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueSample1D),
-  (Prefix, "sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], valueSample2D),
-  (Prefix, "sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], valueSample3D),
-  (Prefix, "sampleCube", "TextureCube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], valueSampleCube)
+  (Prefix, "sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueFun_sample1D),
+  (Prefix, "sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], valueFun_sample2D),
+  (Prefix, "sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], valueFun_sample3D),
+  (Prefix, "sampleCube", "TextureCube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], valueFun_sampleCube)
   ]
 
 -- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)

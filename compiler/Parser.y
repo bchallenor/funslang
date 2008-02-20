@@ -34,7 +34,6 @@ import Lexer
   RPAREN { TOK_RPAREN }
   BACKTICK { TOK_BACKTICK }
   WILDCARD { TOK_WILDCARD }
-  OP_NOT { TOK_OP_NOT }
   OP_SUBSCRIPT { TOK_OP_SUBSCRIPT }
   OP_SWIZZLE { TOK_OP_SWIZZLE }
   OP_SCALAR_ADD { TOK_OP_SCALAR_ADD }
@@ -79,7 +78,6 @@ import Lexer
 %right OP_MATRIX_VECTOR_LINEAR_MUL
 %left OP_SCALAR_MUL OP_SCALAR_DIV OP_VECTOR_MUL OP_VECTOR_DIV OP_VECTOR_SCALAR_MUL OP_VECTOR_SCALAR_DIV OP_MATRIX_MATRIX_LINEAR_MUL OP_VECTOR_MATRIX_LINEAR_MUL
 %left OP_SUBSCRIPT OP_SWIZZLE
-%nonassoc OP_NOT
 
 %monad { P }
 %lexer { lexer } { TOK_EOF } -- lexer :: (Token -> P a) -> P a
@@ -151,9 +149,7 @@ opt_type :: { Maybe Type }
 --
 
 operator :: { Operator }
-  : OP_NOT { OpNot }
-  --
-  | OP_SUBSCRIPT { OpSubscript }
+  : OP_SUBSCRIPT { OpSubscript }
   | OP_SWIZZLE { OpSwizzle }
   | OP_SCALAR_ADD { OpScalarAdd }
   | OP_SCALAR_NEG_OP_SCALAR_SUB { OpScalarSub }
@@ -232,7 +228,6 @@ infix_expr :: { Expr }
 operator_expr :: { Expr }
   : OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { prefixExpr (show OpScalarNeg) $2 }
   | OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { prefixExpr (show OpVectorNeg) $2 }
-  | OP_NOT operator_expr { prefixExpr (show OpNot) $2 }
   --
   | operator_expr OP_SUBSCRIPT operator_expr { infixExpr (show OpSubscript) $1 $3 }
   | operator_expr OP_SWIZZLE operator_expr { infixExpr (show OpSwizzle) $1 $3 }

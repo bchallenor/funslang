@@ -46,7 +46,6 @@ tokens :-
   "`"                       { \ (_, _, bs) len -> return $ TOK_BACKTICK }
   "_"                       { \ (_, _, bs) len -> return $ TOK_WILDCARD }
   
-  "~"                       { \ (_, _, bs) len -> return $ TOK_OP_NOT }
   "!"                       { \ (_, _, bs) len -> return $ TOK_OP_SUBSCRIPT }
   "!!"                      { \ (_, _, bs) len -> return $ TOK_OP_SWIZZLE }
   "+"                       { \ (_, _, bs) len -> return $ TOK_OP_SCALAR_ADD }
