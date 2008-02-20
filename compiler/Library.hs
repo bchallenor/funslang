@@ -16,7 +16,6 @@ data Fixity
   | InfixL
   | InfixR
   | InfixN
-  | Postfix
   
   deriving (Show, Eq)
 
@@ -405,7 +404,7 @@ libraryBase = [
   (InfixN, show OpNotEqual, "'a -> 'a -> Bool", "inequality", False, ["x", "y"], valueNotEqual),
   (InfixL, show OpAnd, "Bool -> Bool -> Bool", "logical and", False, ["x", "y"], liftBBB (&&) DFBoolAnd),
   (InfixL, show OpOr, "Bool -> Bool -> Bool", "logical or", False, ["x", "y"], liftBBB (||) DFBoolOr),
-  (Postfix, show OpTranspose, "'a 'p 'q -> 'a 'q 'p", "transpose", False, ["x"], valueTranspose),
+  (Prefix, "tx", "'a 'p 'q -> 'a 'q 'p", "transpose", False, ["x"], valueTranspose),
   (Prefix, "map", "('a -> 'b) -> 'a 'n -> 'b 'n", "map function onto array", False, ["f", "as"], valueFun_map),
   (Prefix, "foldl", "('a -> 'a -> 'b) -> 'a -> 'b 'n -> 'a", "left fold", False, ["f", "z", "bs"], valueFun_foldl),
   (Prefix, "foldl1", "('a -> 'a -> 'a) -> 'a 'n -> 'a", "left fold without initial accumulator", False, ["f", "as"], valueFun_foldl1),
@@ -464,8 +463,8 @@ libraryDerived = [
   (Prefix, "length", "vector length (Pythagorean)", False, "\\x. sqrt $ dot x x"),
   (Prefix, "normalize", "normalize", False, "\\x. x **. (rsqrt $ dot x x)"),
   (InfixR, show OpMatrixVectorLinearMul, "matrix-vector linear algebraic mul", False, "\\m v. map (dot v) m"),
-  (InfixL, show OpVectorMatrixLinearMul, "vector-matrix linear algebraic mul", False, "\\v m. m' #. v"),
-  (InfixL, show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, "\\ma mb. (map ((#.) ma) (mb'))'"),
+  (InfixL, show OpVectorMatrixLinearMul, "vector-matrix linear algebraic mul", False, "\\v m. map (dot v) (tx m)"),
+  (InfixL, show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, "\\ma mb. tx $ map ((#.) ma) (tx mb)"),
   (Prefix, "clamp", "clamp value to given range", True, "\\low high x. min (max x low) high"),
   (Prefix, "step", "unit step", False, "\\edge x. if x < edge then 0 else 1"),
   (Prefix, "mix", "linear interpolation", True, "\\a x y. x * (1 - a) + y * a"),

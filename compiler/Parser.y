@@ -59,7 +59,6 @@ import Lexer
   OP_NEQ { TOK_OP_NEQ }
   OP_AND { TOK_OP_AND }
   OP_OR { TOK_OP_OR }
-  OP_TRANSPOSE { TOK_OP_TRANSPOSE }
   OP_APPLY { TOK_OP_APPLY }
   IF { TOK_IF }
   THEN { TOK_THEN }
@@ -82,7 +81,6 @@ import Lexer
 %left OP_SCALAR_MUL OP_SCALAR_DIV OP_VECTOR_MUL OP_VECTOR_DIV OP_VECTOR_SCALAR_MUL OP_VECTOR_SCALAR_DIV OP_MATRIX_MATRIX_LINEAR_MUL OP_VECTOR_MATRIX_LINEAR_MUL
 %left OP_SUBSCRIPT OP_SWIZZLE
 %nonassoc OP_NOT
-%nonassoc OP_TRANSPOSE
 
 %monad { P }
 %lexer { lexer } { TOK_EOF } -- lexer :: (Token -> P a) -> P a
@@ -176,8 +174,6 @@ operator :: { Operator }
   | OP_AND { OpAnd }
   | OP_OR { OpOr }
   | OP_APPLY { OpApply }
-  --
-  | OP_TRANSPOSE { OpTranspose }
   ;
 
 
@@ -260,7 +256,6 @@ operator_expr :: { Expr }
   | operator_expr OP_OR operator_expr { infixExpr (show OpOr) $1 $3 }
   | operator_expr OP_APPLY operator_expr { infixExpr (show OpApply) $1 $3 }
   --
-  | operator_expr OP_TRANSPOSE { postfixExpr (show OpTranspose) $1 }
   | infix_expr { $1 }
   ;
 
@@ -322,9 +317,6 @@ prefixExpr op a = ExprApp (ExprVar op) a
 
 infixExpr :: String -> Expr -> Expr -> Expr
 infixExpr op a b = ExprApp (ExprApp (ExprVar op) a) b
-
-postfixExpr :: String -> Expr -> Expr
-postfixExpr op a = ExprApp (ExprVar op) a
 
 
 -- Exported entry points.

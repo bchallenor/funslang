@@ -85,7 +85,6 @@ data Token
   | TOK_OP_NEQ
   | TOK_OP_AND
   | TOK_OP_OR
-  | TOK_OP_TRANSPOSE
   | TOK_OP_APPLY
   --
   | TOK_IF
@@ -326,8 +325,6 @@ data Operator
   | OpAnd
   | OpOr
   | OpApply
-  --
-  | OpTranspose
   
   deriving Eq
 
@@ -362,8 +359,6 @@ instance Show Operator where
   show OpAnd = "&&"
   show OpOr = "||"
   show OpApply = "$"
-  --
-  show OpTranspose = "'"
 
 
 -- Dataflow graph.
