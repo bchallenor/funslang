@@ -450,6 +450,10 @@ data InterpretState
   deriving (Show, Eq)
 
 
+initInterpretState :: InterpretState
+initInterpretState = InterpretState{num_uniforms = 0, num_textures = 0, num_varyings = 0, textures = [], num_generic_outputs = 0, num_nodes = 0}
+
+
 runInterpretM :: InterpretM a -> InterpretState -> Either String (a, InterpretState)
 runInterpretM vi i = do
   let (a,i') = runState (runErrorT vi) i
