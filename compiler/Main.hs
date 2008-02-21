@@ -21,7 +21,7 @@ data Flag
 
 opts :: [OptDescr Flag]
 opts = [
-  Option ['g'] [] (NoArg FlagGraph) "emit dataflow graph",
+  Option ['g'] [] (NoArg FlagGraph) "emit dataflow graph (must be combined with -c or -e)",
   Option ['c'] [] (NoArg FlagCompile) "compile and link vertex and fragment shaders",
   Option ['e'] [] (NoArg FlagEval) "evaluate expression"
   ]

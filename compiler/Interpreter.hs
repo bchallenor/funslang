@@ -121,7 +121,7 @@ interpretExprAsShader sk env e t =
     TypeFun uniform_type (TypeFun texture_type (TypeFun varying_type result_type)) -> do
       -- Count the number of outputs.
       case (sk, result_type) of
-        -- Vertex shader: (Real 4, 'a)
+        -- Vertex shader: (Real 4, a)
         (ShaderKindVertex, TypeTuple [TypeArray TypeReal (DimFix 4), output_type]) -> countOutputs output_type
         -- Fragment shader: Real 4
         (ShaderKindFragment, TypeArray TypeReal (DimFix 4)) -> return ()
