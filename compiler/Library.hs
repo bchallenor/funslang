@@ -389,7 +389,7 @@ valueFun_tx = return $
 -- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
 libraryBase :: [(Fixity, String, String, String, Bool, [String], InterpretM Value)]
 libraryBase = [
-  (Prefix, show OpScalarNeg, "Real -> Real", "scalar negate (as desugared from \"-\")", False, ["x"], liftRR (negate) DFRealNeg),
+  (Prefix, show OpScalarNeg, "Real -> Real", "scalar negate (as desugared from `-')", False, ["x"], liftRR (negate) DFRealNeg),
   (Prefix, "not", "Bool -> Bool", "logical not", False, ["x"], liftBB (not) DFBoolNot),
   (InfixL, show OpSubscript, "a n -> Real -> a", "subscript", False, ["as", "n"], valueFun_OpSubscript),
   (InfixL, show OpScalarAdd, "Real -> Real -> Real", "scalar add", False, ["x", "y"], liftRRR (+) DFRealAdd),
@@ -444,7 +444,7 @@ libraryBase = [
 libraryDerived :: [(Fixity, String, String, Bool, String)]
 libraryDerived = [
   (InfixR, show OpApply, "function application operator", False, "\\f x. f x"),
-  (Prefix, show OpVectorNeg, "vector negate (component-wise) (as desugared from \"--\")", False, "map negate"),
+  (Prefix, show OpVectorNeg, "vector negate (component-wise) (as desugared from `--')", False, "map negate"),
   (InfixL, show OpSwizzle, "swizzle", False, "\\as ns. map (as!) ns"),
   (InfixL, show OpVectorAdd, "vector add (component-wise)", False, "zipWith (+)"),
   (InfixL, show OpVectorSub, "vector sub (component-wise)", False, "zipWith (-)"),
