@@ -445,13 +445,13 @@ libraryDerived :: [(Fixity, String, String, Bool, String)]
 libraryDerived = [
   (InfixR, show OpApply, "function application operator", False, "\\f x. f x"),
   (Prefix, show OpVectorNeg, "vector negate (component-wise) (as desugared from \"--\")", False, "map negate"),
-  (InfixL, show OpSwizzle, "swizzle", False, "\\as ns. map ((!) as) ns"),
+  (InfixL, show OpSwizzle, "swizzle", False, "\\as ns. map (as!) ns"),
   (InfixL, show OpVectorAdd, "vector add (component-wise)", False, "zipWith (+)"),
   (InfixL, show OpVectorSub, "vector sub (component-wise)", False, "zipWith (-)"),
   (InfixL, show OpVectorMul, "vector mul (component-wise)", False, "zipWith (*)"),
   (InfixL, show OpVectorDiv, "vector div (component-wise)", False, "zipWith (/)"),
-  (InfixL, show OpVectorScalarMul, "vector-scalar mul", False, "\\xs y. map (\\x. x * y) xs"),
-  (InfixL, show OpVectorScalarDiv, "vector-scalar div", False, "\\xs y. map (\\x. x / y) xs"),
+  (InfixL, show OpVectorScalarMul, "vector-scalar mul", False, "\\xs y. map (*y) xs"),
+  (InfixL, show OpVectorScalarDiv, "vector-scalar div", False, "\\xs y. map (/y) xs"),
   (Prefix, "sum", "sum of components", False, "foldl1 (+)"),
   (Prefix, "product", "product of components", False, "foldl1 (*)"),
   (Prefix, "any", "logical or of components", False, "foldl1 (||)"),
@@ -464,7 +464,7 @@ libraryDerived = [
   (Prefix, "normalize", "normalize", False, "\\x. x **. (rsqrt $ dot x x)"),
   (InfixR, show OpMatrixVectorLinearMul, "matrix-vector linear algebraic mul", False, "\\m v. map (dot v) m"),
   (InfixL, show OpVectorMatrixLinearMul, "vector-matrix linear algebraic mul", False, "\\v m. map (dot v) (tx m)"),
-  (InfixL, show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, "\\ma mb. tx $ map ((#.) ma) (tx mb)"),
+  (InfixL, show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, "\\ma mb. tx $ map (ma #.) (tx mb)"),
   (Prefix, "clamp", "clamp value to given range", True, "\\low high x. min (max x low) high"),
   (Prefix, "step", "unit step", False, "\\edge x. if x < edge then 0 else 1"),
   (Prefix, "mix", "linear interpolation", True, "\\a x y. x * (1 - a) + y * a"),
@@ -473,5 +473,5 @@ libraryDerived = [
   (Prefix, "reflect", "reflect I given Nref (normalized)", True, "\\Nref I. I -- Nref **. (2 * dot Nref I)"),
   (Prefix, "refract", "refract I given Nref (normalized) and index eta", True, "\\Nref eta I. let d = dot Nref I in let eta2 = eta * eta in let k = 1 - eta2 + eta2 * d * d in if k < 0 then map (\\_. 0) Nref else I **. eta -- Nref **. (eta * d + sqrt k)"),
   (Prefix, "pad", "pads fourth component with 1.0", False, "\\[x1, x2, x3]. [x1, x2, x3, 1.0]"),
-  (Prefix, "strip", "strips fourth component", False, "\\[x1, x2, x3, x4]. [x1, x2, x3]")
+  (Prefix, "strip", "strips fourth component", False, "\\[x1, x2, x3, _]. [x1, x2, x3]")
   ]
