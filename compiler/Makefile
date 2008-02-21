@@ -23,7 +23,7 @@ Lexer.hs: Lexer.x
 	alex -g Lexer.x
 
 clean:
-	-del /Q bin\notprof\*.* bin\prof\*.* bin\*.*
+	-del /Q bin\notprof\*.* bin\prof\*.* bin\*.* Parser.hs Lexer.hs
 
 install:
 	-mkdir ..\common\lib
