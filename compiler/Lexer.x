@@ -15,7 +15,7 @@ $a = [a-zA-Z]
 $s = [\ \t\n\f\v\r]
 
 -- Regex macros.
-@ident = $a [$a $d _ ']*
+@ident = [$a _] [$a $d _ ']*
 
 
 -- Token rules.
