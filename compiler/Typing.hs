@@ -139,18 +139,18 @@ mgu (TypeArray t (DimVar dvref)) (TypeArray t' d') = do
   return $ sub2 `composeSubst` sub1
 mgu (TypeArray t d) (TypeArray t' (DimVar dvref')) =
   mgu (TypeArray t' (DimVar dvref')) (TypeArray t d) -- swap
-mgu (TypeArray t (DimFix i)) (TypeArray t' (DimFix i')) =
+mgu a@(TypeArray t (DimFix i)) a'@(TypeArray t' (DimFix i')) =
   if i == i'
     then mgu t t'
-    else throwError "array dimensions do not match"
-mgu (TypeTuple ts) (TypeTuple ts') =
+    else mguError a a'
+mgu a@(TypeTuple ts) a'@(TypeTuple ts') =
   if length ts == length ts'
     then Foldable.foldlM (
       \ sub1 (t, t') -> do
         sub2 <- mgu (applySubstType sub1 t) (applySubstType sub1 t')
         return $ sub2 `composeSubst` sub1
       ) nullSubst (zip ts ts')
-    else throwError "tuple lengths do not match"
+    else mguError a a'
 mgu (TypeFun t1 t2) (TypeFun t1' t2') = do
   sub1 <- mgu t1 t1'
   sub2 <- mgu (applySubstType sub1 t2) (applySubstType sub1 t2')
@@ -161,9 +161,12 @@ mgu (TypeVar tvref) t' = do
 mgu t (TypeVar tvref') = do
   tsub <- bindTypeVarRef tvref' t
   return (tsub, nullDimVarSubst)
-mgu t1 t2 =
-  let [pt1, pt2] = prettyTypes [t1, t2] in
-    throwError $ "could not unify <" ++ pt1 ++ "> with <" ++ pt2 ++ ">"
+mgu t t' = mguError t t'
+
+mguError :: Type -> Type -> TI Subst
+mguError t t' =
+  let [pt, pt'] = prettyTypes [t, t'] in
+    throwError $ "could not unify <" ++ pt ++ "> with <" ++ pt' ++ ">"
 
 
 -- A type scheme generalizes a type over the bound type vars and dim vars.
