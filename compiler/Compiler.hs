@@ -33,7 +33,7 @@ attemptUnification' t1 vrefs type_strs (type_str:type_strs_left) =
 
 
 -- Compiles a Funslang program to GLSL.
-compile :: ByteString.ByteString -> ByteString.ByteString -> Either String (Type, ShaderState, DFGraph, String, Type, ShaderState, DFGraph, String)
+compile :: ByteString.ByteString -> ByteString.ByteString -> Either String (Type, InterpretState, DFGraph, String, Type, InterpretState, DFGraph, String)
 compile vertex_src fragment_src = do
   -- Init the library.
   let (gamma, env, var_refs_1) = library
@@ -66,7 +66,7 @@ compile vertex_src fragment_src = do
               let fragment_type'' = applySubstType s fragment_type'
               
               -- Interpret shaders to dataflow graph form.
-              let info_init = ShaderState{num_uniforms = 0, num_textures = 0, num_varyings = 0, textures = [], num_generic_outputs = 0, num_nodes = 0}
+              let info_init = InterpretState{num_uniforms = 0, num_textures = 0, num_varyings = 0, textures = [], num_generic_outputs = 0, num_nodes = 0}
               (vertex_value, vertex_info) <- interpretExprAsShader ShaderKindVertex env vertex_expr vertex_type'' info_init
               let vertex_graph = dependencyGraph vertex_value vertex_info
               (fragment_value, fragment_info) <- interpretExprAsShader ShaderKindFragment env fragment_expr fragment_type'' info_init{num_textures = num_textures vertex_info, textures = textures vertex_info}

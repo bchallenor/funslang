@@ -13,29 +13,6 @@ data ShaderKind
   deriving (Show, Eq)
 
 
-data ShaderTextureInput
-  = ShaderTextureInput1D !Int -- texture image unit
-  | ShaderTextureInput2D !Int
-  | ShaderTextureInput3D !Int
-  | ShaderTextureInputCube !Int
-  
-  deriving (Show, Eq)
-
-
-data ShaderState
-  = ShaderState
-  {
-    num_uniforms :: !Int,
-    num_textures :: !Int,
-    num_varyings :: !Int,
-    textures :: ![ShaderTextureInput],
-    num_generic_outputs :: !Int, -- not including position, color etc
-    num_nodes :: !Int -- node count so that new ones get unique IDs
-  }
-  
-  deriving (Show, Eq)
-
-
 data Token
   = TOK_REAL
   | TOK_BOOL
@@ -447,9 +424,33 @@ data DFSample -- these are internal to a texture sampling gadget
 
 -- The interpreter monad holds fresh numbers,
 -- and can return errors (use throwError).
-type InterpretM a = ErrorT String (State ShaderState) a
+type InterpretM a = ErrorT String (State InterpretState) a
 
-runInterpretM :: InterpretM a -> ShaderState -> Either String (a, ShaderState)
+
+data ShaderTextureInput
+  = ShaderTextureInput1D !Int -- texture image unit
+  | ShaderTextureInput2D !Int
+  | ShaderTextureInput3D !Int
+  | ShaderTextureInputCube !Int
+  
+  deriving (Show, Eq)
+
+
+data InterpretState
+  = InterpretState
+  {
+    num_uniforms :: !Int,
+    num_textures :: !Int,
+    num_varyings :: !Int,
+    textures :: ![ShaderTextureInput],
+    num_generic_outputs :: !Int, -- not including position, color etc
+    num_nodes :: !Int -- node count so that new ones get unique IDs
+  }
+  
+  deriving (Show, Eq)
+
+
+runInterpretM :: InterpretM a -> InterpretState -> Either String (a, InterpretState)
 runInterpretM vi i = do
   let (a,i') = runState (runErrorT vi) i
   r <- a

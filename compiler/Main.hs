@@ -30,7 +30,7 @@ main = do
       dump ShaderKindFragment ft fsi fg femit
     Left msg -> putStrLn msg
 
-dump :: ShaderKind -> Type -> ShaderState -> DFGraph -> String -> IO ()
+dump :: ShaderKind -> Type -> InterpretState -> DFGraph -> String -> IO ()
 dump sk t si g emitted = do
   putStrLn $ prettyType t
   putStrLn $ "inputs: " ++ show si

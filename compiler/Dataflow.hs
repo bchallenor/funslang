@@ -50,7 +50,7 @@ graphviz (adjs, _, mvn) =
 
 -- Given a Value, makes its DFGraph.
 -- Note that the arcs in the Graph representation are necessarily the transpose of the DF representation.
-dependencyGraph :: Value -> ShaderState -> DFGraph
+dependencyGraph :: Value -> InterpretState -> DFGraph
 dependencyGraph value s =
   let result_ns = getResultDFs value in
   let (es, mvn) = dependencyEdges ([], IntMap.empty) result_ns in
