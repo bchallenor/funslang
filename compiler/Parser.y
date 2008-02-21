@@ -88,7 +88,7 @@ import Lexer
 %error { parseError } -- parseError :: Token -> P a
 
 %expect 1
--- 1 S/R conflict: "\x::a y" as shift "\x::(a y)" or reduce "\(x::a) y".
+-- 1 conflict: "\x::a y" as shift "\x::(a y)" or reduce "\(x::a) y"?
 -- Shift, but cases like "\x::a y::b" will need disambiguating with brackets.
 
 %%
@@ -141,22 +141,16 @@ opt_type :: { Maybe Type }
 
 
 --
--- Operators
---
--- Note that the prefix negation operators cannot be sectioned, because they are
--- lexically indistinguishable from infix subtraction.
--- Thus (-) is the subtraction function.
+-- Expressions
 --
 
-operator :: { Operator }
+unamb_infix_operator :: { Operator }
   : OP_SUBSCRIPT { OpSubscript }
   | OP_SWIZZLE { OpSwizzle }
   | OP_SCALAR_ADD { OpScalarAdd }
-  | OP_SCALAR_NEG_OP_SCALAR_SUB { OpScalarSub }
   | OP_SCALAR_MUL { OpScalarMul }
   | OP_SCALAR_DIV { OpScalarDiv }
   | OP_VECTOR_ADD { OpVectorAdd }
-  | OP_VECTOR_NEG_OP_VECTOR_SUB { OpVectorSub }
   | OP_VECTOR_MUL { OpVectorMul }
   | OP_VECTOR_DIV { OpVectorDiv }
   | OP_VECTOR_SCALAR_MUL { OpVectorScalarMul }
@@ -175,10 +169,17 @@ operator :: { Operator }
   | OP_APPLY { OpApply }
   ;
 
+amb_infix_operator :: { Operator }
+  : unamb_infix_operator { $1 }
+  | OP_SCALAR_NEG_OP_SCALAR_SUB { OpScalarSub }
+  | OP_VECTOR_NEG_OP_VECTOR_SUB { OpVectorSub }
+  ;
 
---
--- Expressions
---
+section_expr :: { Expr }
+  : LPAREN amb_infix_operator RPAREN { ExprVar (show $2) }
+  | LPAREN unamb_infix_operator operand_expr RPAREN { ExprLambda (PattVar "_x" Nothing) (ExprApp (ExprApp (ExprVar (show $2)) (ExprVar "_x")) $3) }
+  | LPAREN operand_expr amb_infix_operator RPAREN { ExprApp (ExprVar (show $3)) $2 }
+  ;
 
 tuple_expr_inner :: { [Expr] }
   : expr COMMA expr { $3:$1:[] }
@@ -211,7 +212,7 @@ primary_expr :: { Expr }
   | tuple_expr { $1 }
   | array_expr { $1 }
   | array_range_expr { $1 }
-  | LPAREN operator RPAREN { ExprVar (show $2) }
+  | section_expr { $1 }
   | LPAREN expr RPAREN { $2 }
   ;
 
@@ -225,34 +226,34 @@ infix_expr :: { Expr }
   | app_expr { $1 }
   ;
 
-operator_expr :: { Expr }
-  : OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { prefixExpr (show OpScalarNeg) $2 }
-  | OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { prefixExpr (show OpVectorNeg) $2 }
+operand_expr :: { Expr }
+  : OP_SCALAR_NEG_OP_SCALAR_SUB operand_expr { prefixExpr (show OpScalarNeg) $2 }
+  | OP_VECTOR_NEG_OP_VECTOR_SUB operand_expr { prefixExpr (show OpVectorNeg) $2 }
   --
-  | operator_expr OP_SUBSCRIPT operator_expr { infixExpr (show OpSubscript) $1 $3 }
-  | operator_expr OP_SWIZZLE operator_expr { infixExpr (show OpSwizzle) $1 $3 }
-  | operator_expr OP_SCALAR_ADD operator_expr { infixExpr (show OpScalarAdd) $1 $3 }
-  | operator_expr OP_SCALAR_NEG_OP_SCALAR_SUB operator_expr { infixExpr (show OpScalarSub) $1 $3 }
-  | operator_expr OP_SCALAR_MUL operator_expr { infixExpr (show OpScalarMul) $1 $3 }
-  | operator_expr OP_SCALAR_DIV operator_expr { infixExpr (show OpScalarDiv) $1 $3 }
-  | operator_expr OP_VECTOR_ADD operator_expr { infixExpr (show OpVectorAdd) $1 $3 }
-  | operator_expr OP_VECTOR_NEG_OP_VECTOR_SUB operator_expr { infixExpr (show OpVectorSub) $1 $3 }
-  | operator_expr OP_VECTOR_MUL operator_expr { infixExpr (show OpVectorMul) $1 $3 }
-  | operator_expr OP_VECTOR_DIV operator_expr { infixExpr (show OpVectorDiv) $1 $3 }
-  | operator_expr OP_VECTOR_SCALAR_MUL operator_expr { infixExpr (show OpVectorScalarMul) $1 $3 }
-  | operator_expr OP_VECTOR_SCALAR_DIV operator_expr { infixExpr (show OpVectorScalarDiv) $1 $3 }
-  | operator_expr OP_MATRIX_MATRIX_LINEAR_MUL operator_expr { infixExpr (show OpMatrixMatrixLinearMul) $1 $3 }
-  | operator_expr OP_MATRIX_VECTOR_LINEAR_MUL operator_expr { infixExpr (show OpMatrixVectorLinearMul) $1 $3 }
-  | operator_expr OP_VECTOR_MATRIX_LINEAR_MUL operator_expr { infixExpr (show OpVectorMatrixLinearMul) $1 $3 }
-  | operator_expr OP_LT operator_expr { infixExpr (show OpLessThan) $1 $3 }
-  | operator_expr OP_GT operator_expr { infixExpr (show OpGreaterThan) $1 $3 }
-  | operator_expr OP_LTE operator_expr { infixExpr (show OpLessThanEqual) $1 $3 }
-  | operator_expr OP_GTE operator_expr { infixExpr (show OpGreaterThanEqual) $1 $3 }
-  | operator_expr OP_EQ operator_expr { infixExpr (show OpEqual) $1 $3 }
-  | operator_expr OP_NEQ operator_expr { infixExpr (show OpNotEqual) $1 $3 }
-  | operator_expr OP_AND operator_expr { infixExpr (show OpAnd) $1 $3 }
-  | operator_expr OP_OR operator_expr { infixExpr (show OpOr) $1 $3 }
-  | operator_expr OP_APPLY operator_expr { infixExpr (show OpApply) $1 $3 }
+  | operand_expr OP_SUBSCRIPT operand_expr { infixExpr (show OpSubscript) $1 $3 }
+  | operand_expr OP_SWIZZLE operand_expr { infixExpr (show OpSwizzle) $1 $3 }
+  | operand_expr OP_SCALAR_ADD operand_expr { infixExpr (show OpScalarAdd) $1 $3 }
+  | operand_expr OP_SCALAR_NEG_OP_SCALAR_SUB operand_expr { infixExpr (show OpScalarSub) $1 $3 }
+  | operand_expr OP_SCALAR_MUL operand_expr { infixExpr (show OpScalarMul) $1 $3 }
+  | operand_expr OP_SCALAR_DIV operand_expr { infixExpr (show OpScalarDiv) $1 $3 }
+  | operand_expr OP_VECTOR_ADD operand_expr { infixExpr (show OpVectorAdd) $1 $3 }
+  | operand_expr OP_VECTOR_NEG_OP_VECTOR_SUB operand_expr { infixExpr (show OpVectorSub) $1 $3 }
+  | operand_expr OP_VECTOR_MUL operand_expr { infixExpr (show OpVectorMul) $1 $3 }
+  | operand_expr OP_VECTOR_DIV operand_expr { infixExpr (show OpVectorDiv) $1 $3 }
+  | operand_expr OP_VECTOR_SCALAR_MUL operand_expr { infixExpr (show OpVectorScalarMul) $1 $3 }
+  | operand_expr OP_VECTOR_SCALAR_DIV operand_expr { infixExpr (show OpVectorScalarDiv) $1 $3 }
+  | operand_expr OP_MATRIX_MATRIX_LINEAR_MUL operand_expr { infixExpr (show OpMatrixMatrixLinearMul) $1 $3 }
+  | operand_expr OP_MATRIX_VECTOR_LINEAR_MUL operand_expr { infixExpr (show OpMatrixVectorLinearMul) $1 $3 }
+  | operand_expr OP_VECTOR_MATRIX_LINEAR_MUL operand_expr { infixExpr (show OpVectorMatrixLinearMul) $1 $3 }
+  | operand_expr OP_LT operand_expr { infixExpr (show OpLessThan) $1 $3 }
+  | operand_expr OP_GT operand_expr { infixExpr (show OpGreaterThan) $1 $3 }
+  | operand_expr OP_LTE operand_expr { infixExpr (show OpLessThanEqual) $1 $3 }
+  | operand_expr OP_GTE operand_expr { infixExpr (show OpGreaterThanEqual) $1 $3 }
+  | operand_expr OP_EQ operand_expr { infixExpr (show OpEqual) $1 $3 }
+  | operand_expr OP_NEQ operand_expr { infixExpr (show OpNotEqual) $1 $3 }
+  | operand_expr OP_AND operand_expr { infixExpr (show OpAnd) $1 $3 }
+  | operand_expr OP_OR operand_expr { infixExpr (show OpOr) $1 $3 }
+  | operand_expr OP_APPLY operand_expr { infixExpr (show OpApply) $1 $3 }
   --
   | infix_expr { $1 }
   ;
@@ -262,7 +263,7 @@ expr :: { Expr }
   | IF expr THEN expr ELSE expr { ExprIf $2 $4 $6 }
   | LET patt EQUALS expr IN expr { ExprLet $2 $4 $6 }
   | LET IDENTIFIER opt_type patts EQUALS expr IN expr { ExprLet (PattVar $2 $3) (foldl' (flip ExprLambda) $6 $4) $8 }
-  | operator_expr { $1 }
+  | operand_expr { $1 }
   ;
 
 
