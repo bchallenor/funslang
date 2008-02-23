@@ -10,12 +10,14 @@ import Representation
 import Dataflow
 import Compiler
 import Pretty
+import Library
 
 
 data Flag
   = FlagGraph
   | FlagCompile
   | FlagEval
+  | FlagLibrary
   
   deriving (Show, Eq)
 
@@ -23,11 +25,12 @@ opts :: [OptDescr Flag]
 opts = [
   Option ['g'] [] (NoArg FlagGraph) "emit dataflow graph (must be combined with -c or -e)",
   Option ['c'] [] (NoArg FlagCompile) "compile and link vertex and fragment shaders",
-  Option ['e'] [] (NoArg FlagEval) "evaluate expression"
+  Option ['e'] [] (NoArg FlagEval) "evaluate expression",
+  Option ['l'] [] (NoArg FlagLibrary) "print library in LaTeX format"
   ]
 
 printUsage :: IO ()
-printUsage = putStrLn $ usageInfo "Usage: main [options] files" opts
+printUsage = putStrLn $ usageInfo "Usage: main [options] [input files]" opts
 
 
 standaloneCompile :: String -> String -> Maybe String -> Maybe String -> IO ()
@@ -63,6 +66,11 @@ printResult opt_graph_path t info graph result = do
   putStrLn $ result
 
 
+printLibrary :: IO ()
+printLibrary = do
+  putStrLn docLibrary
+
+
 dispatch :: [Flag] -> [String] -> IO ()
 
 dispatch [FlagGraph, FlagCompile] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc_path (Just "vertex-graph") (Just "fragment-graph")
@@ -72,6 +80,8 @@ dispatch [FlagCompile] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc
 dispatch [FlagGraph, FlagEval] [src_path] = standaloneEval src_path (Just "expr-graph")
 dispatch [FlagEval, FlagGraph] [src_path] = standaloneEval src_path (Just "expr-graph")
 dispatch [FlagEval] [src_path] = standaloneEval src_path Nothing
+
+dispatch [FlagLibrary] [] = printLibrary
 
 dispatch _ _ = printUsage
 

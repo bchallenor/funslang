@@ -1,4 +1,4 @@
-module Library(library, queryTypeScheme) where
+module Library(library, docLibrary) where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.List as List
@@ -9,15 +9,7 @@ import Typing
 import Parser
 import Representation
 import Interpreter
-
-
-data Fixity
-  = Prefix
-  | InfixL
-  | InfixR
-  | InfixN
-  
-  deriving (Show, Eq)
+import Pretty
 
 
 -- A tuple of:
@@ -30,7 +22,7 @@ library =
   let wrapmsg ident msg = "in constructing library function <" ++ ident ++ ">: " ++ msg in
   
   let { base = List.foldl' (
-    \ (gamma, env, vrefs) (_, ident, tstr, _, _, _, v) ->
+    \ (gamma, env, vrefs) (ident, tstr, _, _, _, v) ->
       case parseType vrefs (ByteString.pack tstr) of
         Right (t, vrefs') ->
           let sigma = Scheme (fvType t) t in
@@ -39,7 +31,7 @@ library =
   ) (Map.empty, Map.empty, initFreshVarRefs) libraryBase } in
   
   List.foldl' (
-    \ (gamma, env, vrefs) (_, ident, _, _, estr) ->
+    \ (gamma, env, vrefs) (ident, _, _, estr) ->
       case parseExpr vrefs (ByteString.pack estr) of
         Right (e, vrefs') ->
           case inferExprType gamma e vrefs' of
@@ -51,13 +43,26 @@ library =
   ) base libraryDerived
 
 
--- Queries the library, for debugging purposes.
-queryTypeScheme :: String -> String
-queryTypeScheme ident =
+-- Documents the library in LaTeX format.
+docLibrary :: String
+docLibrary =
+  unlines $
+    (map (\(ident, _, desc, _, _, _) -> docIdent ident desc Nothing) libraryBase)
+    ++
+    (map (\(ident, desc, _, src) -> docIdent ident desc (Just src)) libraryDerived)
+  
+docIdent :: String -> String -> Maybe String -> String
+docIdent ident desc opt_src =
   let (gamma, _, _) = library in
     case Map.lookup ident gamma of
-      Just sigma -> show sigma
-      Nothing -> "not in library"
+      Nothing -> error $ ident ++ " should have been added to library"
+      Just (Scheme _ t) ->
+        let header' = latexify (ident ++ " :: " ++ prettyType t) in
+        let src' = case opt_src of { Just src -> latexify src; Nothing -> "" } in
+          unlines [header', desc, src']
+
+latexify :: String -> String
+latexify s = "\\begin{verbatim}" ++ s ++ "\\end{verbatim}"
 
 
 -- Lift functions; take a static and a dynamic operator.
@@ -386,92 +391,92 @@ valueFun_tx = return $
     ValueArray $ map ValueArray $ List.transpose $ map (\(ValueArray inner) -> inner) outer
 
 
--- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
-libraryBase :: [(Fixity, String, String, String, Bool, [String], InterpretM Value)]
+-- (identifier, type, desc, args different to GLSL?, arg list, value)
+libraryBase :: [(String, String, String, Bool, [String], InterpretM Value)]
 libraryBase = [
-  (Prefix, show OpScalarNeg, "Real -> Real", "scalar negate (as desugared from `-')", False, ["x"], liftRR (negate) DFRealNeg),
-  (Prefix, "not", "Bool -> Bool", "logical not", False, ["x"], liftBB (not) DFBoolNot),
-  (InfixL, show OpSubscript, "a n -> Real -> a", "subscript", False, ["as", "n"], valueFun_OpSubscript),
-  (InfixL, show OpScalarAdd, "Real -> Real -> Real", "scalar add", False, ["x", "y"], liftRRR (+) DFRealAdd),
-  (InfixL, show OpScalarSub, "Real -> Real -> Real", "scalar sub", False, ["x", "y"], liftRRR (-) DFRealSub),
-  (InfixL, show OpScalarMul, "Real -> Real -> Real", "scalar mul", False, ["x", "y"], liftRRR (*) DFRealMul),
-  (InfixL, show OpScalarDiv, "Real -> Real -> Real", "scalar div", False, ["x", "y"], liftRRR (/) DFRealDiv),
-  (InfixN, show OpLessThan, "Real -> Real -> Bool", "less than", False, ["x", "y"], liftRRB (<) DFBoolLessThan),
-  (InfixN, show OpLessThanEqual, "Real -> Real -> Bool", "less than or equal", False, ["x", "y"], liftRRB (<=) DFBoolLessThanEqual),
-  (InfixN, show OpGreaterThan, "Real -> Real -> Bool", "greater than", False, ["x", "y"], liftRRB (>) DFBoolGreaterThan),
-  (InfixN, show OpGreaterThanEqual, "Real -> Real -> Bool", "greater than or equal", False, ["x", "y"], liftRRB (>=) DFBoolGreaterThanEqual),
-  (InfixN, show OpEqual, "a -> a -> Bool", "equality", False, ["x", "y"], valueFun_OpEqual),
-  (InfixN, show OpNotEqual, "a -> a -> Bool", "inequality", False, ["x", "y"], valueFun_OpNotEqual),
-  (InfixL, show OpAnd, "Bool -> Bool -> Bool", "logical and", False, ["x", "y"], liftBBB (&&) DFBoolAnd),
-  (InfixL, show OpOr, "Bool -> Bool -> Bool", "logical or", False, ["x", "y"], liftBBB (||) DFBoolOr),
-  (Prefix, "tx", "a p q -> a q p", "transpose", False, ["x"], valueFun_tx),
-  (Prefix, "map", "(a -> b) -> a n -> b n", "map function onto array", False, ["f", "as"], valueFun_map),
-  (Prefix, "foldl", "(a -> a -> b) -> a -> b n -> a", "left fold", False, ["f", "z", "bs"], valueFun_foldl),
-  (Prefix, "foldl1", "(a -> a -> a) -> a n -> a", "left fold without initial accumulator", False, ["f", "as"], valueFun_foldl1),
-  (Prefix, "foldr", "(a -> b -> b) -> b -> a n -> b", "right fold", False, ["f", "z", "as"], valueFun_foldr),
-  (Prefix, "foldr1", "(a -> a -> a) -> a n -> a", "right fold without initial accumulator", False, ["f", "as"], valueFun_foldr1),
-  (Prefix, "unroll", "(a -> a) -> Real -> a -> a", "apply f n times to z (n must be statically determinable)", False, ["f", "n", "z"], valueFun_unroll),
-  (Prefix, "zipWith", "(a -> b -> c) -> a n -> b n -> c n", "general zip over 2 arrays", False, ["f", "as", "bs"], valueFun_zipWith),
-  (Prefix, "zipWith3", "(a -> b -> c -> d) -> a n -> b n -> c n -> d n", "general zip over 3 arrays", False, ["f", "as", "bs", "cs"], valueFun_zipWith3),
-  (Prefix, "pi", "Real", "pi", False, [], do n <- freshNode; return $ ValueDFReal $ DFRealLiteral n pi),
-  (Prefix, "sin", "Real -> Real", "sine (radians)", False, ["a"], liftRR sin DFRealSin),
-  (Prefix, "cos", "Real -> Real", "cosine (radians)", False, ["a"], liftRR cos DFRealCos),
-  (Prefix, "tan", "Real -> Real", "tangent (radians)", False, ["a"], liftRR tan DFRealTan),
-  (Prefix, "asin", "Real -> Real", "arcsine (radians)", False, ["x"], liftRR asin DFRealASin),
-  (Prefix, "acos", "Real -> Real", "arccosine (radians)", False, ["x"], liftRR acos DFRealACos),
-  (Prefix, "atan", "Real -> Real -> Real", "arctangent (radians)", False, ["x", "y"], liftRR atan DFRealATan),
-  (Prefix, "pow", "Real -> Real -> Real", "power", False, ["x", "y"], liftRRR (**) DFRealPow),
-  (Prefix, "exp", "Real -> Real", "power (base e)", False, ["x"], liftRR exp DFRealExp),
-  (Prefix, "exp2", "Real -> Real", "power (base 2)", False, ["x"], liftRR (2**) DFRealExp2),
-  (Prefix, "log", "Real -> Real", "logarithm (base e)", False, ["x"], liftRR log DFRealLog),
-  (Prefix, "log2", "Real -> Real", "logarithm (base 2)", False, ["x"], liftRR (logBase 2) DFRealLog2),
-  (Prefix, "rsqrt", "Real -> Real", "reciprocal square root", False, ["x"], liftRR (\x -> 1 / sqrt x) DFRealRsq),
-  (Prefix, "abs", "Real -> Real", "absolute value", False, ["x"], liftRR abs DFRealAbs),
-  (Prefix, "floor", "Real -> Real", "round to negative infinity", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . floor) DFRealFloor),
-  (Prefix, "ceiling", "Real -> Real", "round to positive infinity", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . ceiling) DFRealCeiling),
-  (Prefix, "round", "Real -> Real", "round to nearest integer", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . round) DFRealRound),
-  (Prefix, "truncate", "Real -> Real", "round to zero", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . truncate) DFRealTruncate),
-  (Prefix, "fract", "Real -> Real", "fractional part", False, ["x"], liftRR (snd . (properFraction :: Double -> (Integer, Double))) DFRealFract),
-  (Prefix, "min", "Real -> Real -> Real", "minimum", False, ["x", "y"], liftRRR min DFRealMin),
-  (Prefix, "max", "Real -> Real -> Real", "maximum", False, ["x", "y"], liftRRR max DFRealMax),
-  (Prefix, "sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueFun_sample1D),
-  (Prefix, "sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], valueFun_sample2D),
-  (Prefix, "sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], valueFun_sample3D),
-  (Prefix, "sampleCube", "TextureCube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], valueFun_sampleCube)
+  (show OpScalarNeg, "Real -> Real", "scalar negate (as desugared from `-')", False, ["x"], liftRR (negate) DFRealNeg),
+  ("not", "Bool -> Bool", "logical not", False, ["x"], liftBB (not) DFBoolNot),
+  (show OpSubscript, "a n -> Real -> a", "subscript", False, ["as", "n"], valueFun_OpSubscript),
+  (show OpScalarAdd, "Real -> Real -> Real", "scalar add", False, ["x", "y"], liftRRR (+) DFRealAdd),
+  (show OpScalarSub, "Real -> Real -> Real", "scalar sub", False, ["x", "y"], liftRRR (-) DFRealSub),
+  (show OpScalarMul, "Real -> Real -> Real", "scalar mul", False, ["x", "y"], liftRRR (*) DFRealMul),
+  (show OpScalarDiv, "Real -> Real -> Real", "scalar div", False, ["x", "y"], liftRRR (/) DFRealDiv),
+  (show OpLessThan, "Real -> Real -> Bool", "less than", False, ["x", "y"], liftRRB (<) DFBoolLessThan),
+  (show OpLessThanEqual, "Real -> Real -> Bool", "less than or equal", False, ["x", "y"], liftRRB (<=) DFBoolLessThanEqual),
+  (show OpGreaterThan, "Real -> Real -> Bool", "greater than", False, ["x", "y"], liftRRB (>) DFBoolGreaterThan),
+  (show OpGreaterThanEqual, "Real -> Real -> Bool", "greater than or equal", False, ["x", "y"], liftRRB (>=) DFBoolGreaterThanEqual),
+  (show OpEqual, "a -> a -> Bool", "equality (not defined on functions)", False, ["x", "y"], valueFun_OpEqual),
+  (show OpNotEqual, "a -> a -> Bool", "inequality (not defined on functions)", False, ["x", "y"], valueFun_OpNotEqual),
+  (show OpAnd, "Bool -> Bool -> Bool", "logical and", False, ["x", "y"], liftBBB (&&) DFBoolAnd),
+  (show OpOr, "Bool -> Bool -> Bool", "logical or", False, ["x", "y"], liftBBB (||) DFBoolOr),
+  ("tx", "a p q -> a q p", "transpose", False, ["x"], valueFun_tx),
+  ("map", "(a -> b) -> a n -> b n", "map function onto array", False, ["f", "as"], valueFun_map),
+  ("foldl", "(a -> a -> b) -> a -> b n -> a", "left fold", False, ["f", "z", "bs"], valueFun_foldl),
+  ("foldl1", "(a -> a -> a) -> a n -> a", "left fold without initial accumulator", False, ["f", "as"], valueFun_foldl1),
+  ("foldr", "(a -> b -> b) -> b -> a n -> b", "right fold", False, ["f", "z", "as"], valueFun_foldr),
+  ("foldr1", "(a -> a -> a) -> a n -> a", "right fold without initial accumulator", False, ["f", "as"], valueFun_foldr1),
+  ("unroll", "(a -> a) -> Real -> a -> a", "apply f n times to z (n must be statically determinable)", False, ["f", "n", "z"], valueFun_unroll),
+  ("zipWith", "(a -> b -> c) -> a n -> b n -> c n", "general zip over 2 arrays", False, ["f", "as", "bs"], valueFun_zipWith),
+  ("zipWith3", "(a -> b -> c -> d) -> a n -> b n -> c n -> d n", "general zip over 3 arrays", False, ["f", "as", "bs", "cs"], valueFun_zipWith3),
+  ("pi", "Real", "pi", False, [], do n <- freshNode; return $ ValueDFReal $ DFRealLiteral n pi),
+  ("sin", "Real -> Real", "sine (radians)", False, ["a"], liftRR sin DFRealSin),
+  ("cos", "Real -> Real", "cosine (radians)", False, ["a"], liftRR cos DFRealCos),
+  ("tan", "Real -> Real", "tangent (radians)", False, ["a"], liftRR tan DFRealTan),
+  ("asin", "Real -> Real", "arcsine (radians)", False, ["x"], liftRR asin DFRealASin),
+  ("acos", "Real -> Real", "arccosine (radians)", False, ["x"], liftRR acos DFRealACos),
+  ("atan", "Real -> Real -> Real", "arctangent (radians)", False, ["x", "y"], liftRR atan DFRealATan),
+  ("pow", "Real -> Real -> Real", "power", False, ["x", "y"], liftRRR (**) DFRealPow),
+  ("exp", "Real -> Real", "power (base e)", False, ["x"], liftRR exp DFRealExp),
+  ("exp2", "Real -> Real", "power (base 2)", False, ["x"], liftRR (2**) DFRealExp2),
+  ("log", "Real -> Real", "logarithm (base e)", False, ["x"], liftRR log DFRealLog),
+  ("log2", "Real -> Real", "logarithm (base 2)", False, ["x"], liftRR (logBase 2) DFRealLog2),
+  ("rsqrt", "Real -> Real", "reciprocal square root", False, ["x"], liftRR (\x -> 1 / sqrt x) DFRealRsq),
+  ("abs", "Real -> Real", "absolute value", False, ["x"], liftRR abs DFRealAbs),
+  ("floor", "Real -> Real", "round to negative infinity", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . floor) DFRealFloor),
+  ("ceiling", "Real -> Real", "round to positive infinity", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . ceiling) DFRealCeiling),
+  ("round", "Real -> Real", "round to nearest integer", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . round) DFRealRound),
+  ("truncate", "Real -> Real", "round to zero", False, ["x"], liftRR ((fromIntegral :: Integer -> Double) . truncate) DFRealTruncate),
+  ("fract", "Real -> Real", "fractional part", False, ["x"], liftRR (snd . (properFraction :: Double -> (Integer, Double))) DFRealFract),
+  ("min", "Real -> Real -> Real", "minimum", False, ["x", "y"], liftRRR min DFRealMin),
+  ("max", "Real -> Real -> Real", "maximum", False, ["x", "y"], liftRRR max DFRealMax),
+  ("sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueFun_sample1D),
+  ("sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], valueFun_sample2D),
+  ("sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], valueFun_sample3D),
+  ("sampleCube", "TextureCube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], valueFun_sampleCube)
   ]
 
--- (fixity, identifier, type scheme, desc, args different to GLSL?, arg list, definition)
-libraryDerived :: [(Fixity, String, String, Bool, String)]
+-- (identifier, desc, args different to GLSL?, funslang source)
+libraryDerived :: [(String, String, Bool, String)]
 libraryDerived = [
-  (InfixR, show OpApply, "function application operator", False, "\\f x. f x"),
-  (Prefix, show OpVectorNeg, "vector negate (component-wise) (as desugared from `--')", False, "map negate"),
-  (InfixL, show OpSwizzle, "swizzle", False, "\\as ns. map (as!) ns"),
-  (InfixL, show OpVectorAdd, "vector add (component-wise)", False, "zipWith (+)"),
-  (InfixL, show OpVectorSub, "vector sub (component-wise)", False, "zipWith (-)"),
-  (InfixL, show OpVectorMul, "vector mul (component-wise)", False, "zipWith (*)"),
-  (InfixL, show OpVectorDiv, "vector div (component-wise)", False, "zipWith (/)"),
-  (InfixL, show OpVectorScalarMul, "vector-scalar mul", False, "\\xs y. map (*y) xs"),
-  (InfixL, show OpVectorScalarDiv, "vector-scalar div", False, "\\xs y. map (/y) xs"),
-  (Prefix, "sum", "sum of components", False, "foldl1 (+)"),
-  (Prefix, "product", "product of components", False, "foldl1 (*)"),
-  (Prefix, "any", "logical or of components", False, "foldl1 (||)"),
-  (Prefix, "all", "logical and of components", False, "foldl1 (&&)"),
-  (Prefix, "sqrt", "square root", False, "\\x. 1 / rsqrt x"),
-  (Prefix, "mod", "modulus", False, "\\x y. x - y * floor (x/y)"),
-  (Prefix, "dot", "dot product", False, "\\x y. sum $ x ** y"),
-  (Prefix, "cross", "cross product", False, "\\[x1, x2, x3] [y1, y2, y3]. [x2 * y3 - x3 * y2, x3 * y1 - x1 * y3, x1 * y2 - x2 * y1]"),
-  (Prefix, "length", "vector length (Pythagorean)", False, "\\x. sqrt $ dot x x"),
-  (Prefix, "normalize", "normalize", False, "\\x. x **. (rsqrt $ dot x x)"),
-  (InfixR, show OpMatrixVectorLinearMul, "matrix-vector linear algebraic mul", False, "\\m v. map (dot v) m"),
-  (InfixL, show OpVectorMatrixLinearMul, "vector-matrix linear algebraic mul", False, "\\v m. map (dot v) (tx m)"),
-  (InfixL, show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, "\\ma mb. tx $ map (ma #.) (tx mb)"),
-  (Prefix, "clamp", "clamp value to given range", True, "\\low high x. min (max x low) high"),
-  (Prefix, "step", "unit step", False, "\\edge x. if x < edge then 0 else 1"),
-  (Prefix, "mix", "linear interpolation", True, "\\a x y. x * (1 - a) + y * a"),
-  (Prefix, "smoothstep", "hermite interpolation", False, "\\edge0 edge1 x. let t = clamp 0 1 ((x - edge0) / (edge1 - edge0)) in t * t * (3 - 2 * t)"),
-  (Prefix, "faceforward", "returns N facing forward", True, "\\Nref I N. if dot Nref I < 0 then N else --N"),
-  (Prefix, "reflect", "reflect I given Nref (normalized)", True, "\\Nref I. I -- Nref **. (2 * dot Nref I)"),
-  (Prefix, "refract", "refract I given Nref (normalized) and index eta", True, "\\Nref eta I. let d = dot Nref I in let eta2 = eta * eta in let k = 1 - eta2 + eta2 * d * d in if k < 0 then map (\\_. 0) Nref else I **. eta -- Nref **. (eta * d + sqrt k)"),
-  (Prefix, "pad", "pads fourth component with 1.0", False, "\\[x1, x2, x3]. [x1, x2, x3, 1.0]"),
-  (Prefix, "strip", "strips fourth component", False, "\\[x1, x2, x3, _]. [x1, x2, x3]")
+  (show OpApply, "function application operator", False, "\\f x. f x"),
+  (show OpVectorNeg, "vector negate (component-wise) (as desugared from `--')", False, "map negate"),
+  (show OpSwizzle, "swizzle", False, "\\as ns. map (as!) ns"),
+  (show OpVectorAdd, "vector add (component-wise)", False, "zipWith (+)"),
+  (show OpVectorSub, "vector sub (component-wise)", False, "zipWith (-)"),
+  (show OpVectorMul, "vector mul (component-wise)", False, "zipWith (*)"),
+  (show OpVectorDiv, "vector div (component-wise)", False, "zipWith (/)"),
+  (show OpVectorScalarMul, "vector-scalar mul", False, "\\xs y. map (*y) xs"),
+  (show OpVectorScalarDiv, "vector-scalar div", False, "\\xs y. map (/y) xs"),
+  ("sum", "sum of components", False, "foldl1 (+)"),
+  ("product", "product of components", False, "foldl1 (*)"),
+  ("any", "logical or of components", False, "foldl1 (||)"),
+  ("all", "logical and of components", False, "foldl1 (&&)"),
+  ("sqrt", "square root", False, "\\x. 1 / rsqrt x"),
+  ("mod", "modulus", False, "\\x y. x - y * floor (x/y)"),
+  ("dot", "dot product", False, "\\x y. sum $ x ** y"),
+  ("cross", "cross product", False, "\\[x1, x2, x3] [y1, y2, y3].\n[x2 * y3 - x3 * y2, x3 * y1 - x1 * y3, x1 * y2 - x2 * y1]"),
+  ("length", "vector length (Pythagorean)", False, "\\x. sqrt $ dot x x"),
+  ("normalize", "normalize", False, "\\x. x **. (rsqrt $ dot x x)"),
+  (show OpMatrixVectorLinearMul, "matrix-vector linear algebraic mul", False, "\\m v. map (dot v) m"),
+  (show OpVectorMatrixLinearMul, "vector-matrix linear algebraic mul", False, "\\v m. map (dot v) (tx m)"),
+  (show OpMatrixMatrixLinearMul, "matrix-matrix linear algebraic mul", False, "\\ma mb. tx $ map (ma #.) (tx mb)"),
+  ("clamp", "clamp value to given range", True, "\\low high x. min (max x low) high"),
+  ("step", "unit step", False, "\\edge x. if x < edge then 0 else 1"),
+  ("mix", "linear interpolation", True, "\\a x y. x * (1 - a) + y * a"),
+  ("smoothstep", "hermite interpolation", False, "\\edge0 edge1 x.\nlet t = clamp 0 1 ((x - edge0) / (edge1 - edge0)) in\n  t * t * (3 - 2 * t)"),
+  ("faceforward", "returns N facing forward", True, "\\Nref I N. if dot Nref I < 0 then N else --N"),
+  ("reflect", "reflect I given N (normalized)", False, "\\I N. I -- N **. (2 * dot N I)"),
+  ("refract", "refract I given N (normalized) and index eta", False, "\\I N eta.\nlet d = dot N I in\nlet eta2 = eta * eta in\nlet k = 1 - eta2 + eta2 * d * d in\n  if k < 0\n    then map (\\_. 0) N\n    else I **. eta -- N **. (eta * d + sqrt k)"),
+  ("pad", "pads fourth component with 1.0", False, "\\[x1, x2, x3]. [x1, x2, x3, 1.0]"),
+  ("strip", "strips fourth component", False, "\\[x1, x2, x3, _]. [x1, x2, x3]")
   ]
