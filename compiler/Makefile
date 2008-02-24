@@ -8,7 +8,7 @@ lib: *.hs
 	-mkdir bin\notprof
 	ghc $(GHCFLAGS) -odir bin/notprof -hidir bin/notprof -c --make LibFunslang
 	ghc $(GHCFLAGS) -odir bin/notprof -c *.c -I../common/include -Iinclude
-	ghc $(GHCFLAGS) -static -shared -o bin/funslang.dll funslang.def bin/notprof/*.o -package containers -package mtl -package fgl -package bytestring -package directory -package process -package regex-compat -lopengl32 -Llib -ljpeg -L../common/bin -lglew32 -lglut32
+	ghc $(GHCFLAGS) -static -shared -o bin/funslang.dll funslang.def bin/notprof/*.o -package containers -package mtl -package fgl -package bytestring -package directory -package process -lopengl32 -Llib -ljpeg -L../common/bin -lglew32 -lglut32
 	-del /Q bin\funslang.dll.a
 	lib /machine:i386 /def:funslang.def /out:bin\funslang.lib
 

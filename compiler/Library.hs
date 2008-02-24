@@ -47,7 +47,11 @@ library =
 docLibrary :: String
 docLibrary =
   unlines $
+    ["\\subsection{Base Functions}"]
+    ++
     (map (\(ident, _, desc, _, _, _) -> docIdent ident desc Nothing) libraryBase)
+    ++
+    ["\\subsection{Derived Functions}"]
     ++
     (map (\(ident, desc, _, src) -> docIdent ident desc (Just src)) libraryDerived)
   
@@ -57,12 +61,16 @@ docIdent ident desc opt_src =
     case Map.lookup ident gamma of
       Nothing -> error $ ident ++ " should have been added to library"
       Just (Scheme _ t) ->
-        let header' = latexify (ident ++ " :: " ++ prettyType t) in
-        let src' = case opt_src of { Just src -> latexify src; Nothing -> "" } in
-          unlines [header', desc, src']
+        let header = latexify (ident ++ " :: " ++ prettyType t) in
+          case opt_src of
+            Just src -> latexunlines [header, desc, latexify src] ++ "\n"
+            Nothing -> latexunlines [header, desc] ++ "\n"
 
 latexify :: String -> String
-latexify s = "\\begin{verbatim}" ++ s ++ "\\end{verbatim}"
+latexify s = latexunlines $ map (\l -> "\\verb\"" ++ l ++ "\"") $ lines s
+
+latexunlines :: [String] -> String
+latexunlines = concat . List.intersperse "\\newline\n"
 
 
 -- Lift functions; take a static and a dynamic operator.
@@ -474,7 +482,7 @@ libraryDerived = [
   ("step", "unit step", False, "\\edge x. if x < edge then 0 else 1"),
   ("mix", "linear interpolation", True, "\\a x y. x * (1 - a) + y * a"),
   ("smoothstep", "hermite interpolation", False, "\\edge0 edge1 x.\nlet t = clamp 0 1 ((x - edge0) / (edge1 - edge0)) in\n  t * t * (3 - 2 * t)"),
-  ("faceforward", "returns N facing forward", True, "\\Nref I N. if dot Nref I < 0 then N else --N"),
+  ("faceforward", "returns V facing forward", False, "\\V I N. if dot N I < 0 then V else --V"),
   ("reflect", "reflect I given N (normalized)", False, "\\I N. I -- N **. (2 * dot N I)"),
   ("refract", "refract I given N (normalized) and index eta", False, "\\I N eta.\nlet d = dot N I in\nlet eta2 = eta * eta in\nlet k = 1 - eta2 + eta2 * d * d in\n  if k < 0\n    then map (\\_. 0) N\n    else I **. eta -- N **. (eta * d + sqrt k)"),
   ("pad", "pads fourth component with 1.0", False, "\\[x1, x2, x3]. [x1, x2, x3, 1.0]"),
