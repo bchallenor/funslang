@@ -1,4 +1,6 @@
 GHCFLAGS=-Wall
+ALEX=../../tools/alex/alex
+HAPPY=../../tools/happy/happy
 
 .PHONY: clean install
 
@@ -17,10 +19,10 @@ standalone: *.hs
 	ghc $(GHCFLAGS) -o bin/Main.exe -odir bin/prof -hidir bin/prof -prof -auto-all --make Main
 
 Parser.hs: Parser.y
-	happy -g -c -i Parser.y
+	$(HAPPY) -g -c -i Parser.y
 
 Lexer.hs: Lexer.x
-	alex -g Lexer.x
+	$(ALEX) -g Lexer.x
 
 clean:
 	-del /Q bin\notprof\*.* bin\prof\*.* bin\*.* Parser.hs Lexer.hs
