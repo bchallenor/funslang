@@ -17,10 +17,11 @@ data Token
   = TOK_REAL
   | TOK_BOOL
   --
-  | TOK_TEXTURE1D
-  | TOK_TEXTURE2D
-  | TOK_TEXTURE3D
-  | TOK_TEXTURECUBE
+  | TOK_TEX
+  | TOK_TEXKIND1D
+  | TOK_TEXKIND2D
+  | TOK_TEXKIND3D
+  | TOK_TEXKINDCUBE
   --
   | TOK_LITERAL_BOOL !Bool
   | TOK_LITERAL_INT !Integer     -- arbitrary precision
@@ -106,6 +107,22 @@ initFreshVars :: ([String], [String])
 initFreshVars = ([1..] >>= flip replicateM ['a'..'g'], [1..] >>= flip replicateM ['m'..'z'])
 
 
+-- texture kinds
+data TexKind
+  = TexKind1D
+  | TexKind2D
+  | TexKind3D
+  | TexKindCube
+  
+  deriving (Eq)
+
+instance Show TexKind where
+  show TexKind1D = "1D"
+  show TexKind2D = "2D"
+  show TexKind3D = "3D"
+  show TexKindCube = "Cube"
+
+
 -- as dims appear externally (in source or pretty-printed form)
 data ExDim
   = ExDimFix !Integer
@@ -119,10 +136,7 @@ data ExType
   = ExTypeUnit
   | ExTypeReal
   | ExTypeBool
-  | ExTypeTexture1D
-  | ExTypeTexture2D
-  | ExTypeTexture3D
-  | ExTypeTextureCube
+  | ExTypeTex !TexKind
   | ExTypeArray !ExType !ExDim
   | ExTypeTuple ![ExType]
   | ExTypeFun !ExType !ExType
@@ -144,10 +158,7 @@ data Type
   = TypeUnit
   | TypeReal
   | TypeBool
-  | TypeTexture1D
-  | TypeTexture2D
-  | TypeTexture3D
-  | TypeTextureCube
+  | TypeTex !TexKind
   | TypeArray !Type !Dim
   | TypeTuple ![Type]
   | TypeFun !Type !Type
@@ -172,10 +183,7 @@ typeFromExType' :: ExType -> State TypeEncodeContext Type
 typeFromExType' (ExTypeUnit) = return TypeUnit
 typeFromExType' (ExTypeReal) = return TypeReal
 typeFromExType' (ExTypeBool) = return TypeBool
-typeFromExType' (ExTypeTexture1D) = return TypeTexture1D
-typeFromExType' (ExTypeTexture2D) = return TypeTexture2D
-typeFromExType' (ExTypeTexture3D) = return TypeTexture3D
-typeFromExType' (ExTypeTextureCube) = return TypeTextureCube
+typeFromExType' (ExTypeTex tk) = return $ TypeTex tk
 typeFromExType' (ExTypeTuple xts) = do
   ts <- mapM typeFromExType' xts
   return $ TypeTuple ts
@@ -215,10 +223,7 @@ exTypeFromType' :: Type -> State TypeDecodeContext ExType
 exTypeFromType' (TypeUnit) = return ExTypeUnit
 exTypeFromType' (TypeReal) = return ExTypeReal
 exTypeFromType' (TypeBool) = return ExTypeBool
-exTypeFromType' (TypeTexture1D) = return ExTypeTexture1D
-exTypeFromType' (TypeTexture2D) = return ExTypeTexture2D
-exTypeFromType' (TypeTexture3D) = return ExTypeTexture3D
-exTypeFromType' (TypeTextureCube) = return ExTypeTextureCube
+exTypeFromType' (TypeTex tk) = return $ ExTypeTex tk
 exTypeFromType' (TypeTuple ts) = do
   xts <- mapM exTypeFromType' ts
   return $ ExTypeTuple xts
@@ -414,10 +419,7 @@ data DFBool
 
 
 data DFSample -- these are internal to a texture sampling gadget
-  = DFSample1D !DFID !Int !DFReal -- texture image unit, coords
-  | DFSample2D !DFID !Int !DFReal !DFReal
-  | DFSample3D !DFID !Int !DFReal !DFReal !DFReal
-  | DFSampleCube !DFID !Int !DFReal !DFReal !DFReal
+  = DFSampleTex !DFID !TexKind !Int ![DFReal] -- texture kind, texture image unit, coords
 
   deriving (Show, Eq)
 
@@ -427,22 +429,13 @@ data DFSample -- these are internal to a texture sampling gadget
 type InterpretM a = ErrorT String (State InterpretState) a
 
 
-data ShaderTextureInput
-  = ShaderTextureInput1D !Int -- texture image unit
-  | ShaderTextureInput2D !Int
-  | ShaderTextureInput3D !Int
-  | ShaderTextureInputCube !Int
-  
-  deriving (Show, Eq)
-
-
 data InterpretState
   = InterpretState
   {
     num_uniforms :: !Int,
     num_textures :: !Int,
     num_varyings :: !Int,
-    textures :: ![ShaderTextureInput],
+    textures :: ![(TexKind, Int)], -- texture kind, texture image unit
     num_generic_outputs :: !Int, -- not including position, color etc
     num_nodes :: !Int -- node count so that new ones get unique IDs
   }
@@ -467,12 +460,12 @@ freshUniform = do
   put s{num_uniforms = i+1}
   return i
 
-freshTexture :: (Int -> ShaderTextureInput) -> InterpretM Int
-freshTexture f = do
+freshTexture :: TexKind -> InterpretM Int
+freshTexture tk = do
   s <- get
   let i = num_textures s
   let ts = textures s
-  put s{num_textures = i+1, textures = (f i) : ts}
+  put s{num_textures = i+1, textures = (tk, i) : ts}
   return i
 
 freshVarying :: InterpretM Int
@@ -501,10 +494,7 @@ data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit
   | ValueDFReal !DFReal
   | ValueDFBool !DFBool
-  | ValueTexture1D !Int -- texture image unit
-  | ValueTexture2D !Int
-  | ValueTexture3D !Int
-  | ValueTextureCube !Int
+  | ValueTex !TexKind !Int  -- texture kind, texture image unit
   | ValueArray ![Value]
   | ValueTuple ![Value]
   | ValueFun !(Value -> InterpretM Value) -- might raise exception
@@ -522,10 +512,7 @@ instance Show Value where
   show (ValueUnit) = "()"
   show (ValueDFReal df) = show df
   show (ValueDFBool df) = show df
-  show (ValueTexture1D i) = "texture[" ++ show i ++ ", 1D]"
-  show (ValueTexture2D i) = "texture[" ++ show i ++ ", 2D]"
-  show (ValueTexture3D i) = "texture[" ++ show i ++ ", 3D]"
-  show (ValueTextureCube i) = "texture[" ++ show i ++ ", Cube]"
+  show (ValueTex tk i) = "texture[" ++ show i ++ ", " ++ show tk ++ "]"
   show (ValueArray vs) = "[" ++ (concat $ List.intersperse ", " $ map show vs) ++ "]"
   show (ValueTuple vs) = "(" ++ (concat $ List.intersperse ", " $ map show vs) ++ ")"
   show (ValueFun _) = "<function>"
@@ -535,10 +522,7 @@ instance Eq Value where
   (ValueUnit) == (ValueUnit) = True
   (ValueDFReal df) == (ValueDFReal df') = df == df'
   (ValueDFBool df) == (ValueDFBool df') = df == df'
-  (ValueTexture1D i) == (ValueTexture1D i') = i == i'
-  (ValueTexture2D i) == (ValueTexture2D i') = i == i'
-  (ValueTexture3D i) == (ValueTexture3D i') = i == i'
-  (ValueTextureCube i) == (ValueTextureCube i') = i == i'
+  (ValueTex tk i) == (ValueTex tk' i') = tk == tk' && i == i'
   (ValueArray vs) == (ValueArray vs') = vs == vs'
   (ValueTuple vs) == (ValueTuple vs') = vs == vs'
   (ValueFun _) == (ValueFun _) = False

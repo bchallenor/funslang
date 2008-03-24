@@ -27,10 +27,11 @@ tokens :-
   "Bool"                    { \ (_, _, bs) len -> return $ TOK_BOOL }
   "Real"                    { \ (_, _, bs) len -> return $ TOK_REAL }
   
-  "Texture1D"               { \ (_, _, bs) len -> return $ TOK_TEXTURE1D }
-  "Texture2D"               { \ (_, _, bs) len -> return $ TOK_TEXTURE2D }
-  "Texture3D"               { \ (_, _, bs) len -> return $ TOK_TEXTURE3D }
-  "TextureCube"             { \ (_, _, bs) len -> return $ TOK_TEXTURECUBE }
+  "Tex"                     { \ (_, _, bs) len -> return $ TOK_TEX }
+  "1D"                      { \ (_, _, bs) len -> return $ TOK_TEXKIND1D }
+  "2D"                      { \ (_, _, bs) len -> return $ TOK_TEXKIND2D }
+  "3D"                      { \ (_, _, bs) len -> return $ TOK_TEXKIND3D }
+  "Cube"                    { \ (_, _, bs) len -> return $ TOK_TEXKINDCUBE }
   
   "True"                    { \ (_, _, bs) len -> return $ TOK_LITERAL_BOOL True }
   "False"                   { \ (_, _, bs) len -> return $ TOK_LITERAL_BOOL False }

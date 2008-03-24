@@ -18,10 +18,11 @@ import Lexer
 %token
   REAL { TOK_REAL }
   BOOL { TOK_BOOL }
-  TEXTURE1D { TOK_TEXTURE1D }
-  TEXTURE2D { TOK_TEXTURE2D }
-  TEXTURE3D { TOK_TEXTURE3D }
-  TEXTURECUBE { TOK_TEXTURECUBE }
+  TEX { TOK_TEX }
+  TEXKIND1D { TOK_TEXKIND1D }
+  TEXKIND2D { TOK_TEXKIND2D }
+  TEXKIND3D { TOK_TEXKIND3D }
+  TEXKINDCUBE { TOK_TEXKINDCUBE }
   LITERAL_BOOL { TOK_LITERAL_BOOL $$ }
   LITERAL_INT { TOK_LITERAL_INT $$ }
   LITERAL_FLOAT { TOK_LITERAL_FLOAT $$ }
@@ -114,10 +115,10 @@ primary_ex_type :: { ExType }
   : LPAREN RPAREN { ExTypeUnit }
   | REAL { ExTypeReal }
   | BOOL { ExTypeBool }
-  | TEXTURE1D { ExTypeTexture1D }
-  | TEXTURE2D { ExTypeTexture2D }
-  | TEXTURE3D { ExTypeTexture3D }
-  | TEXTURECUBE { ExTypeTextureCube }
+  | TEX TEXKIND1D { ExTypeTex TexKind1D }
+  | TEX TEXKIND2D { ExTypeTex TexKind2D }
+  | TEX TEXKIND3D { ExTypeTex TexKind3D }
+  | TEX TEXKINDCUBE { ExTypeTex TexKindCube }
   | primary_ex_type LITERAL_INT {% if $2 > 0 then return $ ExTypeArray $1 (ExDimFix $2) else failP $ "array dimension <" ++ show $2 ++ "> is invalid" }
   | LPAREN tuple_ex_type_inner RPAREN { ExTypeTuple (reverse $2) }
   | IDENTIFIER { ExTypeVar $1 }

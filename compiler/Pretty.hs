@@ -40,10 +40,7 @@ prettyExType :: ExType -> String
 prettyExType (ExTypeUnit) = "()"
 prettyExType (ExTypeReal) = "Real"
 prettyExType (ExTypeBool) = "Bool"
-prettyExType (ExTypeTexture1D) = "Texture1D"
-prettyExType (ExTypeTexture2D) = "Texture2D"
-prettyExType (ExTypeTexture3D) = "Texture3D"
-prettyExType (ExTypeTextureCube) = "TextureCube"
+prettyExType (ExTypeTex tk) = "Tex " ++ show tk
 prettyExType (ExTypeTuple xts) = tuple $ map prettyExType xts
 prettyExType (ExTypeArray xt (ExDimFix i)) = paren (isExTypeFun xt) (prettyExType xt) ++ " " ++ show i
 prettyExType (ExTypeFun xt1 xt2) = paren (isExTypeFun xt1) (prettyExType xt1) ++ " -> " ++ (prettyExType xt2)

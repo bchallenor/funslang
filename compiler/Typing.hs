@@ -128,10 +128,7 @@ mgu :: Type -> Type -> TI Subst
 mgu (TypeUnit) (TypeUnit) = return nullSubst
 mgu (TypeReal) (TypeReal) = return nullSubst
 mgu (TypeBool) (TypeBool) = return nullSubst
-mgu (TypeTexture1D) (TypeTexture1D) = return nullSubst
-mgu (TypeTexture2D) (TypeTexture2D) = return nullSubst
-mgu (TypeTexture3D) (TypeTexture3D) = return nullSubst
-mgu (TypeTextureCube) (TypeTextureCube) = return nullSubst
+mgu a@(TypeTex tk) a'@(TypeTex tk') = if tk == tk' then return nullSubst else mguError a a'
 mgu (TypeArray t (DimVar dvref)) (TypeArray t' d') = do
   dsub1 <- bindDimVarRef dvref d'
   let sub1 = (nullTypeVarSubst, dsub1)
@@ -161,7 +158,7 @@ mgu (TypeVar tvref) t' = do
 mgu t (TypeVar tvref') = do
   tsub <- bindTypeVarRef tvref' t
   return (tsub, nullDimVarSubst)
-mgu t t' = mguError t t'
+mgu a a' = mguError a a'
 
 mguError :: Type -> Type -> TI Subst
 mguError t t' =

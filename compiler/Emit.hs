@@ -140,11 +140,11 @@ emitVaryingsDecls'' sk num_total num_packed acc =
 emitTextureDecls :: InterpretState -> [String]
 emitTextureDecls si = map emitTextureDecl (textures si)
 
-emitTextureDecl :: ShaderTextureInput -> String
-emitTextureDecl (ShaderTextureInput1D i) = "uniform sampler1D " ++ emitNameTexture i ++ ";"
-emitTextureDecl (ShaderTextureInput2D i) = "uniform sampler2D " ++ emitNameTexture i ++ ";"
-emitTextureDecl (ShaderTextureInput3D i) = "uniform sampler3D " ++ emitNameTexture i ++ ";"
-emitTextureDecl (ShaderTextureInputCube i) = "uniform samplerCube " ++ emitNameTexture i ++ ";"
+emitTextureDecl :: (TexKind, Int) -> String
+emitTextureDecl (TexKind1D, i) = "uniform sampler1D " ++ emitNameTexture i ++ ";"
+emitTextureDecl (TexKind2D, i) = "uniform sampler2D " ++ emitNameTexture i ++ ";"
+emitTextureDecl (TexKind3D, i) = "uniform sampler3D " ++ emitNameTexture i ++ ";"
+emitTextureDecl (TexKindCube, i) = "uniform samplerCube " ++ emitNameTexture i ++ ";"
 
 -- Emits all relevant global declarations.
 emitGlobalDecls :: ShaderKind -> InterpretState -> [String]
@@ -227,10 +227,11 @@ emitNode (_, _) n@(DFBool (DFBoolAnd _ p q)) = emitBinOpAssign n (DFBool p) "&&"
 emitNode (_, _) n@(DFBool (DFBoolOr _ p q)) = emitBinOpAssign n (DFBool p) "||" (DFBool q)
 emitNode (_, _) n@(DFBool (DFBoolNot _ p)) = emitUnOpAssign n "!" (DFBool p)
 
-emitNode (_, _) n@(DFSample (DFSample1D _ i p)) = emitStrAssign (emitNameDF n) (emitStrFun "texture1D" [emitNameTexture i, emitNameDFReal p])
-emitNode (_, _) n@(DFSample (DFSample2D _ i p q)) = emitStrAssign (emitNameDF n) (emitStrFun "texture2D" [emitNameTexture i, "vec2(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ")"]) 
-emitNode (_, _) n@(DFSample (DFSample3D _ i p q r)) = emitStrAssign (emitNameDF n) (emitStrFun "texture3D" [emitNameTexture i, "vec3(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ", " ++ emitNameDFReal r ++ ")"]) 
-emitNode (_, _) n@(DFSample (DFSampleCube _ i p q r)) = emitStrAssign (emitNameDF n) (emitStrFun "textureCube" [emitNameTexture i, "vec3(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ", " ++ emitNameDFReal r ++ ")"]) 
+emitNode (_, _) n@(DFSample (DFSampleTex _ TexKind1D i [p])) = emitStrAssign (emitNameDF n) (emitStrFun "texture1D" [emitNameTexture i, emitNameDFReal p])
+emitNode (_, _) n@(DFSample (DFSampleTex _ TexKind2D i [p, q])) = emitStrAssign (emitNameDF n) (emitStrFun "texture2D" [emitNameTexture i, "vec2(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ")"]) 
+emitNode (_, _) n@(DFSample (DFSampleTex _ TexKind3D i [p, q, r])) = emitStrAssign (emitNameDF n) (emitStrFun "texture3D" [emitNameTexture i, "vec3(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ", " ++ emitNameDFReal r ++ ")"]) 
+emitNode (_, _) n@(DFSample (DFSampleTex _ TexKindCube i [p, q, r])) = emitStrAssign (emitNameDF n) (emitStrFun "textureCube" [emitNameTexture i, "vec3(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ", " ++ emitNameDFReal r ++ ")"]) 
+emitNode (_, _)   (DFSample (DFSampleTex _ _ _ _)) = error "bad texture gadget!"
 
 
 -- Emits copy out code to save results.

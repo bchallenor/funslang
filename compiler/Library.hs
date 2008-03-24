@@ -230,69 +230,19 @@ valueFun_zipWith3' z (a:as) (b:bs) (c:cs) = do
 valueFun_zipWith3' _ _ _ _= return []
 
 
--- Texture functions.
+-- Texture sampling function.
 
-valueFun_sample1D :: InterpretM Value
-valueFun_sample1D = return $
-  ValueFun $ \ (ValueTexture1D i) -> return $
-    ValueFun $ \ (ValueArray [ValueDFReal x]) -> do
+valueFun_sample :: InterpretM Value
+valueFun_sample = return $
+  ValueFun $ \ (ValueTex tk i) -> return $
+    ValueFun $ \ (ValueArray coord_vs) -> do
+    let coord_dfs = map unValueDFReal coord_vs
     n <- freshNode
     nr <- freshNode
     ng <- freshNode
     nb <- freshNode
     na <- freshNode
-    let submit = DFSample1D n i x
-    return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR nr submit,
-      ValueDFReal $ DFRealGetTexG ng submit,
-      ValueDFReal $ DFRealGetTexB nb submit,
-      ValueDFReal $ DFRealGetTexA na submit
-      ]
-
-valueFun_sample2D :: InterpretM Value
-valueFun_sample2D = return $
-  ValueFun $ \ (ValueTexture2D i) -> return $
-    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y]) -> do
-    n <- freshNode
-    nr <- freshNode
-    ng <- freshNode
-    nb <- freshNode
-    na <- freshNode
-    let submit = DFSample2D n i x y
-    return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR nr submit,
-      ValueDFReal $ DFRealGetTexG ng submit,
-      ValueDFReal $ DFRealGetTexB nb submit,
-      ValueDFReal $ DFRealGetTexA na submit
-      ]
-
-valueFun_sample3D :: InterpretM Value
-valueFun_sample3D = return $
-  ValueFun $ \ (ValueTexture3D i) -> return $
-    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
-    n <- freshNode
-    nr <- freshNode
-    ng <- freshNode
-    nb <- freshNode
-    na <- freshNode
-    let submit = DFSample3D n i x y z
-    return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR nr submit,
-      ValueDFReal $ DFRealGetTexG ng submit,
-      ValueDFReal $ DFRealGetTexB nb submit,
-      ValueDFReal $ DFRealGetTexA na submit
-      ]
-
-valueFun_sampleCube :: InterpretM Value
-valueFun_sampleCube = return $
-  ValueFun $ \ (ValueTextureCube i) -> return $
-    ValueFun $ \ (ValueArray [ValueDFReal x, ValueDFReal y, ValueDFReal z]) -> do
-    n <- freshNode
-    nr <- freshNode
-    ng <- freshNode
-    nb <- freshNode
-    na <- freshNode
-    let submit = DFSampleCube n i x y z
+    let submit = DFSampleTex n tk i coord_dfs
     return $ ValueArray [
       ValueDFReal $ DFRealGetTexR nr submit,
       ValueDFReal $ DFRealGetTexG ng submit,
@@ -330,16 +280,7 @@ valueFun_OpEqual' (ValueUnit) (ValueUnit) = do
   return $ ValueDFBool $ DFBoolLiteral n True
 valueFun_OpEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (==) DFBoolEqualReal df1 df2
 valueFun_OpEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (==) DFBoolEqualBool df1 df2
-valueFun_OpEqual' (ValueTexture1D i) (ValueTexture1D i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
-valueFun_OpEqual' (ValueTexture2D i) (ValueTexture2D i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
-valueFun_OpEqual' (ValueTexture3D i) (ValueTexture3D i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
-valueFun_OpEqual' (ValueTextureCube i) (ValueTextureCube i') = do
+valueFun_OpEqual' (ValueTex _ i) (ValueTex _ i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i == i'
 valueFun_OpEqual' (ValueArray vs1) (ValueArray vs2) = do
@@ -366,16 +307,7 @@ valueFun_OpNotEqual' (ValueUnit) (ValueUnit) = do
   return $ ValueDFBool $ DFBoolLiteral n False
 valueFun_OpNotEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (/=) DFBoolNotEqualReal df1 df2
 valueFun_OpNotEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (/=) DFBoolNotEqualBool df1 df2
-valueFun_OpNotEqual' (ValueTexture1D i) (ValueTexture1D i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
-valueFun_OpNotEqual' (ValueTexture2D i) (ValueTexture2D i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
-valueFun_OpNotEqual' (ValueTexture3D i) (ValueTexture3D i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
-valueFun_OpNotEqual' (ValueTextureCube i) (ValueTextureCube i') = do
+valueFun_OpNotEqual' (ValueTex _ i) (ValueTex _ i') = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
 valueFun_OpNotEqual' (ValueArray vs1) (ValueArray vs2) = do
@@ -447,10 +379,10 @@ libraryBase = [
   ("fract", "Real -> Real", "fractional part", False, ["x"], liftRR (snd . (properFraction :: Double -> (Integer, Double))) DFRealFract),
   ("min", "Real -> Real -> Real", "minimum", False, ["x", "y"], liftRRR min DFRealMin),
   ("max", "Real -> Real -> Real", "maximum", False, ["x", "y"], liftRRR max DFRealMax),
-  ("sample1D", "Texture1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueFun_sample1D),
-  ("sample2D", "Texture2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], valueFun_sample2D),
-  ("sample3D", "Texture3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], valueFun_sample3D),
-  ("sampleCube", "TextureCube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], valueFun_sampleCube)
+  ("sample1D", "Tex 1D -> Real 1 -> Real 4", "sample 1D texture", False, ["tex", "coord"], valueFun_sample),
+  ("sample2D", "Tex 2D -> Real 2 -> Real 4", "sample 2D texture", False, ["tex", "coord"], valueFun_sample),
+  ("sample3D", "Tex 3D -> Real 3 -> Real 4", "sample 3D texture", False, ["tex", "coord"], valueFun_sample),
+  ("sampleCube", "Tex Cube -> Real 3 -> Real 4", "sample cubic texture", False, ["tex", "coord"], valueFun_sample)
   ]
 
 -- (identifier, desc, args different to GLSL?, funslang source)

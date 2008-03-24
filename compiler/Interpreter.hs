@@ -84,10 +84,7 @@ conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = do
 conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = do
   n <- freshNode
   return $ ValueDFBool $ DFBoolCond n dfb df1 df2
-conditionalize _ (ValueTexture1D _) (ValueTexture1D _) = throwError "cannot delay texture choice until runtime"
-conditionalize _ (ValueTexture2D _) (ValueTexture2D _) = throwError "cannot delay texture choice until runtime"
-conditionalize _ (ValueTexture3D _) (ValueTexture3D _) = throwError "cannot delay texture choice until runtime"
-conditionalize _ (ValueTextureCube _) (ValueTextureCube _) = throwError "cannot delay texture choice until runtime"
+conditionalize _ (ValueTex _ _) (ValueTex _ _) = throwError "cannot delay texture choice until runtime"
 conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM (conditionalize dfb) vs1 vs2
   return $ ValueArray vs
@@ -172,18 +169,9 @@ dummyUniformValue t = throwError $ "shader uniform arguments cannot have type <"
 dummyTextureValue :: Type -> InterpretM Value
 dummyTextureValue (TypeUnit) =
   return ValueUnit
-dummyTextureValue (TypeTexture1D) = do
-  i <- freshTexture ShaderTextureInput1D
-  return $ ValueTexture1D i
-dummyTextureValue (TypeTexture2D) = do
-  i <- freshTexture ShaderTextureInput2D
-  return $ ValueTexture2D i
-dummyTextureValue (TypeTexture3D) = do
-  i <- freshTexture ShaderTextureInput3D
-  return $ ValueTexture3D i
-dummyTextureValue (TypeTextureCube) = do
-  i <- freshTexture ShaderTextureInputCube
-  return $ ValueTextureCube i
+dummyTextureValue (TypeTex tk) = do
+  i <- freshTexture tk
+  return $ ValueTex tk i
 dummyTextureValue (TypeArray t (DimFix d)) = do
   vs <- replicateM (fromIntegral d) (dummyTextureValue t)
   return $ ValueArray vs

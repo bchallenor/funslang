@@ -83,10 +83,7 @@ getResultDFs :: Value -> [DF]
 getResultDFs (ValueUnit) = []
 getResultDFs (ValueDFReal df) = [DFReal df]
 getResultDFs (ValueDFBool df) = [DFBool df]
-getResultDFs (ValueTexture1D _) = error getResultDFsErrorMsg
-getResultDFs (ValueTexture2D _) = error getResultDFsErrorMsg
-getResultDFs (ValueTexture3D _) = error getResultDFsErrorMsg
-getResultDFs (ValueTextureCube _) = error getResultDFsErrorMsg
+getResultDFs (ValueTex _ _) = error getResultDFsErrorMsg
 getResultDFs (ValueArray vs) = concat $ map getResultDFs vs
 getResultDFs (ValueTuple vs) = concat $ map getResultDFs vs
 getResultDFs (ValueFun _) = error getResultDFsErrorMsg
@@ -155,10 +152,7 @@ nodeDependencies (DFBool (DFBoolAnd _ dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
 nodeDependencies (DFBool (DFBoolOr _ dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
 nodeDependencies (DFBool (DFBoolNot _ dfb1)) = [DFBool dfb1]
 
-nodeDependencies (DFSample (DFSample1D _ _ dfr1)) = [DFReal dfr1]
-nodeDependencies (DFSample (DFSample2D _ _ dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
-nodeDependencies (DFSample (DFSample3D _ _ dfr1 dfr2 dfr3)) = [DFReal dfr1, DFReal dfr2, DFReal dfr3]
-nodeDependencies (DFSample (DFSampleCube _ _ dfr1 dfr2 dfr3)) = [DFReal dfr1, DFReal dfr2, DFReal dfr3]
+nodeDependencies (DFSample (DFSampleTex _ _ _ dfrs)) = map DFReal dfrs
 
 
 -- Given a node, returns a pretty label for visualization.
@@ -222,10 +216,7 @@ nodeLabel (DFBool (DFBoolAnd _ _ _)) = "And"
 nodeLabel (DFBool (DFBoolOr _ _ _)) = "Or"
 nodeLabel (DFBool (DFBoolNot _ _)) = "Not"
 
-nodeLabel (DFSample (DFSample1D _ i _)) = "Texture[" ++ show i ++ ", 1D]"
-nodeLabel (DFSample (DFSample2D _ i _ _)) = "Texture[" ++ show i ++ ", 2D]"
-nodeLabel (DFSample (DFSample3D _ i _ _ _)) = "Texture[" ++ show i ++ ", 3D]"
-nodeLabel (DFSample (DFSampleCube _ i _ _ _)) = "Texture[" ++ show i ++ ", Cube]"
+nodeLabel (DFSample (DFSampleTex _ tk i _)) = "Texture[" ++ show i ++ ", " ++ show tk ++ "]"
 
 
 -- Given a node, returns its ID.
@@ -289,7 +280,4 @@ nodeID (DFBool (DFBoolAnd n _ _)) = n
 nodeID (DFBool (DFBoolOr n _ _)) = n
 nodeID (DFBool (DFBoolNot n _)) = n
 
-nodeID (DFSample (DFSample1D n _ _)) = n
-nodeID (DFSample (DFSample2D n _ _ _)) = n
-nodeID (DFSample (DFSample3D n _ _ _ _)) = n
-nodeID (DFSample (DFSampleCube n _ _ _ _)) = n
+nodeID (DFSample (DFSampleTex n _ _ _)) = n
