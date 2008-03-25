@@ -4,9 +4,9 @@
 
 let MAX_ITERATIONS = 50 in
 
-\ (Zoom, Xcenter, Ycenter, InnerColor, OuterColor1, OuterColor2, Creal, Cimag) .
-\ () .
-\ ([Xpos, Ypos]) .
+\ (Zoom, Xcenter, Ycenter, InnerColor, OuterColor1, OuterColor2, Creal, Cimag) ->
+\ () ->
+\ ([Xpos, Ypos]) ->
 
 % starting values
 let r = Xpos * Zoom + Xcenter in

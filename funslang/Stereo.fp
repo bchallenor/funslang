@@ -2,9 +2,9 @@
 % Renders one "tileWidth" strip at a time, from left to right.
 % Author: Ben Challenor
 
-\(windowW, tileW, zNear, zFar, numDepthLevels).
-\(depthTex, outputTex).
-\(windowCoords).
+\(windowW, tileW, zNear, zFar, numDepthLevels) ->
+\(depthTex, outputTex) ->
+\(windowCoords) ->
 
 % Get depth buffer value.
 let [projectedDepth,_,_,_] = sample2D depthTex windowCoords in

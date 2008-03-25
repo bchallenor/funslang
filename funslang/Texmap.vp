@@ -1,4 +1,4 @@
 % Vertex shader for 2D texture mapping.
 % Author: Ben Challenor
 
-\()()(p, c). (p, c)
+\()()(p, c) -> (p, c)

@@ -1,4 +1,4 @@
-\(LightPosition, mvm, pm, nm) () (v :: Real 4, n :: Real 3).
+\(LightPosition, mvm, pm, nm) () (v :: Real 4, n :: Real 3) ->
 
 let SpecularContribution = 0.3 in
 let DiffuseContribution  = 1.0 - SpecularContribution in
