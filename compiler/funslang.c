@@ -19,6 +19,7 @@ extern void __stginit_LibFunslang(void);
 FS_BOOL fsCompileGLSL(FSprogram* p)
 {
 	GLuint glvs, glfs, glp;
+	GLint status;
 	int i;
 
 	glvs = glCreateShader(GL_VERTEX_SHADER);
@@ -41,22 +42,22 @@ FS_BOOL fsCompileGLSL(FSprogram* p)
 	}
 
 	glLinkProgram(glp);
-	
-	glValidateProgram(glp);
-	GLint validate_status;
-	glGetProgramiv(glp, GL_VALIDATE_STATUS, &validate_status);
-	if (GL_TRUE != validate_status) return FS_FALSE;
 
 #ifdef FS_TRACE
 #define LOG_SIZE 8096
-	char logbuf[LOG_SIZE];
-	glGetShaderInfoLog(glvs, LOG_SIZE, NULL, logbuf);
-	printf("%s\n", logbuf);
-	glGetShaderInfoLog(glfs, LOG_SIZE, NULL, logbuf);
-	printf("%s\n", logbuf);
-	glGetProgramInfoLog(glp, LOG_SIZE, NULL, logbuf);
-	printf("%s\n", logbuf);
-#endif
+	{
+		char logbuf[LOG_SIZE];
+		glGetShaderInfoLog(glvs, LOG_SIZE, NULL, logbuf);
+		printf("%s\n", logbuf);
+		glGetShaderInfoLog(glfs, LOG_SIZE, NULL, logbuf);
+		printf("%s\n", logbuf);
+		glGetProgramInfoLog(glp, LOG_SIZE, NULL, logbuf);
+		printf("%s\n", logbuf);
+	}
+#endif // FS_TRACE
+	
+	glGetProgramiv(glp, GL_LINK_STATUS, &status);
+	if (GL_TRUE != status) return FS_FALSE;
 	
 	p->glsl_program = glp;
 	p->loc_vertex_uniforms = glGetUniformLocation(glp, "VertexUniforms");
