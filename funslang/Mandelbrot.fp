@@ -2,7 +2,7 @@
 % Author: Ben Challenor
 % Based on Julia.frag (GLSL) by 3Dlabs
 
-let max_iterations = 50 in
+let maxIterations = 50 in
 
 \ (zoom, centerX, centerY, innerColor, outerColor1, outerColor2) ->
 \ () ->
@@ -20,11 +20,11 @@ let f (r, i, iter) =
     if l2 < 4 then (rnew, inew, iter+1) else (r, i, iter) in
 
 % iterate
-let (rnew, inew, iter) = unroll f max_iterations (0, 0, 0) in
+let (rnew, inew, iter) = unroll f maxIterations (0, 0, 0) in
 
 let basecolor =
-  if iter == max_iterations
+  if iter == maxIterations
     then innerColor
-    else zipWith (mix (iter / max_iterations)) outerColor1 outerColor2  in
+    else zipWith (mix (iter / maxIterations)) outerColor1 outerColor2  in
 
   pad basecolor
