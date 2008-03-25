@@ -342,5 +342,5 @@ parseExpr vrefs src =
 
 -- Parser error function.
 parseError :: Token -> P a
-parseError t = fail $ "parse error at <" ++ show t ++ ">"
+parseError t = failP $ "parse error at <" ++ show t ++ ">"
 }

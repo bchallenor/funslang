@@ -11,11 +11,11 @@ import Representation
 
 -- Character sets.
 $d = [0-9]
-$a = [a-zA-Z]
 $s = [\ \t\n\f\v\r]
 
 -- Regex macros.
-@ident = [$a _] [$a $d _ ']*
+@ident = [a-z _] [a-z A-Z $d _ ']*
+@Ident = [A-Z _] [a-z A-Z $d _ ']*
 
 
 -- Token rules.
@@ -86,6 +86,7 @@ tokens :-
   
   -- this goes last as it should not take precedence over the keywords
   @ident                    { \ (_, _, bs) len -> return $ TOK_IDENTIFIER $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
+  @Ident                    { \ (_, _, bs) len -> failP $ "lex error at <" ++ (ByteString.unpack $ ByteString.take (fromIntegral len) bs) ++ ">: only types may begin uppercase" }
 
 
 {
@@ -204,5 +205,5 @@ lexToken = do
 
 -- Lexer error function.
 lexError :: Char -> P a
-lexError c = fail $ "lex error at <" ++ [c] ++ ">"
+lexError c = failP $ "lex error at <" ++ [c] ++ ">"
 }
