@@ -59,6 +59,7 @@ import Lexer
   OP_AND { TOK_OP_AND }
   OP_OR { TOK_OP_OR }
   OP_APPLY { TOK_OP_APPLY }
+  OP_COMPOSE { TOK_OP_COMPOSE }
   IF { TOK_IF }
   THEN { TOK_THEN }
   ELSE { TOK_ELSE }
@@ -68,7 +69,6 @@ import Lexer
   TYPESPECIFIER { TOK_TYPESPECIFIER }
   RARROW { TOK_RARROW }
   LAMBDA { TOK_LAMBDA }
-  LAMBDA_DOT { TOK_LAMBDA_DOT }
 
 %right OP_APPLY
 %left OP_OR
@@ -79,6 +79,7 @@ import Lexer
 %right OP_MATRIX_VECTOR_LINEAR_MUL
 %left OP_SCALAR_MUL OP_SCALAR_DIV OP_VECTOR_MUL OP_VECTOR_DIV OP_VECTOR_SCALAR_MUL OP_VECTOR_SCALAR_DIV OP_MATRIX_MATRIX_LINEAR_MUL OP_VECTOR_MATRIX_LINEAR_MUL
 %left OP_SUBSCRIPT OP_SWIZZLE
+%left OP_COMPOSE
 
 %monad { P }
 %lexer { lexer } { TOK_EOF } -- lexer :: (Token -> P a) -> P a
@@ -88,9 +89,11 @@ import Lexer
 
 %error { parseError } -- parseError :: Token -> P a
 
-%expect 1
--- 1 conflict: "\x::a y" as shift "\x::(a y)" or reduce "\(x::a) y"?
--- Shift, but cases like "\x::a y::b" will need disambiguating with brackets.
+%expect 2
+-- Both conflicts are in the ex_type production.
+-- 1) "\x::a y" as shift "\x::(a y)" or reduce "\(x::a) y"?
+-- 2) "\x::a->b" as shift "\x::(a->b)" or reduce "\(x::a)->b"?
+-- Both should be shifted; thankfully, that's the default behaviour.
 
 %%
 
@@ -168,6 +171,7 @@ unamb_infix_operator :: { Operator }
   | OP_AND { OpAnd }
   | OP_OR { OpOr }
   | OP_APPLY { OpApply }
+  | OP_COMPOSE { OpCompose }
   ;
 
 amb_infix_operator :: { Operator }
@@ -255,12 +259,13 @@ operand_expr :: { Expr }
   | operand_expr OP_AND operand_expr { infixExpr (show OpAnd) $1 $3 }
   | operand_expr OP_OR operand_expr { infixExpr (show OpOr) $1 $3 }
   | operand_expr OP_APPLY operand_expr { infixExpr (show OpApply) $1 $3 }
+  | operand_expr OP_COMPOSE operand_expr { infixExpr (show OpCompose) $1 $3 }
   --
   | infix_expr { $1 }
   ;
 
 expr :: { Expr }
-  : LAMBDA patts LAMBDA_DOT expr { foldl' (flip ExprLambda) $4 $2 }
+  : LAMBDA patts RARROW expr { foldl' (flip ExprLambda) $4 $2 }
   | IF expr THEN expr ELSE expr { ExprIf $2 $4 $6 }
   | LET patt EQUALS expr IN expr { ExprLet $2 $4 $6 }
   | LET IDENTIFIER opt_type patts EQUALS expr IN expr { ExprLet (PattVar $2 $3) (foldl' (flip ExprLambda) $6 $4) $8 }

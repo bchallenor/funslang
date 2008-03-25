@@ -62,6 +62,7 @@ data Token
   | TOK_OP_AND
   | TOK_OP_OR
   | TOK_OP_APPLY
+  | TOK_OP_COMPOSE
   --
   | TOK_IF
   | TOK_THEN
@@ -73,7 +74,6 @@ data Token
   | TOK_TYPESPECIFIER
   | TOK_RARROW
   | TOK_LAMBDA
-  | TOK_LAMBDA_DOT
   --
   | TOK_EOF
   
@@ -304,6 +304,7 @@ data Operator
   | OpAnd
   | OpOr
   | OpApply
+  | OpCompose
   
   deriving Eq
 
@@ -337,6 +338,7 @@ instance Show Operator where
   show OpAnd = "&&"
   show OpOr = "||"
   show OpApply = "$"
+  show OpCompose = "."
 
 
 -- Dataflow graph.

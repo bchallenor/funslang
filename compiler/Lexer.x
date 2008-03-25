@@ -71,6 +71,7 @@ tokens :-
   "&&"                      { \ (_, _, bs) len -> return $ TOK_OP_AND }
   "||"                      { \ (_, _, bs) len -> return $ TOK_OP_OR }
   "$"                       { \ (_, _, bs) len -> return $ TOK_OP_APPLY }
+  "."                       { \ (_, _, bs) len -> return $ TOK_OP_COMPOSE }
   
   "if"                      { \ (_, _, bs) len -> return $ TOK_IF }
   "then"                    { \ (_, _, bs) len -> return $ TOK_THEN }
@@ -82,7 +83,6 @@ tokens :-
   "::"                      { \ (_, _, bs) len -> return $ TOK_TYPESPECIFIER }
   "->"                      { \ (_, _, bs) len -> return $ TOK_RARROW }
   "\"                       { \ (_, _, bs) len -> return $ TOK_LAMBDA }
-  "."                       { \ (_, _, bs) len -> return $ TOK_LAMBDA_DOT }
   
   -- this goes last as it should not take precedence over the keywords
   @ident                    { \ (_, _, bs) len -> return $ TOK_IDENTIFIER $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
