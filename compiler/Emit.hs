@@ -27,7 +27,7 @@ emit sk si (g, result_ns, mvn) =
       ["","void main()", "{"] ++
       emitTempDecls mvn ++
       [""] ++
-      map (\v -> case IntMap.lookup v mvn of Just n -> emitNode (sk, si) n; Nothing -> "// should have found " ++ show v) vs ++
+      map (\v -> case IntMap.lookup v mvn of Just n -> emitNode (sk, si) n; Nothing -> "// node " ++ show v ++ " is not required") vs ++
       [""] ++
       emitCopyOut sk si result_ns ++
       ["}"]
