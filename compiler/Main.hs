@@ -76,7 +76,7 @@ printLibrary = do
 
 interactiveEnvironment :: Library -> IO ()
 interactiveEnvironment library' = do
-  putStr "> "
+  putStr "\n> "
   hFlush stdout
   s <- getLine
   case evaluate library' (ByteString.pack s) of
