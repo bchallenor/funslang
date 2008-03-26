@@ -1,4 +1,4 @@
-module Dataflow(DFGraph, dependencyGraph, graphvizCompile, nodeID) where
+module Dataflow(dependencyGraph, graphvizCompile, nodeID) where
 
 import qualified Data.IntMap as IntMap
 import qualified Data.List as List
@@ -9,16 +9,6 @@ import System.Process
 import System.Exit
 
 import Representation
-
-
--- Dependency graph.
--- Each edge (a,b) in the Graph means that b depends on a, or equivalently
--- that a must be calculated before b.
-type DFGraph = (
-  Graph, -- graph representation
-  [DF], -- result nodes
-  IntMap.IntMap DF -- mapping from vertices to nodes, for understanding the topological sort
-  )
 
 
 -- Compile a GraphViz "dot" representation of a graph.

@@ -3,7 +3,7 @@
 -- The principal type function, however, is based on that in the Types course
 -- by Prof. Andrew M. Pitts.
 
-module Typing(inferExprType, Scheme(..), SchemeEnv, fvType, runTI, mgu, applySubstType) where
+module Typing(inferExprType, inferNewEnv, fvType, runTI, mgu, applySubstType) where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -20,6 +20,12 @@ inferExprType :: SchemeEnv -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either Stri
 inferExprType gamma e vrefs = do
   ((_,t), vrefs') <- runTI (principalType gamma e) vrefs
   return (t, vrefs')
+
+-- Debugging function which performs a binding, returning its type and the new environment.
+inferNewEnv :: SchemeEnv -> Patt -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either String (Type, SchemeEnv, ([TypeVarRef], [DimVarRef]))
+inferNewEnv gamma p e vrefs = do
+  ((_,t,gamma'), vrefs') <- runTI (principalTypeBinding gamma p e) vrefs
+  return (t, gamma', vrefs')
 
 
 -- The type inference monad holds the fresh var ref state (use put/get),
@@ -52,18 +58,6 @@ freshDimVar = do
 type TypeVarSubst = Map.Map TypeVarRef Type
 type DimVarSubst = Map.Map DimVarRef Dim
 type Subst = (TypeVarSubst, DimVarSubst)
-
--- VarRefs will represent sets of free or bound type and dim vars.
-type VarRefs = (Set.Set TypeVarRef, Set.Set DimVarRef)
-
-emptyVarRefs :: VarRefs
-emptyVarRefs = (Set.empty, Set.empty)
-
-unionVarRefs :: VarRefs -> VarRefs -> VarRefs
-unionVarRefs (l1, r1) (l2, r2) = (Set.union l1 l2, Set.union r1 r2)
-
-differenceVarRefs :: VarRefs -> VarRefs -> VarRefs
-differenceVarRefs (l1, r1) (l2, r2) = (Set.difference l1 l2, Set.difference r1 r2)
 
 -- Null substitutions.
 nullTypeVarSubst :: TypeVarSubst
@@ -166,9 +160,6 @@ mguError t t' =
     throwError $ "could not unify <" ++ pt ++ "> with <" ++ pt' ++ ">"
 
 
--- A type scheme generalizes a type over the bound type vars and dim vars.
-data Scheme = Scheme !VarRefs !Type deriving (Show, Eq)
-
 fvScheme :: Scheme -> (Set.Set TypeVarRef, Set.Set DimVarRef)
 fvScheme (Scheme vrefs t) = fvType t `differenceVarRefs` vrefs
 
@@ -193,9 +184,6 @@ instantiate (Scheme (tvrefs, dvrefs) t) = do
     ) nullDimVarSubst dvrefs
   return $ applySubstType (tsub, dsub) t
 
-
--- A type environment maps identifiers to type schemes.
-type SchemeEnv = Map.Map String Scheme
 
 fvSchemeEnv :: SchemeEnv -> (Set.Set TypeVarRef, Set.Set DimVarRef)
 fvSchemeEnv gamma = Map.fold (\sigma vrefs -> vrefs `unionVarRefs` fvScheme sigma) (Set.empty, Set.empty) gamma
@@ -263,19 +251,9 @@ principalType gamma a@(ExprIf e1 e2 e3) = do
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
 principalType gamma a@(ExprLet p e1 e2) = do
-  (s1, t1) <- principalType gamma e1
-  (t1', bindings) <- inferPattType p
-  -- we should remove any mapping for the identifiers in p, because we're going to shadow them,
-  -- and we don't want existing defs to stop us from generalizing their free variables
-  let gamma_shadowed = Map.differenceWithKey (\_ _ _ -> Nothing) gamma bindings
-  let s1gamma_shadowed = applySubstSchemeEnv s1 gamma_shadowed
-  s2 <- mgu t1 t1'
-  let s2s1gamma_shadowed = applySubstSchemeEnv s2 s1gamma_shadowed
-  let generalize t = Scheme (fvType t `differenceVarRefs` fvSchemeEnv s2s1gamma_shadowed) t
-  let s2bindingspoly = Map.map (generalize . applySubstType s2) bindings
-  let gamma' = s2s1gamma_shadowed `Map.union` s2bindingspoly
+  (s2s1, _, gamma') <- principalTypeBinding gamma p e1
   (s3, t3) <- principalType gamma' e2
-  return (s3 `composeSubst` (s2 `composeSubst` s1), t3)
+  return (s3 `composeSubst` s2s1, t3)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
 principalType gamma a@(ExprLambda p e) = do
@@ -286,6 +264,24 @@ principalType gamma a@(ExprLambda p e) = do
   (s, t2) <- principalType (params `Map.union` gamma) e
   return (s, TypeFun (applySubstType s t1) t2)
   `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
+
+
+-- Binds p to e, returning the substitution required and the new environment produced.
+-- Helper function used both by normal let expressions and by debug let commands.
+principalTypeBinding :: SchemeEnv -> Patt -> Expr -> TI (Subst, Type, SchemeEnv)
+principalTypeBinding gamma p e = do
+  (s1, t1) <- principalType gamma e
+  (t1', bindings) <- inferPattType p
+  -- we should remove any mapping for the identifiers in p, because we're going to shadow them,
+  -- and we don't want existing defs to stop us from generalizing their free variables
+  let gamma_shadowed = Map.differenceWithKey (\_ _ _ -> Nothing) gamma bindings
+  let s1gamma_shadowed = applySubstSchemeEnv s1 gamma_shadowed
+  s2 <- mgu t1 t1'
+  let s2s1gamma_shadowed = applySubstSchemeEnv s2 s1gamma_shadowed
+  let generalize t = Scheme (fvType t `differenceVarRefs` fvSchemeEnv s2s1gamma_shadowed) t
+  let s2bindingspoly = Map.map (generalize . applySubstType s2) bindings
+  let gamma' = s2s1gamma_shadowed `Map.union` s2bindingspoly
+  return (s2 `composeSubst` s1, applySubstType s2 t1, gamma')
 
 
 -- Find a type for this pattern, and a mapping from identifiers to types.

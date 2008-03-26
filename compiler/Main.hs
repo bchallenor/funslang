@@ -17,6 +17,7 @@ data Flag
   = FlagGraph
   | FlagCompile
   | FlagEval
+  | FlagInteractive
   | FlagLibrary
   
   deriving (Show, Eq)
@@ -24,8 +25,9 @@ data Flag
 opts :: [OptDescr Flag]
 opts = [
   Option ['g'] [] (NoArg FlagGraph) "emit dataflow graph (must be combined with -c or -e)",
-  Option ['c'] [] (NoArg FlagCompile) "compile and link vertex and fragment shaders",
-  Option ['e'] [] (NoArg FlagEval) "evaluate expression",
+  Option ['c'] [] (NoArg FlagCompile) "compile and link vertex and fragment shaders from separate files",
+  Option ['e'] [] (NoArg FlagEval) "evaluate expression from file",
+  Option ['i'] [] (NoArg FlagInteractive) "interactive debugger",
   Option ['l'] [] (NoArg FlagLibrary) "print library in LaTeX format"
   ]
 
@@ -46,8 +48,9 @@ standaloneCompile vsrc_path fsrc_path opt_vgraph_path opt_fgraph_path = do
 standaloneEval :: String -> Maybe String -> IO ()
 standaloneEval src_path opt_graph_path = do
   src <- ByteString.readFile src_path
-  case evaluate src of
-    Right (t, info, graph, value) -> do
+  case evaluate library src of
+    Right (CommandResult _ t value info) -> do
+      let graph = dependencyGraph value info
       printResult opt_graph_path t info graph (show value)
     Left msg -> putStrLn msg
 
@@ -71,6 +74,21 @@ printLibrary = do
   putStrLn docLibrary
 
 
+interactiveEnvironment :: Library -> IO ()
+interactiveEnvironment library' = do
+  putStr "> "
+  hFlush stdout
+  s <- getLine
+  case evaluate library' (ByteString.pack s) of
+    Right (CommandResult library'' t value _) -> do
+      putStrLn $ show value
+      putStrLn $ prettyType t
+      interactiveEnvironment library''
+    Left msg -> do
+      putStrLn msg
+      interactiveEnvironment library'
+
+
 dispatch :: [Flag] -> [String] -> IO ()
 
 dispatch [FlagGraph, FlagCompile] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc_path (Just "vertex-graph") (Just "fragment-graph")
@@ -82,6 +100,8 @@ dispatch [FlagEval, FlagGraph] [src_path] = standaloneEval src_path (Just "expr-
 dispatch [FlagEval] [src_path] = standaloneEval src_path Nothing
 
 dispatch [FlagLibrary] [] = printLibrary
+
+dispatch [FlagInteractive] [] = interactiveEnvironment library
 
 dispatch _ _ = printUsage
 

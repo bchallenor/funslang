@@ -1,4 +1,4 @@
-module Interpreter(interpretExpr, interpretExprAsShader, ValueEnv) where
+module Interpreter(interpretExpr, interpretExprAsShader, interpretBinding) where
 
 import qualified Data.Map as Map
 import qualified Data.List as List
@@ -7,10 +7,6 @@ import Control.Monad.State
 
 import Representation
 import Pretty
-
-
--- The environment of values as being interpreted.
-type ValueEnv = Map.Map String (InterpretM Value)
 
 
 -- The inner interpreter function.
@@ -62,9 +58,7 @@ interpretExpr env a@(ExprIf eb e1 e2) =
 
 interpretExpr env a@(ExprLet p e1 e2) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
-  v1 <- interpretExpr env e1
-  -- it is critical that Map.union prefers its first argument
-  let env' = matchPattern p v1 `Map.union` env
+  (_, env') <- interpretBinding env p e1
   v2 <- interpretExpr env' e2
   return v2
 
@@ -72,6 +66,17 @@ interpretExpr env a@(ExprLambda p e) =
   flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a) $ do
   -- it is critical that Map.union prefers its first argument
   return $ ValueFun (\v -> let env' = matchPattern p v `Map.union` env in interpretExpr env' e)
+
+
+-- Binds p to e, returning the new environment produced.
+-- Helper function used both by normal let expressions and by debug let commands.
+interpretBinding :: ValueEnv -> Patt -> Expr -> InterpretM (Value, ValueEnv)
+interpretBinding env p e =
+  flip catchError (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr e) $ do
+  v <- interpretExpr env e
+  -- it is critical that Map.union prefers its first argument
+  let env' = matchPattern p v `Map.union` env
+  return (v, env')
 
 
 -- Takes a boolean condition and zips up the two values with DFCond nodes,

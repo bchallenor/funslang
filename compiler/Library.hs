@@ -11,13 +11,7 @@ import Representation
 import Interpreter
 import Pretty
 
-
--- A tuple of:
--- - a map from library identifiers to type schemes;
--- - a map from library identifiers to values;
--- - the subsequent list of fresh variable references, given that some were used
---   in constructing the type schemes of the library functions.
-library :: (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]))
+library :: Library
 library =
   let wrapmsg ident msg = "in constructing library function <" ++ ident ++ ">: " ++ msg in
   

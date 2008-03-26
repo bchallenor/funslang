@@ -1,6 +1,6 @@
 {
 {-# OPTIONS -w #-} -- suppress millions of Happy warnings
-module Parser(parseType, parseExpr) where
+module Parser(parseType, parseExpr, parseCommand) where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.List(foldl')
@@ -84,8 +84,9 @@ import Lexer
 %monad { P }
 %lexer { lexer } { TOK_EOF } -- lexer :: (Token -> P a) -> P a
 
-%name parseExprInner expr -- parseExprInner :: P Expr
-%name parseTypeInner type -- parseTypeInner :: P Type
+%name parseExprInner expr -- :: P Expr
+%name parseTypeInner type -- :: P Type
+%name parseCommandInner command -- :: P Command
 
 %error { parseError } -- parseError :: Token -> P a
 
@@ -310,6 +311,17 @@ patts :: { [Patt] }
   ;
 
 
+--
+-- Commands, for the interactive debugger.
+--
+
+command :: { Command }
+  : expr { CommandExpr $1 }
+  | LET patt EQUALS expr { CommandLet $2 $4 }
+  | LET IDENTIFIER opt_type patts EQUALS expr { CommandLet (PattVar $2 $3) (foldl' (flip ExprLambda) $6 $4) }
+  ;
+
+
 --------------------------------------------------------------------------------
 -- Trailer
 --------------------------------------------------------------------------------
@@ -328,14 +340,17 @@ infixExpr op a b = ExprApp (ExprApp (ExprVar op) a) b
 -- Either return an error string and source position, or the result and final state.
 
 parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Type, ([TypeVarRef], [DimVarRef]))
-parseType vrefs src =
-  case unP parseTypeInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
-    POk PState{ fresh_vrefs = vrefs' } result -> Right (result, vrefs')
-    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left $ show l ++ ":" ++ show c ++ " " ++ msg
+parseType = genParser parseTypeInner
 
 parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Expr, ([TypeVarRef], [DimVarRef]))
-parseExpr vrefs src =
-  case unP parseExprInner PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
+parseExpr = genParser parseExprInner
+
+parseCommand :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Command, ([TypeVarRef], [DimVarRef]))
+parseCommand = genParser parseCommandInner
+
+genParser :: P a -> ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (a, ([TypeVarRef], [DimVarRef]))
+genParser entry_point vrefs src =
+  case unP entry_point PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
     POk PState{ fresh_vrefs = vrefs' } result -> Right (result, vrefs')
     PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left $ show l ++ ":" ++ show c ++ " " ++ msg
 

@@ -78,19 +78,23 @@ compile vertex_src fragment_src = do
                 )
 
 
--- Evaluates a Funslang expression (does not have to be a shader expression).
-evaluate :: ByteString.ByteString -> Either String (Type, InterpretState, DFGraph, Value)
-evaluate src = do
-  
-  -- Init the library.
-  let (gamma, env, var_refs_1) = library
-  
-  -- Parse vertex shader and infer type.
-  (e, var_refs_2) <- parseExpr var_refs_1 src
-  (t, _) <- inferExprType gamma e var_refs_2
-  
-  -- Interpret to dataflow graph form.
-  (value, info) <- runInterpretM (interpretExpr env e) initInterpretState
-  let graph = dependencyGraph value info
-  
-  return (t, info, graph, value)
+-- Evaluates a debugging command (either an expression or a binding).
+evaluate :: Library -> ByteString.ByteString -> Either String CommandResult
+evaluate (gamma, env, var_refs_1) src = do
+  -- Parse command.
+  (cmd, var_refs_2) <- parseCommand var_refs_1 src
+  evaluate' (gamma, env, var_refs_2) cmd
+
+evaluate' :: Library -> Command -> Either String CommandResult
+evaluate' (gamma, env, var_refs_2) cmd = do
+  case cmd of
+    CommandExpr e -> do
+      -- Reinterpret as a binding to "it".
+      evaluate' (gamma, env, var_refs_2) (CommandLet (PattVar "it" Nothing) e)
+    
+    CommandLet p e -> do
+      -- Check binding type.
+      (t, gamma', var_refs_3) <- inferNewEnv gamma p e var_refs_2
+      -- Do binding.
+      ((value, env'), info) <- runInterpretM (interpretBinding env p e) initInterpretState
+      return $ CommandResult (gamma', env', var_refs_3) t value info

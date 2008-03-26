@@ -1,9 +1,12 @@
 module Representation where
 
 import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
 import qualified Data.List as List
+import qualified Data.Set as Set
 import Control.Monad.State
 import Control.Monad.Error
+import Data.Graph
 
 
 data ShaderKind
@@ -165,6 +168,36 @@ data Type
   | TypeVar !TypeVarRef
   
   deriving (Show, Eq)
+
+
+
+-- VarRefs will represent sets of free or bound type and dim vars.
+type VarRefs = (Set.Set TypeVarRef, Set.Set DimVarRef)
+
+emptyVarRefs :: VarRefs
+emptyVarRefs = (Set.empty, Set.empty)
+
+unionVarRefs :: VarRefs -> VarRefs -> VarRefs
+unionVarRefs (l1, r1) (l2, r2) = (Set.union l1 l2, Set.union r1 r2)
+
+differenceVarRefs :: VarRefs -> VarRefs -> VarRefs
+differenceVarRefs (l1, r1) (l2, r2) = (Set.difference l1 l2, Set.difference r1 r2)
+
+-- A type scheme generalizes a type over the bound type vars and dim vars.
+data Scheme = Scheme !VarRefs !Type deriving (Show, Eq)
+
+-- A type environment maps identifiers to type schemes.
+type SchemeEnv = Map.Map String Scheme
+
+-- The environment of values as being interpreted.
+type ValueEnv = Map.Map String (InterpretM Value)
+
+-- A tuple of:
+-- - a map from library identifiers to type schemes;
+-- - a map from library identifiers to values;
+-- - the subsequent list of fresh variable references, given that some were used
+--   in constructing the type schemes of the library functions.
+type Library = (SchemeEnv, ValueEnv, ([TypeVarRef], [DimVarRef]))
 
 
 -- Encodes an external type (given pools of fresh var refs).
@@ -341,6 +374,16 @@ instance Show Operator where
   show OpCompose = "."
 
 
+-- Commands are used only in the interactive debugger.
+data Command
+  = CommandExpr !Expr
+  | CommandLet !Patt !Expr -- pattern, bound expression
+
+-- library after binding, type of pattern, value bound, interpreter state after binding
+data CommandResult
+  = CommandResult !Library !Type !Value !InterpretState
+
+
 -- Dataflow graph.
 
 data DF
@@ -424,6 +467,16 @@ data DFSample -- these are internal to a texture sampling gadget
   = DFSampleTex !DFID !TexKind !Int ![DFReal] -- texture kind, texture image unit, coords
 
   deriving (Show, Eq)
+
+
+-- Dependency graph.
+-- Each edge (a,b) in the Graph means that b depends on a, or equivalently
+-- that a must be calculated before b.
+type DFGraph = (
+  Graph, -- graph representation
+  [DF], -- result nodes
+  IntMap.IntMap DF -- mapping from vertices to nodes, for understanding the topological sort
+  )
 
 
 -- The interpreter monad holds fresh numbers,
@@ -512,7 +565,9 @@ unValueDFBool _ = undefined
 instance Show Value where
 
   show (ValueUnit) = "()"
+  show (ValueDFReal (DFRealLiteral _ r)) = show r
   show (ValueDFReal df) = show df
+  show (ValueDFBool (DFBoolLiteral _ b)) = show b
   show (ValueDFBool df) = show df
   show (ValueTex tk i) = "texture[" ++ show i ++ ", " ++ show tk ++ "]"
   show (ValueArray vs) = "[" ++ (concat $ List.intersperse ", " $ map show vs) ++ "]"
