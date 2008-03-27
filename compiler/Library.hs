@@ -1,4 +1,4 @@
-module Library(library, docLibrary) where
+module Library(library, docLibrary, printLibrarySchemes) where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.List as List
@@ -19,6 +19,7 @@ library =
     \ (gamma, env, vrefs) (ident, tstr, _, _, _, v) ->
       case parseType vrefs (ByteString.pack tstr) of
         Right (t, vrefs') ->
+          -- There are no free type variables in the library so we don't have to worry about capture.
           let sigma = Scheme (fvType t) t in
             (Map.insert ident sigma gamma, Map.insert ident v env, vrefs')
         Left msg -> error $ wrapmsg ident msg
@@ -30,6 +31,7 @@ library =
         Right (e, vrefs') ->
           case inferExprType gamma e vrefs' of
             Right (t, vrefs'') ->
+              -- There are no free type variables in the library so we don't have to worry about capture.
               let sigma = Scheme (fvType t) t in
                 (Map.insert ident sigma gamma, Map.insert ident (interpretExpr env e) env, vrefs'')
             Left msg -> error $ wrapmsg ident msg
@@ -65,6 +67,12 @@ latexify s = latexunlines $ map (\l -> "\\verb\"" ++ l ++ "\"") $ lines s
 
 latexunlines :: [String] -> String
 latexunlines = concat . List.intersperse "\\newline\n"
+
+
+-- Prints the given Library's type schemes.
+printLibrarySchemes :: Library -> IO ()
+printLibrarySchemes (gamma, _, _) = do
+  mapM_ (\(ident, scheme) -> putStrLn $ ident ++ ": " ++ prettySchemeDebug scheme) (Map.assocs gamma)
 
 
 -- Lift functions; take a static and a dynamic operator.

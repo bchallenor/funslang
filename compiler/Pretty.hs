@@ -1,6 +1,7 @@
 module Pretty where
 
 import qualified Data.List as List
+import qualified Data.Set as Set
 import Representation
 
 paren :: Bool -> [Char] -> [Char]
@@ -47,7 +48,27 @@ prettyExType (ExTypeFun xt1 xt2) = paren (isExTypeFun xt1) (prettyExType xt1) ++
 prettyExType (ExTypeVar tv) = tv
 prettyExType (ExTypeArray xt (ExDimVar dv)) = paren (isExTypeFun xt) (prettyExType xt) ++ " " ++ dv
 
+prettySchemeDebug :: Scheme -> String
+prettySchemeDebug (Scheme (settv, setdv) t) = "forall " ++ prettyBoundVarsDebug settv ++ ". forall " ++ prettyBoundVarsDebug setdv ++ ". " ++ prettyTypeDebug t
+
+prettyBoundVarsDebug :: Show a => Set.Set a -> String
+prettyBoundVarsDebug = comma . map show . Set.elems
+
+prettyTypeDebug :: Type -> String
+prettyTypeDebug (TypeUnit) = "()"
+prettyTypeDebug (TypeReal) = "Real"
+prettyTypeDebug (TypeBool) = "Bool"
+prettyTypeDebug (TypeTex tk) = "Tex " ++ show tk
+prettyTypeDebug (TypeTuple xts) = tuple $ map prettyTypeDebug xts
+prettyTypeDebug (TypeArray xt (DimFix i)) = paren (isTypeFun xt) (prettyTypeDebug xt) ++ " " ++ show i
+prettyTypeDebug (TypeFun xt1 xt2) = paren (isTypeFun xt1) (prettyTypeDebug xt1) ++ " -> " ++ (prettyTypeDebug xt2)
+prettyTypeDebug (TypeVar tv) = show tv
+prettyTypeDebug (TypeArray xt (DimVar dv)) = paren (isTypeFun xt) (prettyTypeDebug xt) ++ " " ++ show dv
+
 -- We only need parens if the left subtype of a type is a function type.
+isTypeFun :: Type -> Bool
+isTypeFun (TypeFun _ _) = True
+isTypeFun _ = False
 isExTypeFun :: ExType -> Bool
 isExTypeFun (ExTypeFun _ _) = True
 isExTypeFun _ = False

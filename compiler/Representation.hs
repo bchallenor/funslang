@@ -86,10 +86,16 @@ data Token
 -- Rather than store identifiers for type/dim vars, we assign them numeric references.
 -- These numbers are then converted back to a,b,c / m,n,o etc in the pretty print.
 newtype TypeVarRef = TypeVarRef Int
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Ord)
+
+instance Show TypeVarRef where
+  show (TypeVarRef i) = "t" ++ show i
 
 newtype DimVarRef = DimVarRef Int
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Ord)
+
+instance Show DimVarRef where
+  show (DimVarRef i) = "d" ++ show i
 
 -- pools of fresh type/dim var refs, maps from identifiers to refs
 type TypeEncodeContext = (([TypeVarRef], [DimVarRef]), (Map.Map String TypeVarRef, Map.Map String DimVarRef))
