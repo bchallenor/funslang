@@ -35,10 +35,12 @@ let lookAt from to up =
         [n!0, n!1, n!2, -(from `dot` n)],
         [0, 0, 0, 1] ] in
 
-\(proj, model, rotx, roty, rotz, from, to, up)()(p) ->
+
+\ (proj, model, rotx, roty, rotz, from, to, up) ->
+\ () ->
+\ (p) ->
 
 let view = lookAt from to up in
 let rot = getRotZ rotz # (getRotY roty # getRotX rotx) in
   
   (proj #. view #. rot #. model #. pad p, (p!![0,1]))
-
