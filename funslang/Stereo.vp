@@ -1,9 +1,11 @@
 % Vertex shader for stereograms.
 % Takes coords relative to the window in the range [0,1].
+% - passes as range [-1,1] for vertex position.
+% - passes as range [0,1] for texture coordinates.
 % Author: Ben Challenor
 
-\() ->
-\() ->
-\[wx, wy] ->
+\ () ->
+\ () ->
+\ [windowCoordX, windowCoordY] ->
 
-  ([wx*2 - 1, wy*2 - 1, 0, 1], [wx, wy])
+  ([windowCoordX * 2 - 1, windowCoordY * 2 - 1, 0, 1], [windowCoordX, windowCoordY])
