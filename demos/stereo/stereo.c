@@ -10,8 +10,8 @@
 
 #include "funslang.h"
 
-#define WINDOW_W 1000
-#define WINDOW_H 1000
+#define WINDOW_W 700
+#define WINDOW_H 700
 
 typedef enum { false, true } bool;
 
