@@ -169,8 +169,6 @@ void render(void)
 		}
 	}
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // todo
-
 	// Render the final output texture.
 	{
 		TexmapVertexVaryings vs[4] =
@@ -250,8 +248,7 @@ int main(int argc, char** argv)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WINDOW_W, WINDOW_H, 0, GL_RGB, GL_FLOAT, NULL);
 
 	// Init tile texture.
-	// "com.bencloward.textures.brick15.jpg"
-	g_TileTexture = fsLoadTexture2D("com.rhythm.randomTile128.jpg", &g_TileW, &g_TileH); // todo, check NULL
+	g_TileTexture = fsLoadTexture2D("com.rhythm.randomTile128.jpg", &g_TileW, &g_TileH);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
