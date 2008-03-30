@@ -91,3 +91,7 @@ prettyExpr (ExprTuple es) = tuple (map prettyExpr es)
 prettyExpr (ExprIf ec et ef) = "if " ++ prettyExpr ec ++ " then " ++ prettyExpr et ++ " else " ++ prettyExpr ef
 prettyExpr (ExprLet p ea eb) = "let " ++ prettyPatt p ++ " = " ++ prettyExpr ea ++ " in " ++ prettyExpr eb
 prettyExpr (ExprLambda p e) = "\\ " ++ prettyPatt p ++ " -> " ++ prettyExpr e
+
+prettyShaderKind :: ShaderKind -> String
+prettyShaderKind ShaderKindVertex = "vertex"
+prettyShaderKind ShaderKindFragment = "fragment"

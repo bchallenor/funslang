@@ -12,6 +12,7 @@ import System.Directory
 import Representation
 import Pretty
 import Compiler
+import CompileError
 
 
 fsCompile :: CString -> CString -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CString -> Ptr CInt -> Ptr CInt -> Ptr CString -> Ptr CInt -> IO ()
@@ -58,9 +59,9 @@ fsCompile v_path_cstr f_path_cstr err_cstr_ptr v_type_cstr_ptr v_num_uniforms_pt
           hClose v_h
           hClose f_h
           
-        Left msg -> do
+        Left err -> do
           
-          err_cstr <- newCString msg
+          err_cstr <- newCString $ getErrorString err
           poke err_cstr_ptr err_cstr
           
           hClose v_h

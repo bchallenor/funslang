@@ -487,7 +487,7 @@ type DFGraph = (
 
 -- The interpreter monad holds fresh numbers,
 -- and can return errors (use throwError).
-type InterpretM a = ErrorT String (State InterpretState) a
+type InterpretM a = ErrorT CompileError (State InterpretState) a
 
 
 data InterpretState
@@ -508,9 +508,9 @@ initInterpretState :: InterpretState
 initInterpretState = InterpretState{num_uniforms = 0, num_textures = 0, num_varyings = 0, textures = [], num_generic_outputs = 0, num_nodes = 0}
 
 
-runInterpretM :: InterpretM a -> InterpretState -> Either String (a, InterpretState)
+runInterpretM :: InterpretM a -> InterpretState -> Either CompileError (a, InterpretState)
 runInterpretM vi i = do
-  let (a,i') = runState (runErrorT vi) i
+  let (a, i') = runState (runErrorT vi) i
   r <- a
   return (r, i')
 
@@ -590,3 +590,61 @@ instance Eq Value where
   (ValueTuple vs) == (ValueTuple vs') = vs == vs'
   (ValueFun _) == (ValueFun _) = False
   _ == _ = False
+
+
+-- Following are ALL errors that can be triggered by user input.
+
+instance Error CompileError where
+  strMsg = OtherError
+
+data CompileError
+  = LexerError !(Int, Int) !LexerError -- line, col
+  | ParserError !(Int, Int) !ParserError -- line, col
+  | TypeError ![Expr] !TypeError -- stack trace
+  | ShaderError !ShaderKind !ShaderError
+  | InterpreterError ![Expr] !InterpreterError -- stack trace
+  
+  -- OtherError is required for Control.Monad.Error compatibility only!
+  -- If you need new errors, please define them in a type-safe way.
+  | OtherError !String
+  
+  deriving Show
+
+data LexerError
+  = LexerErrorNoLex !Char
+  | LexerErrorIdentBeginsUpper !String
+  
+  deriving Show
+
+data ParserError
+  = ParserErrorNoParse !Token
+  | ParserErrorBadFixedDim !Integer
+  
+  deriving Show
+
+data TypeError
+  = TypeErrorOccursCheck !Type !Type
+  | TypeErrorCouldNotUnify !Type !Type
+  | TypeErrorUnboundVariable !String
+  | TypeErrorDuplicateIdentsInPattern !Patt
+  
+  deriving Show
+
+data ShaderError
+  = ShaderErrorBadShaderType !Type
+  | ShaderErrorBadUniformType !Type
+  | ShaderErrorBadTextureType !Type
+  | ShaderErrorBadVaryingType !Type
+  | ShaderErrorBadOutputType !Type
+  | ShaderErrorCouldNotLink !Type !Type
+  
+  deriving Show
+
+data InterpreterError
+  = InterpreterErrorArrayIndexOutOfBounds !Int
+  | InterpreterErrorDynamicTextureSelection
+  | InterpreterErrorDynamicUnroll
+  | InterpreterErrorDynamicIndex
+  | InterpreterErrorFunctionEquality
+  
+  deriving Show

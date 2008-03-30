@@ -11,18 +11,19 @@ import qualified Data.List as List
 import qualified Data.Foldable as Foldable
 import Control.Monad.State
 import Control.Monad.Error
-import Pretty
+
 import Representation
+import CompileError
 
 
 -- The type inference function. This is the main function for this module.
-inferExprType :: SchemeEnv -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either String (Type, ([TypeVarRef], [DimVarRef]))
+inferExprType :: SchemeEnv -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either CompileError (Type, ([TypeVarRef], [DimVarRef]))
 inferExprType gamma e vrefs = do
   ((_,t), vrefs') <- runTI (principalType gamma e) vrefs
   return (t, vrefs')
 
 -- Debugging function which performs a binding, returning its type and the new environment.
-inferNewEnv :: SchemeEnv -> Patt -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either String (Type, SchemeEnv, ([TypeVarRef], [DimVarRef]))
+inferNewEnv :: SchemeEnv -> Patt -> Expr -> ([TypeVarRef], [DimVarRef]) -> Either CompileError (Type, SchemeEnv, ([TypeVarRef], [DimVarRef]))
 inferNewEnv gamma p e vrefs = do
   ((_,t,gamma'), vrefs') <- runTI (principalTypeBinding gamma p e) vrefs
   return (t, gamma', vrefs')
@@ -30,9 +31,9 @@ inferNewEnv gamma p e vrefs = do
 
 -- The type inference monad holds the fresh var ref state (use put/get),
 -- and can return errors (use throwError).
-type TI a = ErrorT String (State ([TypeVarRef], [DimVarRef])) a
+type TI a = ErrorT CompileError (State ([TypeVarRef], [DimVarRef])) a
 
-runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> Either String (a, ([TypeVarRef], [DimVarRef]))
+runTI :: TI a -> ([TypeVarRef], [DimVarRef]) -> Either CompileError (a, ([TypeVarRef], [DimVarRef]))
 runTI ti vrefs = do
   let (a,vrefs') = runState (runErrorT ti) vrefs
   r <- a
@@ -104,18 +105,21 @@ composeSubst :: Subst -> Subst -> Subst
 
 -- Returns the substitution that binds a type variable to a type.
 bindTypeVarRef :: TypeVarRef -> Type -> TI TypeVarSubst
-bindTypeVarRef tvref t
-  | TypeVar tvref == t = return nullTypeVarSubst -- identity substitutions should not fail occurs check
-  | let (ftv, _) = fvType t in tvref `Set.member` ftv =
-    let [tv, pt] = prettyTypes [TypeVar tvref, t] in
-      throwError $ "occurs check: " ++ tv ++ " = " ++ pt -- oops
-  | otherwise = return (Map.singleton tvref t) -- finally, we can do the bind
+bindTypeVarRef tvref t =
+  if TypeVar tvref == t
+    then return nullTypeVarSubst -- identity substitutions should not fail occurs check
+    else let (ftv, _) = fvType t in
+      if tvref `Set.member` ftv
+        then throwError $ TypeError [] $ TypeErrorOccursCheck (TypeVar tvref) t
+        else return (Map.singleton tvref t) -- finally, we can do the bind
 
 -- Returns the substitution that binds a dim variable to a dim.
 bindDimVarRef :: DimVarRef -> Dim -> TI DimVarSubst
-bindDimVarRef dvref d
-  | DimVar dvref == d = return nullDimVarSubst
-  | otherwise = return (Map.singleton dvref d)
+bindDimVarRef dvref d =
+  if DimVar dvref == d
+    then return nullDimVarSubst -- identity substitution
+    else return (Map.singleton dvref d) -- no occurs check for dim vars
+
 
 -- Returns the most general unifier of two types.
 mgu :: Type -> Type -> TI Subst
@@ -155,9 +159,7 @@ mgu t (TypeVar tvref') = do
 mgu a a' = mguError a a'
 
 mguError :: Type -> Type -> TI Subst
-mguError t t' =
-  let [pt, pt'] = prettyTypes [t, t'] in
-    throwError $ "could not unify <" ++ pt ++ "> with <" ++ pt' ++ ">"
+mguError a a' = throwError $ TypeError [] $ TypeErrorCouldNotUnify a a'
 
 
 fvScheme :: Scheme -> (Set.Set TypeVarRef, Set.Set DimVarRef)
@@ -203,23 +205,22 @@ principalType _ (ExprRealLiteral _) = return (nullSubst, TypeReal)
 
 principalType _ (ExprBoolLiteral _) = return (nullSubst, TypeBool)
 
-principalType gamma (ExprVar ident) =
+principalType gamma a@(ExprVar ident) = registerStackPoint a $
   case Map.lookup ident gamma of
     Just sigma -> do
       t <- instantiate sigma
       return (nullSubst, t)
-    Nothing -> throwError $ "unbound variable: " ++ ident
+    Nothing -> throwError $ TypeError [] $ TypeErrorUnboundVariable $ ident
 
-principalType gamma a@(ExprApp e1 e2) = do
+principalType gamma a@(ExprApp e1 e2) = registerStackPoint a $ do
   (s1, t1) <- principalType gamma e1
   let s1gamma = applySubstSchemeEnv s1 gamma
   (s2, t2) <- principalType s1gamma e2
   alpha <- freshTypeVar
   s3 <- mgu (applySubstType s2 t1) (TypeFun t2 alpha)
   return ((s3 `composeSubst` (s2 `composeSubst` s1)), applySubstType s3 alpha)
-  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
-principalType gamma a@(ExprArray es) = do
+principalType gamma a@(ExprArray es) = registerStackPoint a $ do
   alpha <- freshTypeVar -- the type of elements of the array
   (s1, _) <- Foldable.foldrM (
     \ e (s1, s1gamma) -> do
@@ -228,18 +229,16 @@ principalType gamma a@(ExprArray es) = do
       return (s3 `composeSubst` (s2 `composeSubst` s1), applySubstSchemeEnv s3 (applySubstSchemeEnv s2 s1gamma))
     ) (nullSubst, gamma) es
   return (s1, TypeArray (applySubstType s1 alpha) (DimFix $ toInteger $ length es))
-  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
-principalType gamma a@(ExprTuple es) = do
+principalType gamma a@(ExprTuple es) = registerStackPoint a $ do
   (s1, _, ts1) <- Foldable.foldrM (
     \ e (s1, s1gamma, ts1) -> do
       (s2, t2) <- principalType s1gamma e
       return (s2 `composeSubst` s1, applySubstSchemeEnv s2 s1gamma, t2:ts1)
     ) (nullSubst, gamma, []) es -- the empty tuple is invalid, but es has valid length
   return (s1, TypeTuple ts1)
-  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
-principalType gamma a@(ExprIf e1 e2 e3) = do
+principalType gamma a@(ExprIf e1 e2 e3) = registerStackPoint a $ do
   (s1, t1) <- principalType gamma e1
   s2 <- mgu t1 TypeBool
   let s2s1gamma = applySubstSchemeEnv s2 (applySubstSchemeEnv s1 gamma)
@@ -248,22 +247,19 @@ principalType gamma a@(ExprIf e1 e2 e3) = do
   (s4, t4) <- principalType s3s2s1gamma e3
   s5 <- mgu (applySubstType s4 t3) t4
   return (s5 `composeSubst` (s4 `composeSubst` (s3 `composeSubst` (s2 `composeSubst` s1))), applySubstType s5 t4)
-  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
-principalType gamma a@(ExprLet p e1 e2) = do
+principalType gamma a@(ExprLet p e1 e2) = registerStackPoint a $ do
   (s2s1, _, gamma') <- principalTypeBinding gamma p e1
   (s3, t3) <- principalType gamma' e2
   return (s3 `composeSubst` s2s1, t3)
-  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
-principalType gamma a@(ExprLambda p e) = do
+principalType gamma a@(ExprLambda p e) = registerStackPoint a $ do
   (t1, m) <- inferPattType p
   -- generalize over nothing when converting to type schemes
   let params = Map.map (Scheme emptyVarRefs) m
   -- it is critical that Map.union prefers its first argument
   (s, t2) <- principalType (params `Map.union` gamma) e
   return (s, TypeFun (applySubstType s t1) t2)
-  `catchError` (\s -> throwError $ s ++ "\nin expression: " ++ prettyExpr a)
 
 
 -- Binds p to e, returning the substitution required and the new environment produced.
@@ -317,7 +313,7 @@ inferPattType a@(PattArray ps (Just t)) = do
         then do
           let next_acc_m = acc_m `Map.union` this_m
           return (applySubstType s2 acc_telem, Map.map (applySubstType s2) next_acc_m)
-        else throwError $ "names not unique in pattern: " ++ prettyPatt a
+        else throwError $ TypeError [] $ TypeErrorDuplicateIdentsInPattern a
     ) (telem', Map.empty) ps
   return (TypeArray acc_telem d', acc_m)
 inferPattType (PattArray ps Nothing) = do
@@ -332,7 +328,7 @@ inferPattType a@(PattTuple ps (Just t)) = do
         then do
           let next_acc_m = acc_m `Map.union` this_m
           return (this_t:acc_ts, next_acc_m)
-        else throwError $ "names not unique in pattern: " ++ prettyPatt a
+        else throwError $ TypeError [] $ TypeErrorDuplicateIdentsInPattern a
     ) ([], Map.empty) ps
   s <- mgu t (TypeTuple acc_ts)
   return (applySubstType s t, Map.map (applySubstType s) acc_m)

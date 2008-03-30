@@ -123,7 +123,7 @@ primary_ex_type :: { ExType }
   | TEX TEXKIND2D { ExTypeTex TexKind2D }
   | TEX TEXKIND3D { ExTypeTex TexKind3D }
   | TEX TEXKINDCUBE { ExTypeTex TexKindCube }
-  | primary_ex_type LITERAL_INT {% if $2 > 0 then return $ ExTypeArray $1 (ExDimFix $2) else failP $ "array dimension <" ++ show $2 ++ "> is invalid" }
+  | primary_ex_type LITERAL_INT {% if $2 > 0 then return $ ExTypeArray $1 (ExDimFix $2) else do pos <- getLineColP; failP $ ParserError pos $ ParserErrorBadFixedDim $2 }
   | LPAREN tuple_ex_type_inner RPAREN { ExTypeTuple (reverse $2) }
   | IDENTIFIER { ExTypeVar $1 }
   | primary_ex_type IDENTIFIER { ExTypeArray $1 (ExDimVar $2) }
@@ -339,23 +339,25 @@ infixExpr op a b = ExprApp (ExprApp (ExprVar op) a) b
 -- Exported entry points.
 -- Either return an error string and source position, or the result and final state.
 
-parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Type, ([TypeVarRef], [DimVarRef]))
+parseType :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either CompileError (Type, ([TypeVarRef], [DimVarRef]))
 parseType = genParser parseTypeInner
 
-parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Expr, ([TypeVarRef], [DimVarRef]))
+parseExpr :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either CompileError (Expr, ([TypeVarRef], [DimVarRef]))
 parseExpr = genParser parseExprInner
 
-parseCommand :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (Command, ([TypeVarRef], [DimVarRef]))
+parseCommand :: ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either CompileError (Command, ([TypeVarRef], [DimVarRef]))
 parseCommand = genParser parseCommandInner
 
-genParser :: P a -> ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either String (a, ([TypeVarRef], [DimVarRef]))
+genParser :: P a -> ([TypeVarRef], [DimVarRef]) -> ByteString.ByteString -> Either CompileError (a, ([TypeVarRef], [DimVarRef]))
 genParser entry_point vrefs src =
   case unP entry_point PState{ alex_inp = (alexStartPos, alexStartChr, src), fresh_vrefs = vrefs } of
     POk PState{ fresh_vrefs = vrefs' } result -> Right (result, vrefs')
-    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } msg -> Left $ show l ++ ":" ++ show c ++ " " ++ msg
+    PFailed PState{ alex_inp = (AlexPos _ l c, _, _) } err -> Left err
 
 
 -- Parser error function.
 parseError :: Token -> P a
-parseError t = failP $ "parse error at <" ++ show t ++ ">"
+parseError t = do
+  pos <- getLineColP
+  failP $ ParserError pos $ ParserErrorNoParse t
 }

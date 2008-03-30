@@ -11,6 +11,7 @@ import Dataflow
 import Compiler
 import Pretty
 import Library
+import CompileError
 
 
 data Flag
@@ -43,7 +44,7 @@ standaloneCompile vsrc_path fsrc_path opt_vgraph_path opt_fgraph_path = do
     Right (vt, vinfo, vgraph, vemit, ft, finfo, fgraph, femit) -> do
       printResult opt_vgraph_path vt vinfo vgraph vemit
       printResult opt_fgraph_path ft finfo fgraph femit
-    Left msg -> putStrLn msg
+    Left err -> putStrLn $ getErrorString err
 
 standaloneEval :: String -> Maybe String -> IO ()
 standaloneEval src_path opt_graph_path = do
@@ -52,7 +53,7 @@ standaloneEval src_path opt_graph_path = do
     Right (CommandResult _ t value info) -> do
       let graph = dependencyGraph value info
       printResult opt_graph_path t info graph (show value)
-    Left msg -> putStrLn msg
+    Left err -> putStrLn $ getErrorString err
 
 
 printResult :: Maybe String -> Type -> InterpretState -> DFGraph -> String -> IO ()
@@ -84,8 +85,8 @@ interactiveEnvironment library' = do
       putStrLn $ show value
       putStrLn $ prettyType t
       interactiveEnvironment library''
-    Left msg -> do
-      putStrLn msg
+    Left err -> do
+      putStrLn $ getErrorString err
       interactiveEnvironment library'
 
 

@@ -86,7 +86,7 @@ tokens :-
   
   -- this goes last as it should not take precedence over the keywords
   @ident                    { \ (_, _, bs) len -> return $ TOK_IDENTIFIER $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
-  @Ident                    { \ (_, _, bs) len -> failP $ "lex error at <" ++ (ByteString.unpack $ ByteString.take (fromIntegral len) bs) ++ ">: only types may begin uppercase" }
+  @Ident                    { \ (_, _, bs) len -> do pos <- getLineColP; failP $ LexerError pos $ LexerErrorIdentBeginsUpper $ ByteString.unpack $ ByteString.take (fromIntegral len) bs }
 
 
 {
@@ -144,7 +144,7 @@ data PState
 -- The parser return type.
 data PResult a
   = POk !PState !a
-  | PFailed !PState !String
+  | PFailed !PState !CompileError
   deriving Show
 
 -- The parser monad.
@@ -153,7 +153,7 @@ newtype P a = P { unP :: PState -> PResult a }
 instance Monad P where
   return = returnP
   (>>=) = thenP
-  fail = failP
+  fail = failDefaultP
 
 returnP :: a -> P a
 returnP a = P $ \s -> POk s a
@@ -164,8 +164,11 @@ thenP :: P a -> (a -> P b) -> P b
     POk s1 a -> (unP (k a)) s1
     PFailed s msg -> PFailed s msg
 
-failP :: String -> P a
-failP msg = P $ \s -> PFailed s msg
+failP :: CompileError -> P a
+failP err = P $ \s -> PFailed s err
+
+failDefaultP :: String -> P a
+failDefaultP msg = P $ \s -> PFailed s (OtherError msg)
 
 getInputP :: P AlexInput
 getInputP = P $ \s @ PState{ alex_inp = inp } -> POk s inp
@@ -205,5 +208,7 @@ lexToken = do
 
 -- Lexer error function.
 lexError :: Char -> P a
-lexError c = failP $ "lex error at <" ++ [c] ++ ">"
+lexError c = do
+  pos <- getLineColP;
+  failP $ LexerError pos $ LexerErrorNoLex c
 }

@@ -10,6 +10,7 @@ import Parser
 import Representation
 import Interpreter
 import Pretty
+import CompileError
 
 library :: Library
 library =
@@ -22,7 +23,7 @@ library =
           -- There are no free type variables in the library so we don't have to worry about capture.
           let sigma = Scheme (fvType t) t in
             (Map.insert ident sigma gamma, Map.insert ident v env, vrefs')
-        Left msg -> error $ wrapmsg ident msg
+        Left err -> error $ wrapmsg ident (getErrorString err)
   ) (Map.empty, Map.empty, initFreshVarRefs) libraryBase } in
   
   List.foldl' (
@@ -34,8 +35,8 @@ library =
               -- There are no free type variables in the library so we don't have to worry about capture.
               let sigma = Scheme (fvType t) t in
                 (Map.insert ident sigma gamma, Map.insert ident (interpretExpr env e) env, vrefs'')
-            Left msg -> error $ wrapmsg ident msg
-        Left msg -> error $ wrapmsg ident msg
+            Left err -> error $ wrapmsg ident (getErrorString err)
+        Left err -> error $ wrapmsg ident (getErrorString err)
   ) base libraryDerived
 
 
@@ -189,7 +190,7 @@ valueFun_unroll = return $
       ValueFun $ \ z ->
         case dfn of
           DFRealLiteral _ i -> valueFun_unroll' f (floor i) z
-          _ -> throwError $ "in function 'unroll', i must be statically determinable"
+          _ -> throwError $ InterpreterError [] $ InterpreterErrorDynamicUnroll
 
 valueFun_unroll' :: (Value -> InterpretM Value) -> Int -> Value -> InterpretM Value
 valueFun_unroll' _ 0 z = return z
@@ -265,8 +266,8 @@ valueFun_OpSubscript = return $
           let idx = floor d
           if 0 <= idx && idx < len
             then return $ vs!!idx
-            else throwError $ "array index (" ++ show idx ++ ") out of bounds"
-        _ -> throwError $ "array index is not statically determinable" -- todo: support dynamic indexing
+            else throwError $ InterpreterError [] $ InterpreterErrorArrayIndexOutOfBounds idx
+        _ -> throwError $ InterpreterError [] $ InterpreterErrorDynamicIndex
 
 
 -- Equality and inequality functions.
@@ -295,7 +296,7 @@ valueFun_OpEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueFun_OpEqual' (ValueFun _) (ValueFun _) = throwError $ "equality is not defined on functions"
+valueFun_OpEqual' (ValueFun _) (ValueFun _) = throwError $ InterpreterError [] $ InterpreterErrorFunctionEquality
 valueFun_OpEqual' _ _ = undefined
 
 valueFun_OpNotEqual :: InterpretM Value
@@ -322,7 +323,7 @@ valueFun_OpNotEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   let (dfb:dfbs) = map unValueDFBool vs
   dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
   return $ ValueDFBool dfb'
-valueFun_OpNotEqual' (ValueFun _) (ValueFun _) = throwError $ "inequality is not defined on functions"
+valueFun_OpNotEqual' (ValueFun _) (ValueFun _) = throwError $ InterpreterError [] $ InterpreterErrorFunctionEquality
 valueFun_OpNotEqual' _ _ = undefined
 
 
