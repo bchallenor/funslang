@@ -14,21 +14,33 @@ import CompileError
 
 -- Runs all tests and dos the results.
 
-doTestGroups :: IO ()
-doTestGroups = mapM_ doTestGroup testgroups
+doTestGroups :: IO Bool
+doTestGroups = do
+  (num_pass, num_fail, num_err) <- foldM doTestGroup (0,0,0) testgroups
+  putStrLn "\n"
+  putStrLn $ show num_pass ++ " tests passed, " ++ show num_fail ++ " tests failed and " ++ show num_err ++ " tests with unexpected errors."
+  if num_fail == 0 && num_err == 0
+    then return True
+    else return False
 
-doTestGroup :: TestGroup -> IO ()
-doTestGroup tg = do
+doTestGroup :: (Int, Int, Int) -> TestGroup -> IO (Int, Int, Int)
+doTestGroup acc tg = do
   putStrLn $ "Testing " ++ group_title tg ++ ":"
-  mapM_ doTest $ group_tests tg
+  foldM doTest acc (group_tests tg)
 
-doTest :: Test -> IO ()
-doTest test = do
+doTest :: (Int, Int, Int) -> Test -> IO (Int, Int, Int)
+doTest (num_pass, num_fail, num_err) test = do
   putStr $ "  " ++ (name test) ++ "... "
   case runTest test of
-    ResultPass -> putStrLn $ "OK"
-    ResultFail -> putStrLn $ "FAIL"
-    ResultUnexpectedError err -> putStrLn $ "UNEXPECTED FAIL: " ++ getErrorString err
+    ResultPass -> do
+      putStrLn $ "OK"
+      return (num_pass+1, num_fail, num_err)
+    ResultFail -> do
+      putStrLn $ "FAIL"
+      return (num_pass, num_fail+1, num_err)
+    ResultUnexpectedError err -> do
+      putStrLn $ "UNEXPECTED FAIL: " ++ getErrorString err
+      return (num_pass, num_fail, num_err+1)
 
 
 -- Test case types.
@@ -56,27 +68,18 @@ testgroups :: [TestGroup]
 testgroups = [
   TestGroup { group_title = "typing rules", group_tests = [
     TestExprType { name = "unit", expr = "()", expect_type = "()" },
-    
     TestExprType { name = "real 1", expr = "1", expect_type = "Real" },
     TestExprType { name = "real 0", expr = "0", expect_type = "Real" },
     TestExprType { name = "real -1", expr = "-1", expect_type = "Real" },
-    
     TestExprType { name = "bool T", expr = "True", expect_type = "Bool" },
     TestExprType { name = "bool F", expr = "False", expect_type = "Bool" },
-    
     TestExprType { name = "var", expr = "pi", expect_type = "Real" },
-    
     TestExprType { name = "app fn", expr = "sin", expect_type = "Real -> Real" },
     TestExprType { name = "app res", expr = "sin 0", expect_type = "Real" },
-    
     TestExprType { name = "array", expr = "[1, 0, -1]", expect_type = "Real 3" },
-    
     TestExprType { name = "tuple", expr = "(True, 1)", expect_type = "(Bool, Real)" },
-    
     TestExprType { name = "if", expr = "if False then 0 else 1", expect_type = "Real" },
-    
     TestExprType { name = "let", expr = "let f (x, [y, z]) = 0 in f", expect_type = "(a, b 2) -> Real" },
-    
     TestExprType { name = "lambda", expr = "\\x -> x", expect_type = "a -> a" }
     ] },
     

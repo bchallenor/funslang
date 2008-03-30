@@ -5,6 +5,7 @@ import qualified Data.ByteString.Lazy.Char8 as ByteString
 import System.IO
 import System.Environment
 import System.Console.GetOpt
+import System.Exit
 
 import Representation
 import Dataflow
@@ -107,7 +108,11 @@ dispatch [FlagLibrary] [] = printLibrary
 
 dispatch [FlagInteractive] [] = interactiveEnvironment library
 
-dispatch [FlagTest] [] = doTestGroups
+dispatch [FlagTest] [] = do
+  success <- doTestGroups
+  if success
+    then return ()
+    else exitFailure
 
 dispatch _ _ = printUsage
 

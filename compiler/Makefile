@@ -4,7 +4,7 @@ HAPPY=../../tools/happy/happy
 
 .PHONY: clean install
 
-all: Parser.hs Lexer.hs lib standalone
+all: Parser.hs Lexer.hs lib standalone test
 
 lib: *.hs
 	-mkdir bin\notprof
@@ -17,6 +17,9 @@ lib: *.hs
 standalone: *.hs
 	-mkdir bin\prof
 	ghc $(GHCFLAGS) -o bin/Main.exe -odir bin/prof -hidir bin/prof -prof -auto-all --make Main
+
+test: bin/Main.exe
+	bin/Main -t
 
 Parser.hs: Parser.y
 	$(HAPPY) -g -c -i Parser.y
