@@ -64,4 +64,4 @@ instance StringableError InterpreterError where
   getErrorString (InterpreterErrorFunctionEquality) = "equality is not defined on functions"
 
 getStackString :: [Expr] -> String
-getStackString = concat . map (\e -> "\nin expr: " ++ prettyExpr e) . reverse
+getStackString = concat . map (\e -> "\nin expression: " ++ prettyExpr e) . reverse
