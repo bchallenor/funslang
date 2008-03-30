@@ -1,5 +1,5 @@
 -- Standalone compiler.
-module Main(main) where
+module Main(main, run) where
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import System.IO
@@ -12,6 +12,7 @@ import Compiler
 import Pretty
 import Library
 import CompileError
+import Test
 
 
 data Flag
@@ -20,6 +21,7 @@ data Flag
   | FlagEval
   | FlagInteractive
   | FlagLibrary
+  | FlagTest
   
   deriving (Show, Eq)
 
@@ -28,7 +30,8 @@ opts = [
   Option ['g'] [] (NoArg FlagGraph) "emit dataflow graph (must be combined with -c or -e)",
   Option ['c'] [] (NoArg FlagCompile) "compile and link vertex and fragment shaders from separate files",
   Option ['e'] [] (NoArg FlagEval) "evaluate expression from file",
-  Option ['i'] [] (NoArg FlagInteractive) "interactive debugger",
+  Option ['i'] [] (NoArg FlagInteractive) "enter interactive environment",
+  Option ['t'] [] (NoArg FlagTest) "run automated tests",
   Option ['l'] [] (NoArg FlagLibrary) "print library in LaTeX format"
   ]
 
@@ -104,6 +107,8 @@ dispatch [FlagLibrary] [] = printLibrary
 
 dispatch [FlagInteractive] [] = interactiveEnvironment library
 
+dispatch [FlagTest] [] = doTestGroups
+
 dispatch _ _ = printUsage
 
 
@@ -115,3 +120,6 @@ main = do
     (_, _, errs) -> do
       mapM putStr errs
       printUsage
+
+run :: String -> IO ()
+run s = withArgs [s] main

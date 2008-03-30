@@ -3,7 +3,7 @@
 -- The principal type function, however, is based on that in the Types course
 -- by Prof. Andrew M. Pitts.
 
-module Typing(inferExprType, inferNewEnv, fvType, runTI, mgu, applySubstType) where
+module Typing(inferExprType, inferNewEnv, fvType, TI, runTI, mgu, nullSubst, Subst, applySubstType, freshTypeVar, freshDimVar) where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
