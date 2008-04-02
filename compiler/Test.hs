@@ -18,7 +18,7 @@ doTestGroups :: IO Bool
 doTestGroups = do
   (num_pass, num_fail, num_err) <- foldM doTestGroup (0,0,0) testgroups
   putStrLn "\n"
-  putStrLn $ show num_pass ++ " tests passed, " ++ show num_fail ++ " tests failed and " ++ show num_err ++ " tests with unexpected errors."
+  putStrLn $ show num_pass ++ " tests passed, " ++ show num_fail ++ " tests failed and " ++ show num_err ++ " tests had unexpected errors."
   if num_fail == 0 && num_err == 0
     then return True
     else return False
