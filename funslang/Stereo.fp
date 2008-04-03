@@ -1,5 +1,6 @@
 % Fragment shader for stereograms.
-% Renders one "tileWidth" strip at a time, from left to right.
+% Note that the second texture lookup assumes that the pixel it is
+% looking up (to the left of this one) has already been rendered.
 % Author: Ben Challenor
 
 \ (windowW, tileW, zNear, zFar, numDepthLevels) ->
