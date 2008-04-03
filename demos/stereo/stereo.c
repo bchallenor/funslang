@@ -10,8 +10,8 @@
 
 #include "funslang.h"
 
-#define WINDOW_W 700
-#define WINDOW_H 700
+#define WINDOW_W 768
+#define WINDOW_H 432
 
 typedef enum { false, true } bool;
 
@@ -222,7 +222,7 @@ int main(int argc, char** argv)
 	// Set projection matrix for non-Funslang render pass.
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, WINDOW_W / WINDOW_H, g_StereoFragmentUniforms.zNear, g_StereoFragmentUniforms.zFar);
+	gluPerspective(30.0, ((double)WINDOW_W) / ((double)WINDOW_H), g_StereoFragmentUniforms.zNear, g_StereoFragmentUniforms.zFar);
 
 	// Set view matrix.
 	glMatrixMode(GL_MODELVIEW);
