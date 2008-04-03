@@ -50,6 +50,7 @@ FSprogram g_ProgramStereo, g_ProgramTexmap;
 
 unsigned int g_TileW;
 unsigned int g_TileH;
+float g_RelativeTileW, g_RelativeStripW;
 GLuint g_DepthTexture, g_OutputTexture, g_TileTexture;
 
 
@@ -93,8 +94,6 @@ void key(unsigned char key, int x, int y)
 
 void render(void)
 {
-	float relativeW = (float)g_TileW / (float)WINDOW_W;
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Rotate and render model.
@@ -123,10 +122,10 @@ void render(void)
 		{
 			TexmapVertexVaryings vs[4] =
 			{
-				{{-1+2*0,        -1,0,1}, {0+tile_animation_offset,0}},
-				{{-1+2*relativeW,-1,0,1}, {1+tile_animation_offset,0}},
-				{{-1+2*relativeW,+1,0,1}, {1+tile_animation_offset,(double)WINDOW_H/(double)g_TileH}},
-				{{-1+2*0,        +1,0,1}, {0+tile_animation_offset,(double)WINDOW_H/(double)g_TileH}},
+				{{-1+2*0,              -1,0,1}, {0+tile_animation_offset,0}},
+				{{-1+2*g_RelativeTileW,-1,0,1}, {1+tile_animation_offset,0}},
+				{{-1+2*g_RelativeTileW,+1,0,1}, {1+tile_animation_offset,(double)WINDOW_H/(double)g_TileH}},
+				{{-1+2*0,              +1,0,1}, {0+tile_animation_offset,(double)WINDOW_H/(double)g_TileH}},
 			};
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, g_TileTexture);
@@ -141,31 +140,34 @@ void render(void)
 	glBindTexture(GL_TEXTURE_2D, g_OutputTexture);
 	glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, g_TileW, WINDOW_H);
 
-	// Render stereogram in strips of width "g_TileW".
+	// Render stereogram in strips of width "g_RelativeStripW".
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, g_DepthTexture);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, g_OutputTexture);
 	glUseProgram(g_ProgramStereo.glsl_program);
 	{
-		float xmin, xmax;
+		float xmin = 0, xmax = g_RelativeTileW;
 		unsigned int s;
 
-		for (xmin = relativeW, xmax = xmin + relativeW; xmin < 1.0; xmin = xmax, xmax += relativeW)
+		while (xmin < 1.0)
 		{
-			StereoVertexVaryings vs[4] =
+			xmin = xmax, xmax += g_RelativeStripW;
 			{
-				{xmin, 0},
-				{xmax, 0},
-				{xmax, 1},
-				{xmin, 1},
-			};
+				StereoVertexVaryings vs[4] =
+				{
+					{xmin, 0},
+					{xmax, 0},
+					{xmax, 1},
+					{xmin, 1},
+				};
 
-			s = xmin * WINDOW_W;
+				s = xmin * WINDOW_W;
 
-			fsSetVertexVaryings(&g_ProgramStereo, (GLfloat*)vs);
-			glDrawArrays(GL_QUADS, 0, 4);
-			glCopyTexSubImage2D(GL_TEXTURE_2D, 0, s, 0, s, 0, WINDOW_W - s < g_TileW ? WINDOW_W - s : g_TileW, WINDOW_H);
+				fsSetVertexVaryings(&g_ProgramStereo, (GLfloat*)vs);
+				glDrawArrays(GL_QUADS, 0, 4);
+				glCopyTexSubImage2D(GL_TEXTURE_2D, 0, s, 0, s, 0, WINDOW_W - s < g_TileW ? WINDOW_W - s : g_TileW, WINDOW_H);
+			}
 		}
 	}
 
@@ -264,6 +266,8 @@ int main(int argc, char** argv)
 	g_StereoFragmentUniforms.numDepthLevels = g_TileW/3;
 	fsSetFragmentUniforms(&g_ProgramStereo, (GLfloat*)&g_StereoFragmentUniforms);
 	fsSetTextureImageUnits(&g_ProgramStereo);
+	g_RelativeTileW = (float)g_TileW / (float)WINDOW_W;
+	g_RelativeStripW = (float)(g_TileW - g_StereoFragmentUniforms.numDepthLevels) / (float)WINDOW_W;
 
 	g_ProgramTexmap.vertex_shader_path = "../../funslang/Texmap.vp";
 	g_ProgramTexmap.fragment_shader_path = "../../funslang/Texmap.fp";
