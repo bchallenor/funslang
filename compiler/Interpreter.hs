@@ -1,4 +1,4 @@
-module Interpreter(interpretExpr, interpretExprAsShader, interpretBinding) where
+module Interpreter(interpretExpr, interpretExprAsShader, interpretBinding, conditionalize) where
 
 import qualified Data.Map as Map
 import qualified Data.List as List
@@ -46,11 +46,7 @@ interpretExpr env a@(ExprIf eb e1 e2) = registerStackPoint a $ do
   ValueBool dfb <- interpretExpr env eb
   v1 <- interpretExpr env e1
   v2 <- interpretExpr env e2
-  if v1 == v2
-    then return v1 -- optimize out if both branches are the same
-    else case dfb of
-      DFBoolLiteral _ b -> return $ if b then v1 else v2 -- optimize out if condition statically known
-      _ -> conditionalize dfb v1 v2 -- runtime condition and runtime values
+  conditionalize dfb v1 v2
 
 interpretExpr env a@(ExprLet p e1 e2) = registerStackPoint a $ do
   (_, env') <- interpretBinding env p e1
@@ -76,28 +72,34 @@ interpretBinding env p e =
 -- Takes a boolean condition and zips up the two values with DFCond nodes,
 -- so that the resulting value is either the first or second value according to the condition.
 conditionalize :: DFBool -> Value -> Value -> InterpretM Value
-conditionalize _ (ValueUnit) (ValueUnit) = return ValueUnit
-conditionalize dfb (ValueReal df1) (ValueReal df2) = do
+conditionalize dfb v1 v2 =
+  case dfb of
+    DFBoolLiteral _ b -> return $ if b then v1 else v2 -- optimize out if condition statically known
+    _ -> conditionalize' dfb v1 v2 -- runtime condition and runtime values
+
+conditionalize' :: DFBool -> Value -> Value -> InterpretM Value
+conditionalize' _ (ValueUnit) (ValueUnit) = return ValueUnit
+conditionalize' dfb (ValueReal df1) (ValueReal df2) = do
   n <- freshNode
   return $ ValueReal $ DFRealCond n dfb df1 df2
-conditionalize dfb (ValueBool df1) (ValueBool df2) = do
+conditionalize' dfb (ValueBool df1) (ValueBool df2) = do
   n <- freshNode
   return $ ValueBool $ DFBoolCond n dfb df1 df2
-conditionalize dfb (ValueTex df1) (ValueTex df2) = do
+conditionalize' dfb (ValueTex df1) (ValueTex df2) = do
   n <- freshNode
   return $ ValueTex $ DFTexCond n dfb df1 df2
-conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
-  vs <- zipWithM (conditionalize dfb) vs1 vs2
+conditionalize' dfb (ValueArray vs1) (ValueArray vs2) = do
+  vs <- zipWithM (conditionalize' dfb) vs1 vs2
   return $ ValueArray vs
-conditionalize dfb (ValueTuple vs1) (ValueTuple vs2) = do
-  vs <- zipWithM (conditionalize dfb) vs1 vs2
+conditionalize' dfb (ValueTuple vs1) (ValueTuple vs2) = do
+  vs <- zipWithM (conditionalize' dfb) vs1 vs2
   return $ ValueTuple vs
-conditionalize dfb (ValueFun f1) (ValueFun f2) = return $
+conditionalize' dfb (ValueFun f1) (ValueFun f2) = return $
   ValueFun $ \ v -> do
     v1 <- f1 v
     v2 <- f2 v
-    conditionalize dfb v1 v2
-conditionalize _ _ _ = error "unexpected case in conditionalize"
+    conditionalize' dfb v1 v2
+conditionalize' _ _ _ = error "unexpected case in conditionalize'"
 
 
 -- Match the pattern against the value to give a value environment.
