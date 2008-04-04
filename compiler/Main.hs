@@ -66,9 +66,9 @@ printResult opt_graph_path t info graph result = do
   putStrLn $ "input/output info: " ++ show info
   case opt_graph_path of
     Just graph_path -> do
-      putStrLn "outputting graphviz..."
-      success <- graphvizCompile graph graph_path "png"
-      putStrLn $ show success
+      putStr "outputting graphviz..."
+      graphvizCompile graph graph_path
+      putStrLn " done."
     Nothing -> do
       putStrLn "skipping graphviz."
   putStrLn $ result
@@ -96,12 +96,12 @@ interactiveEnvironment library' = do
 
 dispatch :: [Flag] -> [String] -> IO ()
 
-dispatch [FlagGraph, FlagCompile] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc_path (Just "vertex-graph") (Just "fragment-graph")
-dispatch [FlagCompile, FlagGraph] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc_path (Just "vertex-graph") (Just "fragment-graph")
+dispatch [FlagGraph, FlagCompile] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc_path (Just "vertex-graph.dot") (Just "fragment-graph.dot")
+dispatch [FlagCompile, FlagGraph] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc_path (Just "vertex-graph.dot") (Just "fragment-graph.dot")
 dispatch [FlagCompile] [vsrc_path, fsrc_path] = standaloneCompile vsrc_path fsrc_path Nothing Nothing
 
-dispatch [FlagGraph, FlagEval] [src_path] = standaloneEval src_path (Just "expr-graph")
-dispatch [FlagEval, FlagGraph] [src_path] = standaloneEval src_path (Just "expr-graph")
+dispatch [FlagGraph, FlagEval] [src_path] = standaloneEval src_path (Just "expr-graph.dot")
+dispatch [FlagEval, FlagGraph] [src_path] = standaloneEval src_path (Just "expr-graph.dot")
 dispatch [FlagEval] [src_path] = standaloneEval src_path Nothing
 
 dispatch [FlagLibrary] [] = printLibrary

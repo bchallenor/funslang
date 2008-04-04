@@ -5,24 +5,15 @@ import qualified Data.List as List
 import Data.Array
 import Data.Graph
 import System.IO
-import System.Process
-import System.Exit
 
 import Representation
 
 
--- Compile a GraphViz "dot" representation of a graph.
-graphvizCompile :: DFGraph -> String -> String -> IO Bool
-graphvizCompile g name ext = do
+-- Dumps a GraphViz "dot" representation of a graph to a file.
+graphvizCompile :: DFGraph -> String -> IO ()
+graphvizCompile g filename = do
   let src = graphviz g
-  let dotFileName = name ++ ".dot"
-  let outFileName = name ++ "." ++ ext
-  writeFile dotFileName src
-  h <- runCommand $ "dot -T" ++ ext ++ " " ++ dotFileName ++ " -o " ++ outFileName
-  exit <- waitForProcess h
-  case exit of
-    ExitSuccess -> return True
-    ExitFailure _ -> return False
+  writeFile filename src
 
 
 -- Return a GraphViz "dot" representation of a graph.
