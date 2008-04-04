@@ -10,8 +10,8 @@
 
 #include "funslang.h"
 
-#define WINDOW_W 1000
-#define WINDOW_H 1000
+#define WINDOW_W 768
+#define WINDOW_H 432
 
 typedef enum { false, true } bool;
 
@@ -118,8 +118,8 @@ FragmentUniforms g_fu =
 	-0.64,
 	0,
 	{0,0,0},
+	{0.5,0,0},
 	{1,1,1},
-	{0,0,1},
 };
 
 
@@ -130,7 +130,7 @@ bool g_IsRotatingX = false;
 bool g_IsRotatingY = false;
 bool g_IsRotatingZ = false;
 
-bool g_RenderCube = false;
+bool g_RenderCube = true;
 
 FSprogram g_Program;
 
@@ -175,6 +175,8 @@ void key(unsigned char key, int x, int y)
 
 void render(void)
 {
+	glClearColor(1,1,1,1);
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	if (g_RenderCube)
@@ -274,7 +276,7 @@ int main(int argc, char** argv)
 	// Steal projection matrix from GL.
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	if (g_RenderCube) gluPerspective(60.0, 1.0, 1, 5);
+	if (g_RenderCube) gluPerspective(30.0, ((double)WINDOW_W) / ((double)WINDOW_H), 1, 5);
 	glGetFloatv(GL_PROJECTION_MATRIX, (GLfloat*)&g_vu.proj);
 	
 	// Init shaders.
