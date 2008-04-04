@@ -33,7 +33,7 @@ let lookAt from to up =
       [ [u!0, u!1, u!2, -(from `dot` u)],
         [v!0, v!1, v!2, -(from `dot` v)],
         [n!0, n!1, n!2, -(from `dot` n)],
-        [0, 0, 0, 1] ] in
+        [ 0 ,  0 ,  0 ,        1       ] ] in
 
 
 \ (proj, model, rotx, roty, rotz, from, to, up) ->
