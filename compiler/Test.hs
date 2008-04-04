@@ -114,7 +114,8 @@ testgroups = [
     TestExprType { name = "typing variable shadowing in lambda", expr = "(\\(x::Bool) -> \\(x::Real) -> x) True 1", expect_type = "Real" },
     TestExprValue { name = "interpreting variable shadowing in lambda", expr = "(\\(x::Bool) -> \\(x::Real) -> x) True 1", expect_value = "1" },
     TestExprType { name = "typing variable shadowing in let", expr = "let x = True in let x = 1 in x", expect_type = "Real" },
-    TestExprValue { name = "interpreting variable shadowing in let", expr = "let x = True in let x = 1 in x", expect_value = "1" }
+    TestExprValue { name = "interpreting variable shadowing in let", expr = "let x = True in let x = 1 in x", expect_value = "1" },
+    TestExprValue { name = "iterate stops off by one", expr = "let f a = (a<7, a+1) in iterate f 10 0", expect_value = "8" }
     ] }
   ]
 
