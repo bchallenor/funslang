@@ -395,6 +395,7 @@ data CommandResult
 data DF
   = DFReal !DFReal
   | DFBool !DFBool
+  | DFTex !DFTex
   | DFSample !DFSample
   
   deriving (Show, Eq)
@@ -437,10 +438,10 @@ data DFReal
   | DFRealACos !DFID !DFReal
   | DFRealATan !DFID !DFReal
   --
-  | DFRealGetTexR !DFID !DFSample
-  | DFRealGetTexG !DFID !DFSample
-  | DFRealGetTexB !DFID !DFSample
-  | DFRealGetTexA !DFID !DFSample
+  | DFRealChannelR !DFID !DFSample
+  | DFRealChannelG !DFID !DFSample
+  | DFRealChannelB !DFID !DFSample
+  | DFRealChannelA !DFID !DFSample
 
   deriving (Show, Eq)
 
@@ -461,6 +462,8 @@ data DFBool
   | DFBoolNotEqualReal !DFID !DFReal !DFReal
   | DFBoolEqualBool !DFID !DFBool !DFBool
   | DFBoolNotEqualBool !DFID !DFBool !DFBool
+  | DFBoolEqualTex !DFID !DFTex !DFTex
+  | DFBoolNotEqualTex !DFID !DFTex !DFTex
   --
   | DFBoolAnd !DFID !DFBool !DFBool
   | DFBoolOr !DFID !DFBool !DFBool
@@ -469,10 +472,25 @@ data DFBool
   deriving (Show, Eq)
 
 
-data DFSample -- these are internal to a texture sampling gadget
-  = DFSampleTex !DFID !TexKind !Int ![DFReal] -- texture kind, texture image unit, coords
+data DFTex
+  = DFTexConstant !DFID !TexKind !Int -- texture kind, texture image unit
+  --
+  | DFTexCond !DFID !DFBool !DFTex !DFTex
 
   deriving (Show, Eq)
+
+
+data DFSample -- these are internal to a texture sampling gadget
+  = DFSampleTex !DFID !DFTex ![DFReal]
+
+  deriving (Show, Eq)
+
+
+-- This function relies on the type checker to ensure that all the textures in
+-- a DFTex are of the same kind.
+getTexKindOfDFTex :: DFTex -> TexKind
+getTexKindOfDFTex (DFTexConstant _ tk _) = tk
+getTexKindOfDFTex (DFTexCond _ _ dft _) = getTexKindOfDFTex dft
 
 
 -- Dependency graph.
@@ -553,29 +571,29 @@ freshNode = do
 
 data Value -- can't derive Show or Eq due to those pesky closures
   = ValueUnit
-  | ValueDFReal !DFReal
-  | ValueDFBool !DFBool
-  | ValueTex !TexKind !Int  -- texture kind, texture image unit
+  | ValueReal !DFReal
+  | ValueBool !DFBool
+  | ValueTex !DFTex
   | ValueArray ![Value]
   | ValueTuple ![Value]
   | ValueFun !(Value -> InterpretM Value) -- might raise exception
 
-unValueDFReal :: Value -> DFReal
-unValueDFReal (ValueDFReal df) = df
-unValueDFReal _ = undefined
+unValueReal :: Value -> DFReal
+unValueReal (ValueReal df) = df
+unValueReal _ = undefined
 
-unValueDFBool :: Value -> DFBool
-unValueDFBool (ValueDFBool df) = df
-unValueDFBool _ = undefined
+unValueBool :: Value -> DFBool
+unValueBool (ValueBool df) = df
+unValueBool _ = undefined
 
 instance Show Value where
 
   show (ValueUnit) = "()"
-  show (ValueDFReal (DFRealLiteral _ r)) = show r
-  show (ValueDFReal df) = show df
-  show (ValueDFBool (DFBoolLiteral _ b)) = show b
-  show (ValueDFBool df) = show df
-  show (ValueTex tk i) = "texture[" ++ show i ++ ", " ++ show tk ++ "]"
+  show (ValueReal (DFRealLiteral _ r)) = show r
+  show (ValueReal df) = show df
+  show (ValueBool (DFBoolLiteral _ b)) = show b
+  show (ValueBool df) = show df
+  show (ValueTex df) = show df
   show (ValueArray vs) = "[" ++ (concat $ List.intersperse ", " $ map show vs) ++ "]"
   show (ValueTuple vs) = "(" ++ (concat $ List.intersperse ", " $ map show vs) ++ ")"
   show (ValueFun _) = "<function>"
@@ -583,9 +601,9 @@ instance Show Value where
 instance Eq Value where
 
   (ValueUnit) == (ValueUnit) = True
-  (ValueDFReal df) == (ValueDFReal df') = df == df'
-  (ValueDFBool df) == (ValueDFBool df') = df == df'
-  (ValueTex tk i) == (ValueTex tk' i') = tk == tk' && i == i'
+  (ValueReal df) == (ValueReal df') = df == df'
+  (ValueBool df) == (ValueBool df') = df == df'
+  (ValueTex df) == (ValueTex df') = df == df'
   (ValueArray vs) == (ValueArray vs') = vs == vs'
   (ValueTuple vs) == (ValueTuple vs') = vs == vs'
   (ValueFun _) == (ValueFun _) = False
@@ -641,8 +659,7 @@ data ShaderError
   deriving Show
 
 data InterpreterError
-  = InterpreterErrorArrayIndexOutOfBounds !Int
-  | InterpreterErrorDynamicTextureSelection
+  = InterpreterErrorIndexOutOfBounds !Int
   | InterpreterErrorDynamicUnroll
   | InterpreterErrorDynamicIndex
   | InterpreterErrorFunctionEquality

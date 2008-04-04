@@ -9,6 +9,7 @@
 
 module Emit(emit) where
 
+import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import Data.Graph
@@ -84,6 +85,9 @@ emitNameDFReal df = emitNameDF $ DFReal df
 emitNameDFBool :: DFBool -> String
 emitNameDFBool df = emitNameDF $ DFBool df
 
+emitNameDFTex :: DFTex -> String
+emitNameDFTex df = emitNameDF $ DFTex df
+
 emitNameDFSample :: DFSample -> String
 emitNameDFSample df = emitNameDF $ DFSample df
 
@@ -141,10 +145,7 @@ emitTextureDecls :: InterpretState -> [String]
 emitTextureDecls si = map emitTextureDecl (textures si)
 
 emitTextureDecl :: (TexKind, Int) -> String
-emitTextureDecl (TexKind1D, i) = "uniform sampler1D " ++ emitNameTexture i ++ ";"
-emitTextureDecl (TexKind2D, i) = "uniform sampler2D " ++ emitNameTexture i ++ ";"
-emitTextureDecl (TexKind3D, i) = "uniform sampler3D " ++ emitNameTexture i ++ ";"
-emitTextureDecl (TexKindCube, i) = "uniform samplerCube " ++ emitNameTexture i ++ ";"
+emitTextureDecl (tk, i) = "uniform sampler" ++ show tk ++ " " ++ emitNameTexture i ++ ";"
 
 -- Emits all relevant global declarations.
 emitGlobalDecls :: ShaderKind -> InterpretState -> [String]
@@ -153,17 +154,36 @@ emitGlobalDecls sk si = emitUniformsDecl sk si : emitTextureDecls si ++ emitVary
 -- Emits temporary declarations.
 emitTempDecls :: IntMap.IntMap DF -> [String]
 emitTempDecls mvn =
-  let (rs, bs, ss) = IntMap.foldWithKey foldTempName ([], [], []) mvn in
-    [emitTempDecl "float" rs, emitTempDecl "bool" bs, emitTempDecl "vec4" ss]
+  let mtl = accumTempDecls mvn in
+    map emitTempDecl (Map.assocs mtl)
 
-foldTempName :: Vertex -> DF -> ([String], [String], [String]) -> ([String], [String], [String])
-foldTempName v (DFReal _) (rs, bs, ss) = (emitNameDFVertex v : rs, bs, ss)
-foldTempName v (DFBool _) (rs, bs, ss) = (rs, emitNameDFVertex v : bs, ss)
-foldTempName v (DFSample _) (rs, bs, ss) = (rs, bs, emitNameDFVertex v : ss)
+emitTempDecl :: (String, [String]) -> String
+emitTempDecl (t, []) = "// no " ++ t
+emitTempDecl (t, xs) = concat $ t : " " : List.intersperse ", " xs ++ [";"]
 
-emitTempDecl :: String -> [String] -> String
-emitTempDecl t [] = "// no " ++ t
-emitTempDecl t xs = concat $ t : " " : List.intersperse ", " xs ++ [";"]
+-- Takes a mapping from locations to nodes,
+-- and returns a mapping from GLSL types to GLSL locations.
+-- This allows all decls of a single GLSL type to be made together.
+accumTempDecls :: IntMap.IntMap DF -> Map.Map String [String]
+accumTempDecls mvn = let (mtl, _) = IntMap.mapAccumWithKey accumTempDecls' (Map.empty) mvn in mtl
+
+accumTempDecls' :: Map.Map String [String] -> Vertex -> DF -> (Map.Map String [String], ())
+accumTempDecls' mtl v (DFReal _) = (Map.alter (accumTempDecls'' v) "float" mtl, ())
+accumTempDecls' mtl v (DFBool _) = (Map.alter (accumTempDecls'' v) "bool" mtl, ())
+accumTempDecls' mtl v (DFTex dft) = (Map.alter (accumTempDecls'' v) ("sampler" ++ show (getTexKindOfDFTex dft)) mtl, ())
+accumTempDecls' mtl v (DFSample _) = (Map.alter (accumTempDecls'' v) "vec4" mtl, ())
+
+accumTempDecls'' :: Vertex -> Maybe [String] -> Maybe [String]
+accumTempDecls'' v (Just ls) = Just (emitNameDFVertex v : ls)
+accumTempDecls'' v Nothing = Just [emitNameDFVertex v]
+
+
+-- Takes a list of coordinates and wraps them as a single GLSL type.
+emitWrappedCoords :: [String] -> String
+emitWrappedCoords [p] = p
+emitWrappedCoords [p,q] = "vec2(" ++ p ++ ", " ++ q ++ ")"
+emitWrappedCoords [p,q,r] = "vec3(" ++ p ++ ", " ++ q ++ ", " ++ r ++ ")"
+emitWrappedCoords _ = error "bad coords in emitWrappedCoords!"
 
 
 -- Emits the operation represented by a DF.
@@ -202,10 +222,10 @@ emitNode (_, _) n@(DFReal (DFRealASin _ p)) = emitFunAssign n "asin" [DFReal p]
 emitNode (_, _) n@(DFReal (DFRealACos _ p)) = emitFunAssign n "acos" [DFReal p]
 emitNode (_, _) n@(DFReal (DFRealATan _ p)) = emitFunAssign n "atan" [DFReal p]
 
-emitNode (_, _) n@(DFReal (DFRealGetTexR _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".r")
-emitNode (_, _) n@(DFReal (DFRealGetTexG _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".g")
-emitNode (_, _) n@(DFReal (DFRealGetTexB _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".b")
-emitNode (_, _) n@(DFReal (DFRealGetTexA _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".a")
+emitNode (_, _) n@(DFReal (DFRealChannelR _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".r")
+emitNode (_, _) n@(DFReal (DFRealChannelG _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".g")
+emitNode (_, _) n@(DFReal (DFRealChannelB _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".b")
+emitNode (_, _) n@(DFReal (DFRealChannelA _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".a")
 
 emitNode (_, _) n@(DFBool (DFBoolLiteral _ b)) = emitStrAssign (emitNameDF n) $ show b
 emitNode (sk, si) n@(DFBool (DFBoolVarying _ i)) = emitStrAssign (emitNameDF n) $ "bool(" ++ emitNameVarying sk (num_varyings si) i ++ ")"
@@ -222,16 +242,17 @@ emitNode (_, _) n@(DFBool (DFBoolEqualReal _ p q)) = emitBinOpAssign n (DFReal p
 emitNode (_, _) n@(DFBool (DFBoolNotEqualReal _ p q)) = emitBinOpAssign n (DFReal p) "!=" (DFReal q)
 emitNode (_, _) n@(DFBool (DFBoolEqualBool _ p q)) = emitBinOpAssign n (DFBool p) "==" (DFBool q)
 emitNode (_, _) n@(DFBool (DFBoolNotEqualBool _ p q)) = emitBinOpAssign n (DFBool p) "!=" (DFBool q)
+emitNode (_, _) n@(DFBool (DFBoolEqualTex _ p q)) = emitBinOpAssign n (DFTex p) "==" (DFTex q)
+emitNode (_, _) n@(DFBool (DFBoolNotEqualTex _ p q)) = emitBinOpAssign n (DFTex p) "!=" (DFTex q)
 
 emitNode (_, _) n@(DFBool (DFBoolAnd _ p q)) = emitBinOpAssign n (DFBool p) "&&" (DFBool q)
 emitNode (_, _) n@(DFBool (DFBoolOr _ p q)) = emitBinOpAssign n (DFBool p) "||" (DFBool q)
 emitNode (_, _) n@(DFBool (DFBoolNot _ p)) = emitUnOpAssign n "!" (DFBool p)
 
-emitNode (_, _) n@(DFSample (DFSampleTex _ TexKind1D i [p])) = emitStrAssign (emitNameDF n) (emitStrFun "texture1D" [emitNameTexture i, emitNameDFReal p])
-emitNode (_, _) n@(DFSample (DFSampleTex _ TexKind2D i [p, q])) = emitStrAssign (emitNameDF n) (emitStrFun "texture2D" [emitNameTexture i, "vec2(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ")"]) 
-emitNode (_, _) n@(DFSample (DFSampleTex _ TexKind3D i [p, q, r])) = emitStrAssign (emitNameDF n) (emitStrFun "texture3D" [emitNameTexture i, "vec3(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ", " ++ emitNameDFReal r ++ ")"]) 
-emitNode (_, _) n@(DFSample (DFSampleTex _ TexKindCube i [p, q, r])) = emitStrAssign (emitNameDF n) (emitStrFun "textureCube" [emitNameTexture i, "vec3(" ++ emitNameDFReal p ++ ", " ++ emitNameDFReal q ++ ", " ++ emitNameDFReal r ++ ")"]) 
-emitNode (_, _)   (DFSample (DFSampleTex _ _ _ _)) = error "bad texture gadget!"
+emitNode (_, _) n@(DFTex (DFTexConstant _ _ i)) = emitStrAssign (emitNameDF n) (emitNameTexture i)
+emitNode (_, _) n@(DFTex (DFTexCond _ cond p q)) = emitStrAssign (emitNameDF n) $ (emitNameDFBool cond) ++ " ? " ++ (emitNameDFTex p) ++ " : " ++ (emitNameDFTex q)
+
+emitNode (_, _) n@(DFSample (DFSampleTex _ t coords)) = emitStrAssign (emitNameDF n) (emitStrFun ("texture" ++ show (getTexKindOfDFTex t)) [emitNameDFTex t, emitWrappedCoords $ map emitNameDFReal coords])
 
 
 -- Emits copy out code to save results.

@@ -57,8 +57,7 @@ instance StringableError ShaderError where
   getErrorString (ShaderErrorCouldNotLink t1 t2) = let [pt1, pt2] = prettyTypes [t1, t2] in "could not unify <" ++ pt1 ++ "> with <" ++ pt2 ++ "> to link shaders"
 
 instance StringableError InterpreterError where
-  getErrorString (InterpreterErrorArrayIndexOutOfBounds idx) = "array index <" ++ show idx ++ "> out of bounds"
-  getErrorString (InterpreterErrorDynamicTextureSelection) = "cannot delay texture choice until runtime"
+  getErrorString (InterpreterErrorIndexOutOfBounds idx) = "array index <" ++ show idx ++ "> out of bounds"
   getErrorString (InterpreterErrorDynamicUnroll) = "support for dynamic unroll count is not mandated"
   getErrorString (InterpreterErrorDynamicIndex) = "array index is not statically determinable"
   getErrorString (InterpreterErrorFunctionEquality) = "equality is not defined on functions"

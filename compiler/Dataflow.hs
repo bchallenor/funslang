@@ -31,7 +31,7 @@ graphviz (adjs, _, mvn) =
   let assoclist = assocs adjs in
     "digraph DF {"
     ++
-    (concat $ map (\(v,_) -> case IntMap.lookup v mvn of { Just n -> "\nn" ++ show v ++ " [label=\"" ++ (nodeLabel n) ++ "\", color=\"#" ++ case n of { DFReal _ -> "800000"; DFBool _ -> "000080"; DFSample _ -> "008000" } ++ "\"];"; Nothing -> "\n// node " ++ show v ++ " is not required" }) assoclist)
+    (concat $ map (\(v,_) -> case IntMap.lookup v mvn of { Just n -> "\nn" ++ show v ++ " [label=\"" ++ (nodeLabel n) ++ "\", color=\"#" ++ case n of { DFReal _ -> "800000"; DFBool _ -> "000080"; DFSample _ -> "008000"; DFTex _ -> "800080" } ++ "\"];"; Nothing -> "\n// node " ++ show v ++ " is not required" }) assoclist)
     ++
     (concat $ map (\(v,vs) -> concat $ map (\v' -> "\nn" ++ show v ++ " -> n" ++ show v' ++ ";") vs) $ assoclist)
     ++
@@ -71,14 +71,12 @@ dependencyEdges acc@(_, mvn) (n:ns) =
 -- Gets the result DFs which represent this Value.
 getResultDFs :: Value -> [DF]
 getResultDFs (ValueUnit) = []
-getResultDFs (ValueDFReal df) = [DFReal df]
-getResultDFs (ValueDFBool df) = [DFBool df]
-getResultDFs (ValueTex _ _) = error getResultDFsErrorMsg
+getResultDFs (ValueReal df) = [DFReal df]
+getResultDFs (ValueBool df) = [DFBool df]
+getResultDFs (ValueTex df) = [DFTex df]
 getResultDFs (ValueArray vs) = concat $ map getResultDFs vs
 getResultDFs (ValueTuple vs) = concat $ map getResultDFs vs
-getResultDFs (ValueFun _) = error getResultDFsErrorMsg
-getResultDFsErrorMsg :: String
-getResultDFsErrorMsg = "this value cannot be represented by a dataflow graph"
+getResultDFs (ValueFun _) = error "function values cannot be represented by a dataflow graph"
 
 
 -- Given a node, returns the list of nodes that it depends on.
@@ -117,10 +115,10 @@ nodeDependencies (DFReal (DFRealASin _ dfr1)) = [DFReal dfr1]
 nodeDependencies (DFReal (DFRealACos _ dfr1)) = [DFReal dfr1]
 nodeDependencies (DFReal (DFRealATan _ dfr1)) = [DFReal dfr1]
 
-nodeDependencies (DFReal (DFRealGetTexR _ dfs1)) = [DFSample dfs1]
-nodeDependencies (DFReal (DFRealGetTexG _ dfs1)) = [DFSample dfs1]
-nodeDependencies (DFReal (DFRealGetTexB _ dfs1)) = [DFSample dfs1]
-nodeDependencies (DFReal (DFRealGetTexA _ dfs1)) = [DFSample dfs1]
+nodeDependencies (DFReal (DFRealChannelR _ dfs1)) = [DFSample dfs1]
+nodeDependencies (DFReal (DFRealChannelG _ dfs1)) = [DFSample dfs1]
+nodeDependencies (DFReal (DFRealChannelB _ dfs1)) = [DFSample dfs1]
+nodeDependencies (DFReal (DFRealChannelA _ dfs1)) = [DFSample dfs1]
 
 nodeDependencies (DFBool (DFBoolLiteral _ _)) = []
 nodeDependencies (DFBool (DFBoolVarying _ _)) = []
@@ -137,12 +135,17 @@ nodeDependencies (DFBool (DFBoolEqualReal _ dfr1 dfr2)) = [DFReal dfr1, DFReal d
 nodeDependencies (DFBool (DFBoolNotEqualReal _ dfr1 dfr2)) = [DFReal dfr1, DFReal dfr2]
 nodeDependencies (DFBool (DFBoolEqualBool _ dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
 nodeDependencies (DFBool (DFBoolNotEqualBool _ dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
+nodeDependencies (DFBool (DFBoolEqualTex _ dft1 dft2)) = [DFTex dft1, DFTex dft2]
+nodeDependencies (DFBool (DFBoolNotEqualTex _ dft1 dft2)) = [DFTex dft1, DFTex dft2]
 
 nodeDependencies (DFBool (DFBoolAnd _ dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
 nodeDependencies (DFBool (DFBoolOr _ dfb1 dfb2)) = [DFBool dfb1, DFBool dfb2]
 nodeDependencies (DFBool (DFBoolNot _ dfb1)) = [DFBool dfb1]
 
-nodeDependencies (DFSample (DFSampleTex _ _ _ dfrs)) = map DFReal dfrs
+nodeDependencies (DFTex (DFTexConstant _ _ _)) = []
+nodeDependencies (DFTex (DFTexCond _ dfbc dft1 dft2)) = [DFBool dfbc, DFTex dft1, DFTex dft2]
+
+nodeDependencies (DFSample (DFSampleTex _ dft dfrs)) = DFTex dft : map DFReal dfrs
 
 
 -- Given a node, returns a pretty label for visualization.
@@ -181,10 +184,10 @@ nodeLabel (DFReal (DFRealASin _ _)) = "ASin"
 nodeLabel (DFReal (DFRealACos _ _)) = "ACos"
 nodeLabel (DFReal (DFRealATan _ _)) = "ATan"
 
-nodeLabel (DFReal (DFRealGetTexR _ _)) = "GetTexR"
-nodeLabel (DFReal (DFRealGetTexG _ _)) = "GetTexG"
-nodeLabel (DFReal (DFRealGetTexB _ _)) = "GetTexB"
-nodeLabel (DFReal (DFRealGetTexA _ _)) = "GetTexA"
+nodeLabel (DFReal (DFRealChannelR _ _)) = "ChannelR"
+nodeLabel (DFReal (DFRealChannelG _ _)) = "ChannelG"
+nodeLabel (DFReal (DFRealChannelB _ _)) = "ChannelB"
+nodeLabel (DFReal (DFRealChannelA _ _)) = "ChannelA"
 
 nodeLabel (DFBool (DFBoolLiteral _ b)) = show b
 nodeLabel (DFBool (DFBoolVarying _ i)) = "BoolVarying[" ++ show i ++ "]"
@@ -201,12 +204,17 @@ nodeLabel (DFBool (DFBoolEqualReal _ _ _)) = "EqualReal"
 nodeLabel (DFBool (DFBoolNotEqualReal _ _ _)) = "NotEqualReal"
 nodeLabel (DFBool (DFBoolEqualBool _ _ _)) = "EqualBool"
 nodeLabel (DFBool (DFBoolNotEqualBool _ _ _)) = "NotEqualBool"
+nodeLabel (DFBool (DFBoolEqualTex _ _ _)) = "EqualTex"
+nodeLabel (DFBool (DFBoolNotEqualTex _ _ _)) = "NotEqualTex"
 
 nodeLabel (DFBool (DFBoolAnd _ _ _)) = "And"
 nodeLabel (DFBool (DFBoolOr _ _ _)) = "Or"
 nodeLabel (DFBool (DFBoolNot _ _)) = "Not"
 
-nodeLabel (DFSample (DFSampleTex _ tk i _)) = "Texture[" ++ show i ++ ", " ++ show tk ++ "]"
+nodeLabel (DFTex (DFTexConstant _ tk i)) = "Texture[" ++ show i ++ ", " ++ show tk ++ "]"
+nodeLabel (DFTex (DFTexCond _ _ _ _)) = "TexCond"
+
+nodeLabel (DFSample (DFSampleTex _ dft _)) = "Sample" ++ show (getTexKindOfDFTex dft)
 
 
 -- Given a node, returns its ID.
@@ -245,10 +253,10 @@ nodeID (DFReal (DFRealASin n _)) = n
 nodeID (DFReal (DFRealACos n _)) = n
 nodeID (DFReal (DFRealATan n _)) = n
 
-nodeID (DFReal (DFRealGetTexR n _)) = n
-nodeID (DFReal (DFRealGetTexG n _)) = n
-nodeID (DFReal (DFRealGetTexB n _)) = n
-nodeID (DFReal (DFRealGetTexA n _)) = n
+nodeID (DFReal (DFRealChannelR n _)) = n
+nodeID (DFReal (DFRealChannelG n _)) = n
+nodeID (DFReal (DFRealChannelB n _)) = n
+nodeID (DFReal (DFRealChannelA n _)) = n
 
 nodeID (DFBool (DFBoolLiteral n _)) = n
 nodeID (DFBool (DFBoolVarying n _)) = n
@@ -265,9 +273,14 @@ nodeID (DFBool (DFBoolEqualReal n _ _)) = n
 nodeID (DFBool (DFBoolNotEqualReal n _ _)) = n
 nodeID (DFBool (DFBoolEqualBool n _ _)) = n
 nodeID (DFBool (DFBoolNotEqualBool n _ _)) = n
+nodeID (DFBool (DFBoolEqualTex n _ _)) = n
+nodeID (DFBool (DFBoolNotEqualTex n _ _)) = n
 
 nodeID (DFBool (DFBoolAnd n _ _)) = n
 nodeID (DFBool (DFBoolOr n _ _)) = n
 nodeID (DFBool (DFBoolNot n _)) = n
 
-nodeID (DFSample (DFSampleTex n _ _ _)) = n
+nodeID (DFTex (DFTexConstant n _ _)) = n
+nodeID (DFTex (DFTexCond n _ _ _)) = n
+
+nodeID (DFSample (DFSampleTex n _ _)) = n

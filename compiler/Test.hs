@@ -102,8 +102,7 @@ testgroups = [
     TestShaderCompileError { name = "ShaderErrorBadVaryingType-fn", vert = "\\()()(v :: Real -> Real) -> ([0,0,0,0], ())", frag = "\\()()() -> [0,0,0,0]", expect_error = \ e -> case e of ShaderError ShaderKindVertex (ShaderErrorBadVaryingType _) -> True; _ -> False },
     TestShaderCompileError { name = "ShaderErrorBadOutputType", vert = "\\()(t :: Tex 1D)() -> ([0,0,0,0], t)", frag = "\\()()(t :: Tex 1D) -> [0,0,0,0]", expect_error = \ e -> case e of ShaderError ShaderKindVertex (ShaderErrorBadOutputType _) -> True; _ -> False },
     TestShaderCompileError { name = "ShaderErrorCouldNotLink", vert = "\\()()() -> ([0,0,0,0], 0)", frag = "\\()()() -> [0,0,0,0]", expect_error = \ e -> case e of ShaderError ShaderKindFragment (ShaderErrorCouldNotLink _ _) -> True; _ -> False },
-    TestExprCompileError { name = "InterpreterErrorArrayIndexOutOfBounds", expr = "[0]!1", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorArrayIndexOutOfBounds 1) -> True; _ -> False },
-    TestShaderCompileError { name = "InterpreterErrorDynamicTextureSelection", vert = "\\()()(v,c,b) -> (v, (b, c))", frag = "\\()([s,t] :: Tex 1D 2)(b, c) -> sample1D (if b then s else t) c", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorDynamicTextureSelection) -> True; _ -> False },
+    TestExprCompileError { name = "InterpreterErrorIndexOutOfBounds", expr = "[0]!1", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorIndexOutOfBounds 1) -> True; _ -> False },
     TestShaderCompileError { name = "InterpreterErrorDynamicUnroll", vert = "\\(n)()() -> let id x = x in (unroll id n [0,0,0,0], ())", frag = "\\()()() -> [0,0,0,0]", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorDynamicUnroll) -> True; _ -> False },
     TestShaderCompileError { name = "InterpreterErrorDynamicIndex", vert = "\\(idx)()() -> ([0,0,0,0]!![idx,0,0,0], ())", frag = "\\()()() -> [0,0,0,0]", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorDynamicIndex) -> True; _ -> False },
     TestExprCompileError { name = "InterpreterErrorFunctionEquality", expr = "let id x = x in id == id", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorFunctionEquality) -> True; _ -> False }
@@ -157,9 +156,9 @@ acceptableRelativeError = 0.001
 
 acceptablyEqualValues :: Value -> Value -> Bool
 acceptablyEqualValues (ValueUnit) (ValueUnit) = True
-acceptablyEqualValues (ValueDFReal (DFRealLiteral _ d)) (ValueDFReal (DFRealLiteral _ d')) = abs ((d - d') / d) < acceptableRelativeError
-acceptablyEqualValues (ValueDFBool (DFBoolLiteral _ b)) (ValueDFBool (DFBoolLiteral _ b')) = b == b'
-acceptablyEqualValues (ValueTex tk i) (ValueTex tk' i') = tk == tk' && i == i'
+acceptablyEqualValues (ValueReal (DFRealLiteral _ d)) (ValueReal (DFRealLiteral _ d')) = abs ((d - d') / d) < acceptableRelativeError
+acceptablyEqualValues (ValueBool (DFBoolLiteral _ b)) (ValueBool (DFBoolLiteral _ b')) = b == b'
+acceptablyEqualValues (ValueTex (DFTexConstant _ tk i)) (ValueTex (DFTexConstant _ tk' i')) = tk == tk' && i == i'
 acceptablyEqualValues (ValueArray vs) (ValueArray vs') = and $ zipWith acceptablyEqualValues vs vs'
 acceptablyEqualValues (ValueTuple vs) (ValueTuple vs') = and $ zipWith acceptablyEqualValues vs vs'
 acceptablyEqualValues (ValueFun _) (ValueFun _) = False

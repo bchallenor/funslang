@@ -80,58 +80,65 @@ printLibrarySchemes (gamma, _, _) = do
 
 liftRRB :: (Double -> Double -> Bool) -> (Int -> DFReal -> DFReal -> DFBool) -> InterpretM Value
 liftRRB sop dop = return $
-  ValueFun $ \ (ValueDFReal df1) -> return $
-    ValueFun $ \ (ValueDFReal df2) ->
+  ValueFun $ \ (ValueReal df1) -> return $
+    ValueFun $ \ (ValueReal df2) ->
       liftRRB' sop dop df1 df2
 
 liftRRB' :: (Double -> Double -> Bool) -> (Int -> DFReal -> DFReal -> DFBool) -> DFReal -> DFReal -> InterpretM Value
 liftRRB' sop dop df1 df2 = do
   n <- freshNode
   case (df1, df2) of
-    (DFRealLiteral _ l1, DFRealLiteral _ l2) -> return $ ValueDFBool $ DFBoolLiteral n $ sop l1 l2
-    _ -> return $ ValueDFBool $ dop n df1 df2
+    (DFRealLiteral _ l1, DFRealLiteral _ l2) -> return $ ValueBool $ DFBoolLiteral n $ sop l1 l2
+    _ -> return $ ValueBool $ dop n df1 df2
 
 liftRRR :: (Double -> Double -> Double) -> (Int -> DFReal -> DFReal -> DFReal) -> InterpretM Value
 liftRRR sop dop = return $
-  ValueFun $ \ (ValueDFReal df1) -> return $
-    ValueFun $ \ (ValueDFReal df2) ->
+  ValueFun $ \ (ValueReal df1) -> return $
+    ValueFun $ \ (ValueReal df2) ->
       liftRRR' sop dop df1 df2
 
 liftRRR' :: (Double -> Double -> Double) -> (Int -> DFReal -> DFReal -> DFReal) -> DFReal -> DFReal -> InterpretM Value
 liftRRR' sop dop df1 df2 = do
   n <- freshNode
   case (df1, df2) of
-    (DFRealLiteral _ l1, DFRealLiteral _ l2) -> return $ ValueDFReal $ DFRealLiteral n $ sop l1 l2
-    _ -> return $ ValueDFReal $ dop n df1 df2
+    (DFRealLiteral _ l1, DFRealLiteral _ l2) -> return $ ValueReal $ DFRealLiteral n $ sop l1 l2
+    _ -> return $ ValueReal $ dop n df1 df2
 
 liftBBB :: (Bool -> Bool -> Bool) -> (Int -> DFBool -> DFBool -> DFBool) -> InterpretM Value
 liftBBB sop dop = return $
-  ValueFun $ \ (ValueDFBool df1) -> return $
-    ValueFun $ \ (ValueDFBool df2) ->
+  ValueFun $ \ (ValueBool df1) -> return $
+    ValueFun $ \ (ValueBool df2) ->
       liftBBB' sop dop df1 df2
 
 liftBBB' :: (Bool -> Bool -> Bool) -> (Int -> DFBool -> DFBool -> DFBool) -> DFBool -> DFBool -> InterpretM Value
 liftBBB' sop dop df1 df2 = do
   n <- freshNode
   case (df1, df2) of
-    (DFBoolLiteral _ l1, DFBoolLiteral _ l2) -> return $ ValueDFBool $ DFBoolLiteral n $ sop l1 l2
-    _ -> return $ ValueDFBool $ dop n df1 df2
+    (DFBoolLiteral _ l1, DFBoolLiteral _ l2) -> return $ ValueBool $ DFBoolLiteral n $ sop l1 l2
+    _ -> return $ ValueBool $ dop n df1 df2
+
+liftTTB' :: ((TexKind, Int) -> (TexKind, Int) -> Bool) -> (Int -> DFTex -> DFTex -> DFBool) -> DFTex -> DFTex -> InterpretM Value
+liftTTB' sop dop df1 df2 = do
+  n <- freshNode
+  case (df1, df2) of
+    (DFTexConstant _ tk1 i1, DFTexConstant _ tk2 i2) -> return $ ValueBool $ DFBoolLiteral n $ sop (tk1, i1) (tk2, i2)
+    _ -> return $ ValueBool $ dop n df1 df2
 
 liftRR :: (Double -> Double) -> (Int -> DFReal -> DFReal) -> InterpretM Value
 liftRR sop dop = return $
-  ValueFun $ \ (ValueDFReal df) -> do
+  ValueFun $ \ (ValueReal df) -> do
     n <- freshNode
     case df of
-      DFRealLiteral _ l -> return $ ValueDFReal $ DFRealLiteral n $ sop l
-      _ -> return $ ValueDFReal $ dop n df
+      DFRealLiteral _ l -> return $ ValueReal $ DFRealLiteral n $ sop l
+      _ -> return $ ValueReal $ dop n df
 
 liftBB :: (Bool -> Bool) -> (Int -> DFBool -> DFBool) -> InterpretM Value
 liftBB sop dop = return $
-  ValueFun $ \ (ValueDFBool df) -> do
+  ValueFun $ \ (ValueBool df) -> do
     n <- freshNode
     case df of
-      DFBoolLiteral _ l -> return $ ValueDFBool $ DFBoolLiteral n $ sop l
-      _ -> return $ ValueDFBool $ dop n df
+      DFBoolLiteral _ l -> return $ ValueBool $ DFBoolLiteral n $ sop l
+      _ -> return $ ValueBool $ dop n df
 
 
 -- Higher order functions.
@@ -186,7 +193,7 @@ valueFun_foldr' f z (x:xs) = do
 valueFun_unroll :: InterpretM Value
 valueFun_unroll = return $
   ValueFun $ \ (ValueFun f) -> return $
-    ValueFun $ \ (ValueDFReal dfn) -> return $
+    ValueFun $ \ (ValueReal dfn) -> return $
       ValueFun $ \ z ->
         case dfn of
           DFRealLiteral _ i -> valueFun_unroll' f (floor i) z
@@ -237,20 +244,20 @@ valueFun_zipWith3' _ _ _ _= return []
 
 valueFun_sample :: InterpretM Value
 valueFun_sample = return $
-  ValueFun $ \ (ValueTex tk i) -> return $
+  ValueFun $ \ (ValueTex dft) -> return $
     ValueFun $ \ (ValueArray coord_vs) -> do
-    let coord_dfs = map unValueDFReal coord_vs
+    let coord_dfs = map unValueReal coord_vs
     n <- freshNode
     nr <- freshNode
     ng <- freshNode
     nb <- freshNode
     na <- freshNode
-    let submit = DFSampleTex n tk i coord_dfs
+    let submit = DFSampleTex n dft coord_dfs
     return $ ValueArray [
-      ValueDFReal $ DFRealGetTexR nr submit,
-      ValueDFReal $ DFRealGetTexG ng submit,
-      ValueDFReal $ DFRealGetTexB nb submit,
-      ValueDFReal $ DFRealGetTexA na submit
+      ValueReal $ DFRealChannelR nr submit,
+      ValueReal $ DFRealChannelG ng submit,
+      ValueReal $ DFRealChannelB nb submit,
+      ValueReal $ DFRealChannelA na submit
       ]
 
 
@@ -259,14 +266,14 @@ valueFun_sample = return $
 valueFun_OpSubscript :: InterpretM Value
 valueFun_OpSubscript = return $
   ValueFun $ \ (ValueArray vs) -> return $
-    ValueFun $ \ (ValueDFReal sub) -> do
+    ValueFun $ \ (ValueReal sub) -> do
       let len = length vs
       case sub of
         DFRealLiteral _ d -> do
           let idx = floor d
           if 0 <= idx && idx < len
             then return $ vs!!idx
-            else throwError $ InterpreterError [] $ InterpreterErrorArrayIndexOutOfBounds idx
+            else throwError $ InterpreterError [] $ InterpreterErrorIndexOutOfBounds idx
         _ -> throwError $ InterpreterError [] $ InterpreterErrorDynamicIndex
 
 
@@ -280,22 +287,20 @@ valueFun_OpEqual = return $
 valueFun_OpEqual' :: Value -> Value -> InterpretM Value
 valueFun_OpEqual' (ValueUnit) (ValueUnit) = do
   n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n True
-valueFun_OpEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (==) DFBoolEqualReal df1 df2
-valueFun_OpEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (==) DFBoolEqualBool df1 df2
-valueFun_OpEqual' (ValueTex _ i) (ValueTex _ i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i == i'
+  return $ ValueBool $ DFBoolLiteral n True
+valueFun_OpEqual' (ValueReal df1) (ValueReal df2) = liftRRB' (==) DFBoolEqualReal df1 df2
+valueFun_OpEqual' (ValueBool df1) (ValueBool df2) = liftBBB' (==) DFBoolEqualBool df1 df2
+valueFun_OpEqual' (ValueTex df1) (ValueTex df2) = liftTTB' (==) DFBoolEqualTex df1 df2
 valueFun_OpEqual' (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM valueFun_OpEqual' vs1 vs2
-  let (dfb:dfbs) = map unValueDFBool vs
-  dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
-  return $ ValueDFBool dfb'
+  let (dfb:dfbs) = map unValueBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueBool v) dfb dfbs
+  return $ ValueBool dfb'
 valueFun_OpEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   vs <- zipWithM valueFun_OpEqual' vs1 vs2
-  let (dfb:dfbs) = map unValueDFBool vs
-  dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueDFBool v) dfb dfbs
-  return $ ValueDFBool dfb'
+  let (dfb:dfbs) = map unValueBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (&&) DFBoolAnd x y; return $ unValueBool v) dfb dfbs
+  return $ ValueBool dfb'
 valueFun_OpEqual' (ValueFun _) (ValueFun _) = throwError $ InterpreterError [] $ InterpreterErrorFunctionEquality
 valueFun_OpEqual' _ _ = undefined
 
@@ -307,22 +312,20 @@ valueFun_OpNotEqual = return $
 valueFun_OpNotEqual' :: Value -> Value -> InterpretM Value
 valueFun_OpNotEqual' (ValueUnit) (ValueUnit) = do
   n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n False
-valueFun_OpNotEqual' (ValueDFReal df1) (ValueDFReal df2) = liftRRB' (/=) DFBoolNotEqualReal df1 df2
-valueFun_OpNotEqual' (ValueDFBool df1) (ValueDFBool df2) = liftBBB' (/=) DFBoolNotEqualBool df1 df2
-valueFun_OpNotEqual' (ValueTex _ i) (ValueTex _ i') = do
-  n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n $ i /= i'
+  return $ ValueBool $ DFBoolLiteral n False
+valueFun_OpNotEqual' (ValueReal df1) (ValueReal df2) = liftRRB' (/=) DFBoolNotEqualReal df1 df2
+valueFun_OpNotEqual' (ValueBool df1) (ValueBool df2) = liftBBB' (/=) DFBoolNotEqualBool df1 df2
+valueFun_OpNotEqual' (ValueTex df1) (ValueTex df2) = liftTTB' (/=) DFBoolNotEqualTex df1 df2
 valueFun_OpNotEqual' (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM valueFun_OpEqual' vs1 vs2
-  let (dfb:dfbs) = map unValueDFBool vs
-  dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
-  return $ ValueDFBool dfb'
+  let (dfb:dfbs) = map unValueBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueBool v) dfb dfbs
+  return $ ValueBool dfb'
 valueFun_OpNotEqual' (ValueTuple vs1) (ValueTuple vs2) = do
   vs <- zipWithM valueFun_OpEqual' vs1 vs2
-  let (dfb:dfbs) = map unValueDFBool vs
-  dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueDFBool v) dfb dfbs
-  return $ ValueDFBool dfb'
+  let (dfb:dfbs) = map unValueBool vs
+  dfb' <- foldM (\x y -> do v <- liftBBB' (||) DFBoolOr x y; return $ unValueBool v) dfb dfbs
+  return $ ValueBool dfb'
 valueFun_OpNotEqual' (ValueFun _) (ValueFun _) = throwError $ InterpreterError [] $ InterpreterErrorFunctionEquality
 valueFun_OpNotEqual' _ _ = undefined
 

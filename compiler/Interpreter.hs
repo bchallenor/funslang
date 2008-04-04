@@ -18,11 +18,11 @@ interpretExpr _ (ExprUnitLiteral) = return ValueUnit
 
 interpretExpr _ (ExprRealLiteral b) = do
   n <- freshNode
-  return $ ValueDFReal $ DFRealLiteral n b
+  return $ ValueReal $ DFRealLiteral n b
 
 interpretExpr _ (ExprBoolLiteral b) = do
   n <- freshNode
-  return $ ValueDFBool $ DFBoolLiteral n b
+  return $ ValueBool $ DFBoolLiteral n b
 
 interpretExpr env (ExprVar ident) = do
   case Map.lookup ident env of
@@ -43,7 +43,7 @@ interpretExpr env a@(ExprTuple es) = registerStackPoint a $ do
   return $ ValueTuple vs
 
 interpretExpr env a@(ExprIf eb e1 e2) = registerStackPoint a $ do
-  ValueDFBool dfb <- interpretExpr env eb
+  ValueBool dfb <- interpretExpr env eb
   v1 <- interpretExpr env e1
   v2 <- interpretExpr env e2
   if v1 == v2
@@ -77,13 +77,15 @@ interpretBinding env p e =
 -- so that the resulting value is either the first or second value according to the condition.
 conditionalize :: DFBool -> Value -> Value -> InterpretM Value
 conditionalize _ (ValueUnit) (ValueUnit) = return ValueUnit
-conditionalize dfb (ValueDFReal df1) (ValueDFReal df2) = do
+conditionalize dfb (ValueReal df1) (ValueReal df2) = do
   n <- freshNode
-  return $ ValueDFReal $ DFRealCond n dfb df1 df2
-conditionalize dfb (ValueDFBool df1) (ValueDFBool df2) = do
+  return $ ValueReal $ DFRealCond n dfb df1 df2
+conditionalize dfb (ValueBool df1) (ValueBool df2) = do
   n <- freshNode
-  return $ ValueDFBool $ DFBoolCond n dfb df1 df2
-conditionalize _ (ValueTex _ _) (ValueTex _ _) = throwError $ InterpreterError [] $ InterpreterErrorDynamicTextureSelection
+  return $ ValueBool $ DFBoolCond n dfb df1 df2
+conditionalize dfb (ValueTex df1) (ValueTex df2) = do
+  n <- freshNode
+  return $ ValueTex $ DFTexCond n dfb df1 df2
 conditionalize dfb (ValueArray vs1) (ValueArray vs2) = do
   vs <- zipWithM (conditionalize dfb) vs1 vs2
   return $ ValueArray vs
@@ -149,11 +151,11 @@ dummyUniformValue _ (TypeUnit) =
 dummyUniformValue _ (TypeReal) = do
   i <- freshUniform
   n <- freshNode
-  return $ ValueDFReal $ DFRealUniform n i
+  return $ ValueReal $ DFRealUniform n i
 dummyUniformValue _ (TypeBool) = do
   i <- freshUniform
   n <- freshNode
-  return $ ValueDFBool $ DFBoolUniform n i
+  return $ ValueBool $ DFBoolUniform n i
 dummyUniformValue sk (TypeArray t (DimFix d)) = do
   vs <- replicateM (fromIntegral d) (dummyUniformValue sk t)
   return $ ValueArray vs
@@ -169,7 +171,8 @@ dummyTextureValue _ (TypeUnit) =
   return ValueUnit
 dummyTextureValue _ (TypeTex tk) = do
   i <- freshTexture tk
-  return $ ValueTex tk i
+  n <- freshNode
+  return $ ValueTex $ DFTexConstant n tk i
 dummyTextureValue sk (TypeArray t (DimFix d)) = do
   vs <- replicateM (fromIntegral d) (dummyTextureValue sk t)
   return $ ValueArray vs
@@ -186,11 +189,11 @@ dummyVaryingValue _ (TypeUnit) =
 dummyVaryingValue _ (TypeReal) = do
   i <- freshVarying
   n <- freshNode
-  return $ ValueDFReal $ DFRealVarying n i
+  return $ ValueReal $ DFRealVarying n i
 dummyVaryingValue _ (TypeBool) = do
   i <- freshVarying
   n <- freshNode
-  return $ ValueDFBool $ DFBoolVarying n i
+  return $ ValueBool $ DFBoolVarying n i
 dummyVaryingValue sk (TypeArray t (DimFix d)) = do
   vs <- replicateM (fromIntegral d) (dummyVaryingValue sk t)
   return $ ValueArray vs
