@@ -660,7 +660,7 @@ data ShaderError
 
 data InterpreterError
   = InterpreterErrorIndexOutOfBounds !Int
-  | InterpreterErrorDynamicUnroll
+  | InterpreterErrorDynamicIterate
   | InterpreterErrorDynamicIndex
   | InterpreterErrorFunctionEquality
   

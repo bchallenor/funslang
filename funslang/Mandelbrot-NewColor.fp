@@ -16,11 +16,11 @@ let cImag = posY * zoom + centerY in
 let f (r, i, iter) =
   let rnew = r * r - i * i + cReal in
   let inew = 2 * r * i + cImag in
-  let l2 = rnew * rnew + inew * inew in
-    if l2 < 4 then (rnew, inew, iter+1) else (r, i, iter) in
+  let len2 = rnew * rnew + inew * inew in
+    (len2 < 4.0, (rnew, inew, iter+1)) in
 
 % iterate
-let (rnew, inew, iter) = unroll f maxIterations (0, 0, 0) in
+let (rnew, inew, iter) = iterate f maxIterations (0, 0, 0) in
 
 let basecolor =
   if iter == maxIterations

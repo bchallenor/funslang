@@ -59,7 +59,7 @@ instance StringableError ShaderError where
 
 instance StringableError InterpreterError where
   getErrorString (InterpreterErrorIndexOutOfBounds idx) = "array index <" ++ show idx ++ "> out of bounds"
-  getErrorString (InterpreterErrorDynamicUnroll) = "support for dynamic unroll count is not mandated"
+  getErrorString (InterpreterErrorDynamicIterate) = "support for dynamic iteration bound is not mandated"
   getErrorString (InterpreterErrorDynamicIndex) = "array index is not statically determinable"
   getErrorString (InterpreterErrorFunctionEquality) = "equality is not defined on functions"
   

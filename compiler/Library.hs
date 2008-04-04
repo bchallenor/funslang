@@ -190,20 +190,25 @@ valueFun_foldr' f z (x:xs) = do
   ValueFun fx <- f x
   fx z'
 
-valueFun_unroll :: InterpretM Value
-valueFun_unroll = return $
+valueFun_iterate :: InterpretM Value
+valueFun_iterate = return $
   ValueFun $ \ (ValueFun f) -> return $
     ValueFun $ \ (ValueReal dfn) -> return $
       ValueFun $ \ z ->
         case dfn of
-          DFRealLiteral _ i -> valueFun_unroll' f (floor i) z
-          _ -> throwError $ InterpreterError [] $ InterpreterErrorDynamicUnroll
+          DFRealLiteral _ i -> valueFun_iterate' f (floor i) z
+          _ -> throwError $ InterpreterError [] $ InterpreterErrorDynamicIterate
 
-valueFun_unroll' :: (Value -> InterpretM Value) -> Int -> Value -> InterpretM Value
-valueFun_unroll' _ 0 z = return z
-valueFun_unroll' f i z = do
-  fz <- f z
-  valueFun_unroll' f (i-1) fz
+-- "iteratively applies f to z, until False returned or n iterations reached"
+valueFun_iterate' :: (Value -> InterpretM Value) -> Int -> Value -> InterpretM Value
+valueFun_iterate' _ 0 z = return z
+valueFun_iterate' f i z = do
+  -- iterate once
+  ValueTuple [ValueBool dfb, fz] <- f z
+  -- iterate the rest of the way
+  cont <- valueFun_iterate' f (i-1) fz
+  -- choose between the two based on the boolean
+  conditionalize dfb cont fz
 
 valueFun_zipWith :: InterpretM Value
 valueFun_zipWith = return $
@@ -361,7 +366,7 @@ libraryBase = [
   ("foldl1", "(a -> a -> a) -> a n -> a", "left fold without initial accumulator", valueFun_foldl1),
   ("foldr", "(a -> b -> b) -> b -> a n -> b", "right fold", valueFun_foldr),
   ("foldr1", "(a -> a -> a) -> a n -> a", "right fold without initial accumulator", valueFun_foldr1),
-  ("unroll", "(a -> a) -> Real -> a -> a", "apply f n times to z (support for dynamic n is not mandated)", valueFun_unroll),
+  ("iterate", "(a -> (Bool, a)) -> Real -> a -> a", "iteratively applies f to z, until False returned or n iterations reached (support for dynamic n is not mandated)", valueFun_iterate),
   ("zipWith", "(a -> b -> c) -> a n -> b n -> c n", "general zip over 2 arrays", valueFun_zipWith),
   ("zipWith3", "(a -> b -> c -> d) -> a n -> b n -> c n -> d n", "general zip over 3 arrays", valueFun_zipWith3),
   ("sin", "Real -> Real", "sine (radians)", liftRR sin DFRealSin),

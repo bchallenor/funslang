@@ -12,15 +12,17 @@ let maxIterations = 50 in
 let [cr, ci] = pos **. zoom ++ center in
 
 % iteration function
-let f ([r, i], iter) =
-  let r' = r * r - i * i + cr in
+let f ([r, i], [r2, i2], iter) =
+  let r' = r2 - i2 + cr in
   let i' = 2 * r * i + ci in
-  let len2 = r' * r' + i' * i' in
-    if len2 < 4.0 then ([r', i'], iter+1) else ([r, i], iter) in
+  let r2' = r' * r' in
+  let i2' = i' * i' in
+    (r2' + i2' < 4.0, ([r', i'], [r2', i2'], iter+1)) in
 
 % iterate
-let ([r, i], iter) = unroll f maxIterations ([0.0, 0.0], 0) in
+let (_, _, iter) = iterate f maxIterations ([0.0, 0.0], [0.0, 0.0], 0) in
 
+% color
 let basecolor =
   if iter == maxIterations
     then innerColor
