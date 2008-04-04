@@ -105,7 +105,8 @@ testgroups = [
     TestExprCompileError { name = "InterpreterErrorIndexOutOfBounds", expr = "[0]!1", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorIndexOutOfBounds 1) -> True; _ -> False },
     TestShaderCompileError { name = "InterpreterErrorDynamicUnroll", vert = "\\(n)()() -> let id x = x in (unroll id n [0,0,0,0], ())", frag = "\\()()() -> [0,0,0,0]", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorDynamicUnroll) -> True; _ -> False },
     TestShaderCompileError { name = "InterpreterErrorDynamicIndex", vert = "\\(idx)()() -> ([0,0,0,0]!![idx,0,0,0], ())", frag = "\\()()() -> [0,0,0,0]", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorDynamicIndex) -> True; _ -> False },
-    TestExprCompileError { name = "InterpreterErrorFunctionEquality", expr = "let id x = x in id == id", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorFunctionEquality) -> True; _ -> False }
+    TestExprCompileError { name = "InterpreterErrorFunctionEquality", expr = "let id x = x in id == id", expect_error = \ e -> case e of InterpreterError _ (InterpreterErrorFunctionEquality) -> True; _ -> False },
+    TestShaderCompileError { name = "TargetErrorGLSLDynamicTextureSelection", vert = "\\()()() -> ([0,0,0,0], ())", frag = "\\(b)(t1, t2)() -> sample3D (if b then t1 else t2) [0,0,0]", expect_error = \ e -> case e of TargetError (TargetErrorGLSLDynamicTextureSelection) -> True; _ -> False }
     ] },
     
   TestGroup { group_title = "bug regressions", group_tests = [

@@ -72,9 +72,13 @@ compile vertex_src fragment_src = do
               (fragment_value, fragment_info) <- runInterpretM (interpretExprAsShader ShaderKindFragment env fragment_expr fragment_type'') initInterpretState{num_textures = num_textures vertex_info, textures = textures vertex_info}
               let fragment_graph = dependencyGraph fragment_value fragment_info
               
+              -- Emit code.
+              vertex_code <- emit ShaderKindVertex vertex_info vertex_graph
+              fragment_code <- emit ShaderKindFragment fragment_info fragment_graph
+              
               return (
-                vertex_type'', vertex_info, vertex_graph, emit ShaderKindVertex vertex_info vertex_graph,
-                fragment_type'', fragment_info, fragment_graph, emit ShaderKindFragment fragment_info fragment_graph
+                vertex_type'', vertex_info, vertex_graph, vertex_code,
+                fragment_type'', fragment_info, fragment_graph, fragment_code
                 )
 
 

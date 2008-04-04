@@ -14,21 +14,24 @@ import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import Data.Graph
 import Control.Exception
+import Control.Monad.Error
 
 import Representation
 import Dataflow
 
 
 
-emit :: ShaderKind -> InterpretState -> DFGraph -> String
-emit sk si (g, result_ns, mvn) =
-  let vs = topSort g in
+emit :: ShaderKind -> InterpretState -> DFGraph -> Either CompileError String
+emit sk si (g, result_ns, mvn) = do
+  let vs = topSort g
+  dflines <- mapM (\v -> case IntMap.lookup v mvn of Just n -> emitNode (sk, si) n; Nothing -> return $ "// node " ++ show v ++ " is not required") vs
+  return $
     unlines $
       emitGlobalDecls sk si ++
       ["","void main()", "{"] ++
       emitTempDecls mvn ++
       [""] ++
-      map (\v -> case IntMap.lookup v mvn of Just n -> emitNode (sk, si) n; Nothing -> "// node " ++ show v ++ " is not required") vs ++
+      dflines ++
       [""] ++
       emitCopyOut sk si result_ns ++
       ["}"]
@@ -85,8 +88,9 @@ emitNameDFReal df = emitNameDF $ DFReal df
 emitNameDFBool :: DFBool -> String
 emitNameDFBool df = emitNameDF $ DFBool df
 
-emitNameDFTex :: DFTex -> String
-emitNameDFTex df = emitNameDF $ DFTex df
+-- Unnecessary while GLSL textures are not first class values.
+--emitNameDFTex :: DFTex -> String
+--emitNameDFTex df = emitNameDF $ DFTex df
 
 emitNameDFSample :: DFSample -> String
 emitNameDFSample df = emitNameDF $ DFSample df
@@ -167,10 +171,13 @@ emitTempDecl (t, xs) = concat $ t : " " : List.intersperse ", " xs ++ [";"]
 accumTempDecls :: IntMap.IntMap DF -> Map.Map String [String]
 accumTempDecls mvn = let (mtl, _) = IntMap.mapAccumWithKey accumTempDecls' (Map.empty) mvn in mtl
 
+-- The sampler case below must remain commented out until GLSL allows
+-- textures as first class values. If this ever occurs, it will be trivial to support:
+-- just change the DFTexCond in emitNode below to make it like DFRealCond/DFBoolCond.
 accumTempDecls' :: Map.Map String [String] -> Vertex -> DF -> (Map.Map String [String], ())
 accumTempDecls' mtl v (DFReal _) = (Map.alter (accumTempDecls'' v) "float" mtl, ())
 accumTempDecls' mtl v (DFBool _) = (Map.alter (accumTempDecls'' v) "bool" mtl, ())
-accumTempDecls' mtl v (DFTex dft) = (Map.alter (accumTempDecls'' v) ("sampler" ++ show (getTexKindOfDFTex dft)) mtl, ())
+accumTempDecls' mtl v (DFTex dft) = (Map.alter (accumTempDecls'' v) ("//sampler" ++ show (getTexKindOfDFTex dft)) mtl, ())
 accumTempDecls' mtl v (DFSample _) = (Map.alter (accumTempDecls'' v) "vec4" mtl, ())
 
 accumTempDecls'' :: Vertex -> Maybe [String] -> Maybe [String]
@@ -187,72 +194,73 @@ emitWrappedCoords _ = error "bad coords in emitWrappedCoords!"
 
 
 -- Emits the operation represented by a DF.
-emitNode :: (ShaderKind, InterpretState) -> DF -> String
+emitNode :: (ShaderKind, InterpretState) -> DF -> Either CompileError String
 
-emitNode (_, _) n@(DFReal (DFRealLiteral _ d)) = emitStrAssign (emitNameDF n) $ show d
-emitNode (sk, si) n@(DFReal (DFRealVarying _ i)) = emitStrAssign (emitNameDF n) $ emitNameVarying sk (num_varyings si) i
-emitNode (sk, _) n@(DFReal (DFRealUniform _ i)) = emitStrAssign (emitNameDF n) $ emitNameUniform sk i
+emitNode (_, _) n@(DFReal (DFRealLiteral _ d)) = return $ emitStrAssign (emitNameDF n) $ show d
+emitNode (sk, si) n@(DFReal (DFRealVarying _ i)) = return $ emitStrAssign (emitNameDF n) $ emitNameVarying sk (num_varyings si) i
+emitNode (sk, _) n@(DFReal (DFRealUniform _ i)) = return $ emitStrAssign (emitNameDF n) $ emitNameUniform sk i
 
-emitNode (_, _) n@(DFReal (DFRealCond _ cond p q)) = emitStrAssign (emitNameDF n) $ (emitNameDFBool cond) ++ " ? " ++ (emitNameDFReal p) ++ " : " ++ (emitNameDFReal q)
+emitNode (_, _) n@(DFReal (DFRealCond _ cond p q)) = return $ emitStrAssign (emitNameDF n) $ (emitNameDFBool cond) ++ " ? " ++ (emitNameDFReal p) ++ " : " ++ (emitNameDFReal q)
 
-emitNode (_, _) n@(DFReal (DFRealAdd _ p q)) = emitBinOpAssign n (DFReal p) "+" (DFReal q)
-emitNode (_, _) n@(DFReal (DFRealSub _ p q)) = emitBinOpAssign n (DFReal p) "-" (DFReal q)
-emitNode (_, _) n@(DFReal (DFRealMul _ p q)) = emitBinOpAssign n (DFReal p) "*" (DFReal q)
-emitNode (_, _) n@(DFReal (DFRealDiv _ p q)) = emitBinOpAssign n (DFReal p) "/" (DFReal q)
-emitNode (_, _) n@(DFReal (DFRealNeg _ p)) = emitUnOpAssign n "-" (DFReal p)
-emitNode (_, _) n@(DFReal (DFRealRcp _ p)) = emitStrAssign (emitNameDF n) $ "1 / " ++ (emitNameDFReal p)
-emitNode (_, _) n@(DFReal (DFRealRsq _ p)) = emitFunAssign n "inversesqrt" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealAbs _ p)) = emitFunAssign n "abs" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealMin _ p q)) = emitFunAssign n "min" [DFReal p, DFReal q]
-emitNode (_, _) n@(DFReal (DFRealMax _ p q)) = emitFunAssign n "max" [DFReal p, DFReal q]
-emitNode (_, _) n@(DFReal (DFRealFloor _ p)) = emitFunAssign n "floor" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealCeiling _ p)) = emitFunAssign n "ceil" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealRound _ p)) = emitStrAssign (emitNameDF n) ("float(int(" ++ emitNameDFReal p ++ " + (" ++ emitNameDFReal p ++ " < 0 ? -0.5 : 0.5)))")
-emitNode (_, _) n@(DFReal (DFRealTruncate _ p)) = emitStrAssign (emitNameDF n) ("float(int(" ++ emitNameDFReal p ++ "))")
-emitNode (_, _) n@(DFReal (DFRealFract _ p)) = emitFunAssign n "fract" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealExp _ p)) = emitFunAssign n "exp" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealExp2 _ p)) = emitFunAssign n "exp2" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealLog _ p)) = emitFunAssign n "log" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealLog2 _ p)) = emitFunAssign n "log2" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealPow _ p q)) = emitFunAssign n "pow" [DFReal p, DFReal q]
-emitNode (_, _) n@(DFReal (DFRealSin _ p)) = emitFunAssign n "sin" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealCos _ p)) = emitFunAssign n "cos" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealTan _ p)) = emitFunAssign n "tan" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealASin _ p)) = emitFunAssign n "asin" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealACos _ p)) = emitFunAssign n "acos" [DFReal p]
-emitNode (_, _) n@(DFReal (DFRealATan _ p)) = emitFunAssign n "atan" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealAdd _ p q)) = return $ emitBinOpAssign n (DFReal p) "+" (DFReal q)
+emitNode (_, _) n@(DFReal (DFRealSub _ p q)) = return $ emitBinOpAssign n (DFReal p) "-" (DFReal q)
+emitNode (_, _) n@(DFReal (DFRealMul _ p q)) = return $ emitBinOpAssign n (DFReal p) "*" (DFReal q)
+emitNode (_, _) n@(DFReal (DFRealDiv _ p q)) = return $ emitBinOpAssign n (DFReal p) "/" (DFReal q)
+emitNode (_, _) n@(DFReal (DFRealNeg _ p)) = return $ emitUnOpAssign n "-" (DFReal p)
+emitNode (_, _) n@(DFReal (DFRealRcp _ p)) = return $ emitStrAssign (emitNameDF n) $ "1 / " ++ (emitNameDFReal p)
+emitNode (_, _) n@(DFReal (DFRealRsq _ p)) = return $ emitFunAssign n "inversesqrt" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealAbs _ p)) = return $ emitFunAssign n "abs" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealMin _ p q)) = return $ emitFunAssign n "min" [DFReal p, DFReal q]
+emitNode (_, _) n@(DFReal (DFRealMax _ p q)) = return $ emitFunAssign n "max" [DFReal p, DFReal q]
+emitNode (_, _) n@(DFReal (DFRealFloor _ p)) = return $ emitFunAssign n "floor" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealCeiling _ p)) = return $ emitFunAssign n "ceil" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealRound _ p)) = return $ emitStrAssign (emitNameDF n) ("float(int(" ++ emitNameDFReal p ++ " + (" ++ emitNameDFReal p ++ " < 0 ? -0.5 : 0.5)))")
+emitNode (_, _) n@(DFReal (DFRealTruncate _ p)) = return $ emitStrAssign (emitNameDF n) ("float(int(" ++ emitNameDFReal p ++ "))")
+emitNode (_, _) n@(DFReal (DFRealFract _ p)) = return $ emitFunAssign n "fract" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealExp _ p)) = return $ emitFunAssign n "exp" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealExp2 _ p)) = return $ emitFunAssign n "exp2" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealLog _ p)) = return $ emitFunAssign n "log" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealLog2 _ p)) = return $ emitFunAssign n "log2" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealPow _ p q)) = return $ emitFunAssign n "pow" [DFReal p, DFReal q]
+emitNode (_, _) n@(DFReal (DFRealSin _ p)) = return $ emitFunAssign n "sin" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealCos _ p)) = return $ emitFunAssign n "cos" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealTan _ p)) = return $ emitFunAssign n "tan" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealASin _ p)) = return $ emitFunAssign n "asin" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealACos _ p)) = return $ emitFunAssign n "acos" [DFReal p]
+emitNode (_, _) n@(DFReal (DFRealATan _ p)) = return $ emitFunAssign n "atan" [DFReal p]
 
-emitNode (_, _) n@(DFReal (DFRealChannelR _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".r")
-emitNode (_, _) n@(DFReal (DFRealChannelG _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".g")
-emitNode (_, _) n@(DFReal (DFRealChannelB _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".b")
-emitNode (_, _) n@(DFReal (DFRealChannelA _ p)) = emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".a")
+emitNode (_, _) n@(DFReal (DFRealChannelR _ p)) = return $ emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".r")
+emitNode (_, _) n@(DFReal (DFRealChannelG _ p)) = return $ emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".g")
+emitNode (_, _) n@(DFReal (DFRealChannelB _ p)) = return $ emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".b")
+emitNode (_, _) n@(DFReal (DFRealChannelA _ p)) = return $ emitStrAssign (emitNameDF n) (emitNameDFSample p ++ ".a")
 
-emitNode (_, _) n@(DFBool (DFBoolLiteral _ b)) = emitStrAssign (emitNameDF n) $ show b
-emitNode (sk, si) n@(DFBool (DFBoolVarying _ i)) = emitStrAssign (emitNameDF n) $ "bool(" ++ emitNameVarying sk (num_varyings si) i ++ ")"
-emitNode (sk, _) n@(DFBool (DFBoolUniform _ i)) = emitStrAssign (emitNameDF n) $ "bool(" ++ emitNameUniform sk i ++ ")"
+emitNode (_, _) n@(DFBool (DFBoolLiteral _ b)) = return $ emitStrAssign (emitNameDF n) $ show b
+emitNode (sk, si) n@(DFBool (DFBoolVarying _ i)) = return $ emitStrAssign (emitNameDF n) $ "bool(" ++ emitNameVarying sk (num_varyings si) i ++ ")"
+emitNode (sk, _) n@(DFBool (DFBoolUniform _ i)) = return $ emitStrAssign (emitNameDF n) $ "bool(" ++ emitNameUniform sk i ++ ")"
 
-emitNode (_, _) n@(DFBool (DFBoolCond _ cond p q)) = emitStrAssign (emitNameDF n) $ (emitNameDFBool cond) ++ " ? " ++ (emitNameDFBool p) ++ " : " ++ (emitNameDFBool q)
+emitNode (_, _) n@(DFBool (DFBoolCond _ cond p q)) = return $ emitStrAssign (emitNameDF n) $ (emitNameDFBool cond) ++ " ? " ++ (emitNameDFBool p) ++ " : " ++ (emitNameDFBool q)
 
-emitNode (_, _) n@(DFBool (DFBoolLessThan _ p q)) = emitBinOpAssign n (DFReal p) "<" (DFReal q)
-emitNode (_, _) n@(DFBool (DFBoolLessThanEqual _ p q)) = emitBinOpAssign n (DFReal p) "<=" (DFReal q)
-emitNode (_, _) n@(DFBool (DFBoolGreaterThan _ p q)) = emitBinOpAssign n (DFReal p) ">" (DFReal q)
-emitNode (_, _) n@(DFBool (DFBoolGreaterThanEqual _ p q)) = emitBinOpAssign n (DFReal p) ">=" (DFReal q)
+emitNode (_, _) n@(DFBool (DFBoolLessThan _ p q)) = return $ emitBinOpAssign n (DFReal p) "<" (DFReal q)
+emitNode (_, _) n@(DFBool (DFBoolLessThanEqual _ p q)) = return $ emitBinOpAssign n (DFReal p) "<=" (DFReal q)
+emitNode (_, _) n@(DFBool (DFBoolGreaterThan _ p q)) = return $ emitBinOpAssign n (DFReal p) ">" (DFReal q)
+emitNode (_, _) n@(DFBool (DFBoolGreaterThanEqual _ p q)) = return $ emitBinOpAssign n (DFReal p) ">=" (DFReal q)
 
-emitNode (_, _) n@(DFBool (DFBoolEqualReal _ p q)) = emitBinOpAssign n (DFReal p) "==" (DFReal q)
-emitNode (_, _) n@(DFBool (DFBoolNotEqualReal _ p q)) = emitBinOpAssign n (DFReal p) "!=" (DFReal q)
-emitNode (_, _) n@(DFBool (DFBoolEqualBool _ p q)) = emitBinOpAssign n (DFBool p) "==" (DFBool q)
-emitNode (_, _) n@(DFBool (DFBoolNotEqualBool _ p q)) = emitBinOpAssign n (DFBool p) "!=" (DFBool q)
-emitNode (_, _) n@(DFBool (DFBoolEqualTex _ p q)) = emitBinOpAssign n (DFTex p) "==" (DFTex q)
-emitNode (_, _) n@(DFBool (DFBoolNotEqualTex _ p q)) = emitBinOpAssign n (DFTex p) "!=" (DFTex q)
+emitNode (_, _) n@(DFBool (DFBoolEqualReal _ p q)) = return $ emitBinOpAssign n (DFReal p) "==" (DFReal q)
+emitNode (_, _) n@(DFBool (DFBoolNotEqualReal _ p q)) = return $ emitBinOpAssign n (DFReal p) "!=" (DFReal q)
+emitNode (_, _) n@(DFBool (DFBoolEqualBool _ p q)) = return $ emitBinOpAssign n (DFBool p) "==" (DFBool q)
+emitNode (_, _) n@(DFBool (DFBoolNotEqualBool _ p q)) = return $ emitBinOpAssign n (DFBool p) "!=" (DFBool q)
+emitNode (_, _) n@(DFBool (DFBoolEqualTex _ p q)) = return $ emitBinOpAssign n (DFTex p) "==" (DFTex q)
+emitNode (_, _) n@(DFBool (DFBoolNotEqualTex _ p q)) = return $ emitBinOpAssign n (DFTex p) "!=" (DFTex q)
 
-emitNode (_, _) n@(DFBool (DFBoolAnd _ p q)) = emitBinOpAssign n (DFBool p) "&&" (DFBool q)
-emitNode (_, _) n@(DFBool (DFBoolOr _ p q)) = emitBinOpAssign n (DFBool p) "||" (DFBool q)
-emitNode (_, _) n@(DFBool (DFBoolNot _ p)) = emitUnOpAssign n "!" (DFBool p)
+emitNode (_, _) n@(DFBool (DFBoolAnd _ p q)) = return $ emitBinOpAssign n (DFBool p) "&&" (DFBool q)
+emitNode (_, _) n@(DFBool (DFBoolOr _ p q)) = return $ emitBinOpAssign n (DFBool p) "||" (DFBool q)
+emitNode (_, _) n@(DFBool (DFBoolNot _ p)) = return $ emitUnOpAssign n "!" (DFBool p)
 
-emitNode (_, _) n@(DFTex (DFTexConstant _ _ i)) = emitStrAssign (emitNameDF n) (emitNameTexture i)
-emitNode (_, _) n@(DFTex (DFTexCond _ cond p q)) = emitStrAssign (emitNameDF n) $ (emitNameDFBool cond) ++ " ? " ++ (emitNameDFTex p) ++ " : " ++ (emitNameDFTex q)
+emitNode (_, _) n@(DFTex (DFTexConstant _ _ _)) = return $ "// noting texture: " ++ show n
+emitNode (_, _) (DFTex (DFTexCond _ _ _ _)) = throwError $ TargetError $ TargetErrorGLSLDynamicTextureSelection
 
-emitNode (_, _) n@(DFSample (DFSampleTex _ t coords)) = emitStrAssign (emitNameDF n) (emitStrFun ("texture" ++ show (getTexKindOfDFTex t)) [emitNameDFTex t, emitWrappedCoords $ map emitNameDFReal coords])
+emitNode (_, _) n@(DFSample (DFSampleTex _ (DFTexConstant _ tk i) coords)) = return $ emitStrAssign (emitNameDF n) (emitStrFun ("texture" ++ show tk) [emitNameTexture i, emitWrappedCoords $ map emitNameDFReal coords])
+emitNode (_, _) (DFSample (DFSampleTex _ _ _)) = throwError $ TargetError $ TargetErrorGLSLDynamicTextureSelection
 
 
 -- Emits copy out code to save results.

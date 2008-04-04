@@ -32,6 +32,7 @@ instance StringableError CompileError where
   getErrorString (TypeError stack specerr) = getErrorString specerr ++ getStackString stack
   getErrorString (ShaderError sk specerr) = prettyShaderKind sk ++ " shader:\n" ++ getErrorString specerr
   getErrorString (InterpreterError stack specerr) = getErrorString specerr ++ getStackString stack
+  getErrorString (TargetError specerr) = getErrorString specerr
   getErrorString (OtherError msg) = msg
 
 instance StringableError LexerError where
@@ -61,6 +62,9 @@ instance StringableError InterpreterError where
   getErrorString (InterpreterErrorDynamicUnroll) = "support for dynamic unroll count is not mandated"
   getErrorString (InterpreterErrorDynamicIndex) = "array index is not statically determinable"
   getErrorString (InterpreterErrorFunctionEquality) = "equality is not defined on functions"
+  
+instance StringableError TargetError where
+  getErrorString (TargetErrorGLSLDynamicTextureSelection) = "GLSL does not support dynamic texture selection"
 
 getStackString :: [Expr] -> String
 getStackString = concat . map (\e -> "\nin expression: " ++ prettyExpr e) . reverse

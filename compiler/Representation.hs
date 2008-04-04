@@ -507,6 +507,12 @@ type DFGraph = (
 -- and can return errors (use throwError).
 type InterpretM a = ErrorT CompileError (State InterpretState) a
 
+runInterpretM :: InterpretM a -> InterpretState -> Either CompileError (a, InterpretState)
+runInterpretM vi i = do
+  let (a, i') = runState (runErrorT vi) i
+  r <- a
+  return (r, i')
+
 
 data InterpretState
   = InterpretState
@@ -521,16 +527,9 @@ data InterpretState
   
   deriving (Show, Eq)
 
-
 initInterpretState :: InterpretState
 initInterpretState = InterpretState{num_uniforms = 0, num_textures = 0, num_varyings = 0, textures = [], num_generic_outputs = 0, num_nodes = 0}
 
-
-runInterpretM :: InterpretM a -> InterpretState -> Either CompileError (a, InterpretState)
-runInterpretM vi i = do
-  let (a, i') = runState (runErrorT vi) i
-  r <- a
-  return (r, i')
 
 freshUniform :: InterpretM Int
 freshUniform = do
@@ -621,6 +620,7 @@ data CompileError
   | TypeError ![Expr] !TypeError -- stack trace
   | ShaderError !ShaderKind !ShaderError
   | InterpreterError ![Expr] !InterpreterError -- stack trace
+  | TargetError !TargetError
   
   -- OtherError is required for Control.Monad.Error compatibility only!
   -- If you need new errors, please define them in a type-safe way.
@@ -663,5 +663,10 @@ data InterpreterError
   | InterpreterErrorDynamicUnroll
   | InterpreterErrorDynamicIndex
   | InterpreterErrorFunctionEquality
+  
+  deriving Show
+
+data TargetError
+  = TargetErrorGLSLDynamicTextureSelection
   
   deriving Show
