@@ -44,30 +44,38 @@ library =
 docLibrary :: String
 docLibrary =
   unlines $
-    ["\\subsection{Base Functions}"]
+    ["\\subsection{Base Functions}","\\begin{Verbatim}[fontsize=\\scriptsize]"]
     ++
     (map (\(ident, _, desc, _) -> docIdent ident desc Nothing) libraryBase)
     ++
-    ["\\subsection{Derived Functions}"]
+    ["\\end{Verbatim}",""]
+    ++
+    ["\\subsection{Derived Functions}","\\begin{Verbatim}[fontsize=\\scriptsize]"]
     ++
     (map (\(ident, desc, src) -> docIdent ident desc (Just src)) libraryDerived)
-  
+    ++
+    ["\\end{Verbatim}",""]
+
 docIdent :: String -> String -> Maybe String -> String
-docIdent ident desc opt_src =
+docIdent ident _ opt_src =
+-- docIdent ident desc opt_src =
   let (gamma, _, _) = library in
     case Map.lookup ident gamma of
       Nothing -> error $ ident ++ " should have been added to library"
       Just (Scheme _ t) ->
-        let header = latexify (ident ++ " :: " ++ prettyType t) in
+        let header = (ident ++ " :: " ++ prettyType t) in
+--         let header = latexify (ident ++ " :: " ++ prettyType t) in
           case opt_src of
-            Just src -> latexunlines [header, desc, latexify src] ++ "\n"
-            Nothing -> latexunlines [header, desc] ++ "\n"
+            Just _ -> header
+            Nothing -> header
+--             Just src -> latexunlines [header, desc, latexify src] ++ "\n"
+--             Nothing -> latexunlines [header, desc] ++ "\n"
 
-latexify :: String -> String
-latexify s = latexunlines $ map (\l -> "\\verb\"" ++ l ++ "\"") $ lines s
+-- latexify :: String -> String
+-- latexify s = latexunlines $ map (\l -> "\\verb\"" ++ l ++ "\"") $ lines s
 
-latexunlines :: [String] -> String
-latexunlines = concat . List.intersperse "\\newline\n"
+-- latexunlines :: [String] -> String
+-- latexunlines = concat . List.intersperse "\\newline\n"
 
 
 -- Prints the given Library's type schemes.
