@@ -10,8 +10,8 @@
 
 #include "funslang.h"
 
-#define WINDOW_W 768
-#define WINDOW_H 432
+#define WINDOW_W 1888
+#define WINDOW_H 1062
 
 typedef enum { false, true } bool;
 
@@ -119,7 +119,7 @@ FragmentUniforms g_fu =
 	0,
 	{0,0,0},
 	{0.5,0,0},
-	{1,1,1},
+	{0.8,0.8,0.8},
 };
 
 
