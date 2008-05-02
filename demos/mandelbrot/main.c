@@ -112,9 +112,10 @@ typedef struct
 	float OuterColor2[3];
 } FragmentUniforms;
 
+#define INITIAL_ZOOM 1.36
 FragmentUniforms g_fu =
 {
-	1.36,
+	INITIAL_ZOOM,
 	-0.64,
 	0,
 	{0,0,0},
@@ -129,6 +130,7 @@ double g_PhaseDelta;
 bool g_IsRotatingX = false;
 bool g_IsRotatingY = false;
 bool g_IsRotatingZ = false;
+bool g_IsZooming = false;
 
 bool g_RenderCube = true;
 
@@ -169,6 +171,9 @@ void key(unsigned char key, int x, int y)
 			return;
 		case 'k':
 			g_IsRotatingZ = !g_IsRotatingZ;
+			return;
+		case 'z':
+			g_IsZooming = !g_IsZooming;
 			return;
 	}
 }
@@ -246,6 +251,12 @@ void frame(void)
 		static double phase = 0;
 		phase += g_PhaseDelta / 4;
 		g_vu.rotz = phase;
+	}
+	if (g_IsZooming)
+	{
+		static double phase = 0;
+		phase += g_PhaseDelta / 4;
+		g_fu.Zoom = INITIAL_ZOOM - 1 + (cos(phase)+1)/2;
 	}
 	
 	render();
