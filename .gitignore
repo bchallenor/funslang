@@ -1,0 +1,9 @@
+*.prof
+common/bin
+common/lib
+compiler/bin
+compiler/Lexer.hs
+compiler/Parser.hs
+compiler/Parser.info
+compiler/LibFunslang_stub.c
+compiler/LibFunslang_stub.h
