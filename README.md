@@ -3,6 +3,8 @@ Funslang: A lightweight shading language for graphics processors
 
 Funslang is a pure functional shading language for graphics processors. It borrows heavily from ML and Haskell.
 
+As a proof of concept, its compiler (written in Haskell, with C bindings) translates to GLSL.
+
 
 Comparison with GLSL
 --------------------
